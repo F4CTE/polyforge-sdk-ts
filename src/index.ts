@@ -1,0 +1,27 @@
+export { PolyforgeClient } from './client.js';
+export { PolyforgeError } from './errors.js';
+export type {
+  AiQueryResponse,
+  Alert,
+  CopyConfig,
+  Market,
+  NewsSignal,
+  Order,
+  OrderSide,
+  OrderStatus,
+  OrderType,
+  PaginatedResponse,
+  Portfolio,
+  PolyforgeClientOptions,
+  Position,
+  Strategy,
+  StrategyBlock,
+  StrategyExport,
+  StrategyStatus,
+  StrategyTemplate,
+  Token,
+  TraderScore,
+  Webhook,
+  WebhookEvent,
+  WhaleTrade,
+} from './types.js';
