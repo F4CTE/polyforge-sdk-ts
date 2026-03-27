@@ -210,6 +210,28 @@ export interface AiQueryResponse {
   suggestedActions?: string[];
 }
 
+// ── Direct Trading ──────────────────────────────────────────────────────────
+
+export interface PlaceOrderParams {
+  tokenId: string;
+  side: 'BUY' | 'SELL';
+  outcome: 'YES' | 'NO';
+  size: number;
+  price: number;
+  orderType?: 'GTC' | 'FOK' | 'GTD';
+}
+
+export interface PlaceOrderResponse {
+  orderId: string;
+  intentId: string;
+  status: string;
+}
+
+export interface CancelOrderResponse {
+  orderId: string;
+  status: string;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {

@@ -2,11 +2,14 @@ import { PolyforgeError } from './errors.js';
 import type {
   AiQueryResponse,
   Alert,
+  CancelOrderResponse,
   CopyConfig,
   Market,
   NewsSignal,
   Order,
   PaginatedResponse,
+  PlaceOrderParams,
+  PlaceOrderResponse,
   Portfolio,
   PolyforgeClientOptions,
   Strategy,
@@ -262,5 +265,21 @@ export class PolyforgeClient {
    */
   async aiQuery(query: string): Promise<AiQueryResponse> {
     return this.request('POST', '/ai/query', { body: { query } });
+  }
+
+  // ── Direct Trading ────────────────────────────────────────────────────────
+
+  /**
+   * Place a direct buy or sell order on a prediction market.
+   */
+  async placeOrder(params: PlaceOrderParams): Promise<PlaceOrderResponse> {
+    return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', { body: params });
+  }
+
+  /**
+   * Cancel a pending or live order.
+   */
+  async cancelOrder(orderId: string): Promise<CancelOrderResponse> {
+    return this.request<CancelOrderResponse>('DELETE', `/api/v1/orders/${orderId}`);
   }
 }

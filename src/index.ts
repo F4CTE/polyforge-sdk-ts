@@ -3,6 +3,7 @@ export { PolyforgeError } from './errors.js';
 export type {
   AiQueryResponse,
   Alert,
+  CancelOrderResponse,
   CopyConfig,
   Market,
   NewsSignal,
@@ -11,6 +12,8 @@ export type {
   OrderStatus,
   OrderType,
   PaginatedResponse,
+  PlaceOrderParams,
+  PlaceOrderResponse,
   Portfolio,
   PolyforgeClientOptions,
   Position,
