@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.1] — 2026-03-28
+
+### Fixed
+- `placeOrder()` path corrected from `/orders/place` to `/api/v1/orders/place`
+- `cancelOrder()` path corrected from `/orders/{id}` to `/api/v1/orders/{id}`; added `encodeURIComponent` on the order ID
+
 ## [1.2.0] — 2026-03-28
 
 ### Fixed
