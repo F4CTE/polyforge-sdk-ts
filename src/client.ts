@@ -22,7 +22,7 @@ import type {
   WhaleTrade,
 } from './types.js';
 
-const DEFAULT_BASE_URL = 'https://api.polyforge.io/v1';
+const DEFAULT_BASE_URL = 'http://localhost:3002';
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 /**
@@ -116,14 +116,14 @@ export class PolyforgeClient {
     limit?: number;
     page?: number;
   }): Promise<PaginatedResponse<Market>> {
-    return this.request('GET', '/markets', { query: params as Record<string, unknown> });
+    return this.request('GET', '/api/v1/markets', { query: params as Record<string, unknown> });
   }
 
   /**
    * Get a single market by ID.
    */
   async getMarket(id: string): Promise<Market> {
-    return this.request('GET', `/markets/${encodeURIComponent(id)}`);
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(id)}`);
   }
 
   // ── Strategies ──────────────────────────────────────────────────────────
@@ -132,21 +132,21 @@ export class PolyforgeClient {
    * List strategies owned by the authenticated user.
    */
   async listStrategies(params?: { status?: StrategyStatus }): Promise<Strategy[]> {
-    return this.request('GET', '/strategies', { query: params as Record<string, unknown> });
+    return this.request('GET', '/api/v1/strategies', { query: params as Record<string, unknown> });
   }
 
   /**
    * Get a single strategy by ID.
    */
   async getStrategy(id: string): Promise<Strategy> {
-    return this.request('GET', `/strategies/${encodeURIComponent(id)}`);
+    return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}`);
   }
 
   /**
    * Create a new strategy.
    */
   async createStrategy(params: { name: string; description?: string }): Promise<Strategy> {
-    return this.request('POST', '/strategies', { body: params });
+    return this.request('POST', '/api/v1/strategies', { body: params });
   }
 
   /**
@@ -156,14 +156,14 @@ export class PolyforgeClient {
     description: string;
     marketId?: string;
   }): Promise<Strategy> {
-    return this.request('POST', '/strategies/generate', { body: params });
+    return this.request('POST', '/api/v1/strategies/from-description', { body: params });
   }
 
   /**
    * Start a strategy in live or paper mode.
    */
   async startStrategy(id: string, mode: 'live' | 'paper' = 'paper'): Promise<Strategy> {
-    return this.request('POST', `/strategies/${encodeURIComponent(id)}/start`, {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/start`, {
       body: { mode },
     });
   }
@@ -172,21 +172,21 @@ export class PolyforgeClient {
    * Stop a running strategy.
    */
   async stopStrategy(id: string): Promise<Strategy> {
-    return this.request('POST', `/strategies/${encodeURIComponent(id)}/stop`);
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/stop`);
   }
 
   /**
    * List available strategy templates.
    */
   async getStrategyTemplates(): Promise<StrategyTemplate[]> {
-    return this.request('GET', '/strategies/templates');
+    return this.request('GET', '/api/v1/strategies/templates');
   }
 
   /**
    * Export a strategy as a portable JSON object.
    */
   async exportStrategy(id: string): Promise<StrategyExport> {
-    return this.request('GET', `/strategies/${encodeURIComponent(id)}/export`);
+    return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}/export`);
   }
 
   // ── Portfolio & Orders ──────────────────────────────────────────────────
@@ -195,21 +195,21 @@ export class PolyforgeClient {
    * Get the authenticated user's portfolio summary.
    */
   async getPortfolio(): Promise<Portfolio> {
-    return this.request('GET', '/portfolio');
+    return this.request('GET', '/api/v1/portfolio');
   }
 
   /**
    * List orders with optional filters.
    */
   async getOrders(params?: { limit?: number; status?: string }): Promise<Order[]> {
-    return this.request('GET', '/orders', { query: params as Record<string, unknown> });
+    return this.request('GET', '/api/v1/orders', { query: params as Record<string, unknown> });
   }
 
   /**
    * Get the authenticated user's trader score.
    */
   async getScore(): Promise<TraderScore> {
-    return this.request('GET', '/score');
+    return this.request('GET', '/api/v1/score');
   }
 
   // ── Social & Signals ────────────────────────────────────────────────────
@@ -218,14 +218,14 @@ export class PolyforgeClient {
    * Get the whale-trade feed.
    */
   async getWhaleFeed(params?: { minSize?: number }): Promise<WhaleTrade[]> {
-    return this.request('GET', '/whale-feed', { query: params as Record<string, unknown> });
+    return this.request('GET', '/api/v1/whale-feed', { query: params as Record<string, unknown> });
   }
 
   /**
    * Get AI-generated news signals.
    */
   async getNewsSignals(params?: { minConfidence?: number }): Promise<NewsSignal[]> {
-    return this.request('GET', '/news-signals', { query: params as Record<string, unknown> });
+    return this.request('GET', '/api/v1/news-signals', { query: params as Record<string, unknown> });
   }
 
   // ── Configuration ───────────────────────────────────────────────────────
@@ -234,28 +234,28 @@ export class PolyforgeClient {
    * List configured alerts.
    */
   async listAlerts(): Promise<Alert[]> {
-    return this.request('GET', '/alerts');
+    return this.request('GET', '/api/v1/alerts');
   }
 
   /**
    * List copy-trading configurations.
    */
   async listCopyConfigs(): Promise<CopyConfig[]> {
-    return this.request('GET', '/copy-configs');
+    return this.request('GET', '/api/v1/copy-configs');
   }
 
   /**
    * List registered webhooks.
    */
   async listWebhooks(): Promise<Webhook[]> {
-    return this.request('GET', '/webhooks');
+    return this.request('GET', '/api/v1/webhooks');
   }
 
   /**
    * Register a new webhook.
    */
   async createWebhook(params: { url: string; events: WebhookEvent[] }): Promise<Webhook> {
-    return this.request('POST', '/webhooks', { body: params });
+    return this.request('POST', '/api/v1/webhooks', { body: params });
   }
 
   // ── AI ──────────────────────────────────────────────────────────────────
@@ -264,7 +264,7 @@ export class PolyforgeClient {
    * Ask the Polyforge AI assistant a natural-language question.
    */
   async aiQuery(query: string): Promise<AiQueryResponse> {
-    return this.request('POST', '/ai/query', { body: { query } });
+    return this.request('POST', '/api/v1/ai/query', { body: { query } });
   }
 
   // ── Direct Trading ────────────────────────────────────────────────────────
@@ -273,13 +273,13 @@ export class PolyforgeClient {
    * Place a direct buy or sell order on a prediction market.
    */
   async placeOrder(params: PlaceOrderParams): Promise<PlaceOrderResponse> {
-    return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', { body: params });
+    return this.request<PlaceOrderResponse>('POST', '/orders/place', { body: params });
   }
 
   /**
    * Cancel a pending or live order.
    */
   async cancelOrder(orderId: string): Promise<CancelOrderResponse> {
-    return this.request<CancelOrderResponse>('DELETE', `/api/v1/orders/${orderId}`);
+    return this.request<CancelOrderResponse>('DELETE', `/orders/${orderId}`);
   }
 }
