@@ -19,6 +19,8 @@ export type {
   Position,
   Strategy,
   StrategyBlock,
+  StrategyEvent,
+  StrategyEventType,
   StrategyExport,
   StrategyStatus,
   StrategyTemplate,

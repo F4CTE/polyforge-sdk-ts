@@ -13,6 +13,7 @@ import type {
   Portfolio,
   PolyforgeClientOptions,
   Strategy,
+  StrategyEvent,
   StrategyExport,
   StrategyStatus,
   StrategyTemplate,
@@ -281,5 +282,90 @@ export class PolyforgeClient {
    */
   async cancelOrder(orderId: string): Promise<CancelOrderResponse> {
     return this.request<CancelOrderResponse>('DELETE', `/api/v1/orders/${encodeURIComponent(orderId)}`);
+  }
+
+  // ── Strategy Execution Watching (SSE) ────────────────────────────────────
+
+  /**
+   * Stream live execution events for a running strategy via Server-Sent Events.
+   *
+   * Yields `StrategyEvent` objects as they arrive. The first event is always
+   * `{ type: 'CONNECTED' }` confirming the stream is live.
+   *
+   * @param id       - Strategy UUID
+   * @param signal   - Optional AbortSignal to stop the stream
+   *
+   * @example
+   * ```ts
+   * const ac = new AbortController();
+   * for await (const event of client.watchStrategy('strat-uuid', ac.signal)) {
+   *   if (event.type === 'ORDER_FILLED') console.log('Order filled!', event.data);
+   *   if (event.type === 'STRATEGY_STOPPED') { ac.abort(); break; }
+   * }
+   * ```
+   */
+  async *watchStrategy(
+    id: string,
+    signal?: AbortSignal,
+  ): AsyncGenerator<StrategyEvent> {
+    const url = `${this.baseUrl}/api/v1/strategies/${encodeURIComponent(id)}/events`;
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          Accept: 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+        signal,
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      throw err;
+    }
+
+    if (!response.ok) {
+      let errorBody: { code?: string; message?: string } = {};
+      try { errorBody = await response.json() as typeof errorBody; } catch { /* ignore */ }
+      throw new PolyforgeError({
+        status: response.status,
+        code: errorBody.code ?? 'STREAM_ERROR',
+        message: errorBody.message ?? `SSE stream failed with status ${response.status}`,
+      });
+    }
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    try {
+      while (true) {
+        let done: boolean;
+        let value: Uint8Array | undefined;
+        try {
+          ({ done, value } = await reader.read());
+        } catch {
+          break; // connection closed or aborted
+        }
+        if (done) break;
+
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          try {
+            yield JSON.parse(raw) as StrategyEvent;
+          } catch {
+            // skip malformed frame
+          }
+        }
+      }
+    } finally {
+      reader.cancel().catch(() => undefined);
+    }
   }
 }

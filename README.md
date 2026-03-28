@@ -55,6 +55,34 @@ const client = new PolyforgeClient({
 | `stopStrategy(id)` | Stop a running strategy |
 | `getStrategyTemplates()` | List community strategy templates |
 | `exportStrategy(id)` | Export a strategy as portable JSON |
+| `watchStrategy(id, signal?)` | Stream live execution events via SSE |
+
+### Live Execution Watching
+
+`watchStrategy` returns an `AsyncGenerator<StrategyEvent>` that yields events as they arrive over a persistent SSE connection. The first event is always `{ type: 'CONNECTED' }`.
+
+```typescript
+const ac = new AbortController();
+
+for await (const event of client.watchStrategy('strat-uuid', ac.signal)) {
+  switch (event.type) {
+    case 'ORDER_FILLED':
+      console.log('Filled at', event.data?.price);
+      break;
+    case 'BACKTEST_PROGRESS':
+      console.log('Progress:', event.data?.progress, '%');
+      break;
+    case 'STRATEGY_STOPPED':
+    case 'BACKTEST_COMPLETED':
+      ac.abort(); // clean up
+      break;
+  }
+}
+```
+
+Stop the stream at any time by calling `ac.abort()`. The generator will clean up the underlying fetch connection automatically.
+
+**Common event types:** `CONNECTED` · `STRATEGY_STARTED` · `STRATEGY_STOPPED` · `STRATEGY_ERROR` · `ORDER_PLACED` · `ORDER_FILLED` · `ORDER_CANCELLED` · `BACKTEST_PROGRESS` · `BACKTEST_COMPLETED` · `BACKTEST_FAILED`
 
 ### Portfolio & Orders
 
@@ -63,6 +91,8 @@ const client = new PolyforgeClient({
 | `getPortfolio()` | Get portfolio summary with positions |
 | `getOrders(params?)` | List orders with optional filters |
 | `getScore()` | Get your trader score and ranking |
+| `placeOrder(params)` | Place a direct buy/sell order |
+| `cancelOrder(orderId)` | Cancel a pending or live order |
 
 ### Social & Signals
 

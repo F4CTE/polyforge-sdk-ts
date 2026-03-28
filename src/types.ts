@@ -232,6 +232,40 @@ export interface CancelOrderResponse {
   status: string;
 }
 
+// ── Strategy Events (SSE) ────────────────────────────────────────────────────
+
+/** Event type fired over the strategy SSE stream. */
+export type StrategyEventType =
+  | 'CONNECTED'
+  | 'STRATEGY_STARTED'
+  | 'STRATEGY_STOPPED'
+  | 'STRATEGY_PAUSED'
+  | 'STRATEGY_RESUMED'
+  | 'STRATEGY_ERROR'
+  | 'ORDER_PLACED'
+  | 'ORDER_SUBMITTED'
+  | 'ORDER_FILLED'
+  | 'ORDER_PARTIAL'
+  | 'ORDER_CANCELLED'
+  | 'ORDER_FAILED'
+  | 'ORDER_ERROR'
+  | 'BACKTEST_PROGRESS'
+  | 'BACKTEST_COMPLETED'
+  | 'BACKTEST_FAILED'
+  | string;
+
+/** A single event received from the strategy execution SSE stream. */
+export interface StrategyEvent {
+  /** Event type identifier. */
+  type: StrategyEventType;
+  /** The strategy this event belongs to. */
+  strategyId: string;
+  /** Event-specific payload (varies per type). */
+  data: Record<string, unknown> | null;
+  /** Unix ms timestamp when the event was emitted server-side. */
+  timestamp: number;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {

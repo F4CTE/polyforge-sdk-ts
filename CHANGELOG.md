@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0] — 2026-03-29
+
+### Added
+- `watchStrategy(id, signal?)` — `AsyncGenerator<StrategyEvent>` that streams live execution events from the strategy SSE endpoint; handles connection close, abort signals, and malformed frames gracefully
+- `StrategyEvent` interface — `{ type, strategyId, data, timestamp }`
+- `StrategyEventType` union type covering all known event types (`CONNECTED`, `STRATEGY_*`, `ORDER_*`, `BACKTEST_*`)
+- Both types exported from the package root (`index.ts`)
+
 ## [1.2.1] — 2026-03-28
 
 ### Fixed
