@@ -29,7 +29,7 @@ await client.startStrategy(strategy.id, 'paper');
 ```typescript
 const client = new PolyforgeClient({
   apiKey: 'pf_live_...',       // Required -- your Polyforge API key
-  apiUrl: 'https://...',       // Optional -- defaults to https://api.polyforge.io/v1
+  apiUrl: 'https://...',       // Optional -- defaults to http://localhost:3002
   timeout: 30_000,             // Optional -- request timeout in ms (default: 15000)
 });
 ```
@@ -116,6 +116,14 @@ All request parameters and response types are fully typed and exported:
 ```typescript
 import type { Market, Strategy, PaginatedResponse } from '@polyforge/sdk';
 ```
+
+## Testing
+
+```bash
+npm test
+```
+
+Runs vitest for unit tests covering client instantiation, URL construction, and error handling.
 
 ## License
 

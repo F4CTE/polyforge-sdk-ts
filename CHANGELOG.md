@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.0] — 2026-03-28
+
+### Fixed
+- Align all API paths to canonical `/api/v1/*` pattern matching backend
+- Fix strategy endpoint: `/strategies/generate` → `/api/v1/strategies/from-description`
+- Change default URL from `https://api.polyforge.io/v1` to `http://localhost:3002`
+
+### Added
+- Smoke tests for client instantiation, URL construction, error class (vitest)
+
 ## [1.1.0] — 2026-03-27
 
 ### Added
