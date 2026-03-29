@@ -3,8 +3,11 @@ import type {
   AiQueryResponse,
   Alert,
   CancelOrderResponse,
+  ClosePositionParams,
   CopyConfig,
+  ImportStrategyParams,
   Market,
+  MergePositionParams,
   NewsSignal,
   Order,
   PaginatedResponse,
@@ -12,12 +15,15 @@ import type {
   PlaceOrderResponse,
   Portfolio,
   PolyforgeClientOptions,
+  RedeemPositionParams,
+  SplitPositionParams,
   Strategy,
   StrategyEvent,
   StrategyExport,
   StrategyStatus,
   StrategyTemplate,
   TraderScore,
+  UpdateStrategyParams,
   Webhook,
   WebhookEvent,
   WhaleTrade,
@@ -190,6 +196,48 @@ export class PolyforgeClient {
     return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}/export`);
   }
 
+  /**
+   * Update a strategy's name, description, or block configuration.
+   */
+  async updateStrategy(id: string, params: UpdateStrategyParams): Promise<Strategy> {
+    return this.request('PATCH', `/api/v1/strategies/${encodeURIComponent(id)}`, { body: params });
+  }
+
+  /**
+   * Delete a strategy by ID.
+   */
+  async deleteStrategy(id: string): Promise<void> {
+    return this.request('DELETE', `/api/v1/strategies/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Import a strategy from a .polyforge JSON export.
+   */
+  async importStrategy(params: ImportStrategyParams): Promise<Strategy> {
+    return this.request('POST', '/api/v1/strategies/import', { body: params });
+  }
+
+  /**
+   * Pause a running strategy.
+   */
+  async pauseStrategy(id: string): Promise<Strategy> {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/pause`);
+  }
+
+  /**
+   * Resume a paused strategy.
+   */
+  async resumeStrategy(id: string): Promise<Strategy> {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/resume`);
+  }
+
+  /**
+   * Fork a strategy to create a new editable copy.
+   */
+  async forkStrategy(id: string): Promise<Strategy> {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/fork`);
+  }
+
   // ── Portfolio & Orders ──────────────────────────────────────────────────
 
   /**
@@ -202,7 +250,13 @@ export class PolyforgeClient {
   /**
    * List orders with optional filters.
    */
-  async getOrders(params?: { limit?: number; status?: string }): Promise<Order[]> {
+  async getOrders(params?: {
+    limit?: number;
+    status?: string;
+    strategyId?: string;
+    from?: string;
+    to?: string;
+  }): Promise<Order[]> {
     return this.request('GET', '/api/v1/orders', { query: params as Record<string, unknown> });
   }
 
@@ -210,7 +264,7 @@ export class PolyforgeClient {
    * Get the authenticated user's trader score.
    */
   async getScore(): Promise<TraderScore> {
-    return this.request('GET', '/api/v1/score');
+    return this.request('GET', '/api/v1/scores/me');
   }
 
   // ── Social & Signals ────────────────────────────────────────────────────
@@ -219,14 +273,14 @@ export class PolyforgeClient {
    * Get the whale-trade feed.
    */
   async getWhaleFeed(params?: { minSize?: number }): Promise<WhaleTrade[]> {
-    return this.request('GET', '/api/v1/whale-feed', { query: params as Record<string, unknown> });
+    return this.request('GET', '/api/v1/whales/feed', { query: params as Record<string, unknown> });
   }
 
   /**
    * Get AI-generated news signals.
    */
   async getNewsSignals(params?: { minConfidence?: number }): Promise<NewsSignal[]> {
-    return this.request('GET', '/api/v1/news-signals', { query: params as Record<string, unknown> });
+    return this.request('GET', '/api/v1/news/signals', { query: params as Record<string, unknown> });
   }
 
   // ── Configuration ───────────────────────────────────────────────────────
@@ -242,7 +296,7 @@ export class PolyforgeClient {
    * List copy-trading configurations.
    */
   async listCopyConfigs(): Promise<CopyConfig[]> {
-    return this.request('GET', '/api/v1/copy-configs');
+    return this.request('GET', '/api/v1/copy');
   }
 
   /**
@@ -282,6 +336,34 @@ export class PolyforgeClient {
    */
   async cancelOrder(orderId: string): Promise<CancelOrderResponse> {
     return this.request<CancelOrderResponse>('DELETE', `/api/v1/orders/${encodeURIComponent(orderId)}`);
+  }
+
+  /**
+   * Close an open position (sell all shares at market price).
+   */
+  async closePosition(params: ClosePositionParams): Promise<PlaceOrderResponse> {
+    return this.request('POST', '/api/v1/orders/close-position', { body: params });
+  }
+
+  /**
+   * Redeem winning shares after a market resolves.
+   */
+  async redeemPosition(params: RedeemPositionParams): Promise<PlaceOrderResponse> {
+    return this.request('POST', '/api/v1/orders/redeem', { body: params });
+  }
+
+  /**
+   * Split a position into smaller positions.
+   */
+  async splitPosition(params: SplitPositionParams): Promise<PlaceOrderResponse> {
+    return this.request('POST', '/api/v1/orders/split', { body: params });
+  }
+
+  /**
+   * Merge multiple positions into one.
+   */
+  async mergePosition(params: MergePositionParams): Promise<PlaceOrderResponse> {
+    return this.request('POST', '/api/v1/orders/merge', { body: params });
   }
 
   // ── Strategy Execution Watching (SSE) ────────────────────────────────────

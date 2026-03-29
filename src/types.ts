@@ -210,6 +210,18 @@ export interface AiQueryResponse {
   suggestedActions?: string[];
 }
 
+// ── Strategy Management ──────────────────────────────────────────────────────
+
+export interface UpdateStrategyParams {
+  name?: string;
+  description?: string;
+  blocks?: StrategyBlock[];
+}
+
+export interface ImportStrategyParams {
+  data: StrategyExport;
+}
+
 // ── Direct Trading ──────────────────────────────────────────────────────────
 
 export interface PlaceOrderParams {
@@ -230,6 +242,26 @@ export interface PlaceOrderResponse {
 export interface CancelOrderResponse {
   orderId: string;
   status: string;
+}
+
+export interface ClosePositionParams {
+  tokenId: string;
+  size?: number;
+}
+
+export interface RedeemPositionParams {
+  tokenId: string;
+  conditionId?: string;
+}
+
+export interface SplitPositionParams {
+  tokenId: string;
+  size: number;
+  price: number;
+}
+
+export interface MergePositionParams {
+  tokenIds: string[];
 }
 
 // ── Strategy Events (SSE) ────────────────────────────────────────────────────
