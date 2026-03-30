@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.1] — 2026-03-30
+
+### Fixed
+- `MarketSentiment` interface: renamed `label` → `direction` to match the actual API response field (`direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'`)
+
 ## [1.6.0] — 2026-03-30
 
 ### Added

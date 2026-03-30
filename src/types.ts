@@ -428,7 +428,7 @@ export interface PortfolioReview {
 export interface MarketSentiment {
   marketId: string;
   score: number;
-  label: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
   signalCount: number;
   lastUpdated: string | null;
 }
