@@ -298,6 +298,156 @@ export interface StrategyEvent {
   timestamp: number;
 }
 
+// ── Arbitrage ────────────────────────────────────────────────────────────────
+
+export interface ArbitrageOpportunity {
+  marketId: string;
+  marketTitle: string;
+  category: string;
+  endDate: string | null;
+  yesTokenId: string;
+  noTokenId: string;
+  yesPrice: string;
+  noPrice: string;
+  sum: string;
+  marginPct: string;
+  costPerUnit: string;
+  profitPerUnit: string;
+}
+
+// ── Smart Orders ─────────────────────────────────────────────────────────────
+
+export type SmartOrderType = 'TWAP' | 'DCA' | 'BRACKET' | 'OCO';
+export type SmartOrderStatus = 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'FAILED';
+
+export interface PlaceSmartOrderParams {
+  type: SmartOrderType;
+  tokenId: string;
+  side: 'BUY' | 'SELL';
+  outcome: 'YES' | 'NO';
+  totalSize: number;
+  // TWAP / DCA
+  slices?: number;
+  intervalMinutes?: number;
+  limitPrice?: number;
+  // BRACKET
+  entryPrice?: number;
+  takeProfitPrice?: number;
+  stopLossPrice?: number;
+  // OCO
+  priceA?: number;
+  priceB?: number;
+}
+
+export interface SmartOrderChildOrder {
+  id: string;
+  status: string;
+  fillSize: string | null;
+  fillPrice: string | null;
+  createdAt: string;
+}
+
+export interface SmartOrder {
+  id: string;
+  type: SmartOrderType;
+  status: SmartOrderStatus;
+  marketId: string;
+  tokenId: string;
+  outcome: string;
+  side: string;
+  totalSize: string;
+  config: Record<string, unknown>;
+  slicesFilled: number;
+  slicesTotal: number;
+  nextExecuteAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  orders: SmartOrderChildOrder[];
+}
+
+export interface PlaceSmartOrderResponse {
+  smartOrderId: string;
+  type: SmartOrderType;
+  status: string;
+  slicesTotal: number;
+}
+
+// ── Marketplace ──────────────────────────────────────────────────────────────
+
+export interface MarketplaceListing {
+  id: string;
+  strategyId: string;
+  sellerId: string;
+  title: string;
+  description: string | null;
+  priceUsdc: string;
+  status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'DELISTED';
+  purchaseCount: number;
+  forkCount: number;
+  avgRating: string | null;
+  ratingCount: number;
+  tags: string[];
+  createdAt: string;
+  seller: { id: string; name: string; avatarUrl: string | null };
+  strategy: { id: string; name: string; description: string | null };
+}
+
+export interface MarketplacePurchaseResult {
+  purchaseId: string;
+  forkedStrategyId: string;
+  priceUsdc: number;
+  platformFee: number;
+  sellerNet: number;
+}
+
+export interface BrowseMarketplaceParams {
+  tag?: string;
+  sort?: 'newest' | 'popular' | 'rating' | 'price_asc' | 'price_desc';
+  limit?: number;
+  offset?: number;
+}
+
+// ── Accuracy & Portfolio Review ──────────────────────────────────────────────
+
+export interface AccuracyScore {
+  brierScore: number | null;
+  totalPredictions: number;
+  correctPredictions: number;
+  winRate: string;
+  calibration: Array<{ bucketMid: number; frequency: number; count: number }>;
+  byCategory: Record<string, { count: number; brierScore: number }>;
+}
+
+export interface PortfolioReview {
+  review: string;
+  suggestions: string[];
+  score: number;
+  generatedAt: string;
+}
+
+export interface MarketSentiment {
+  marketId: string;
+  score: number;
+  label: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  signalCount: number;
+  lastUpdated: string | null;
+}
+
+export interface ProvideLiquidityParams {
+  tokenId: string;
+  spread: number;
+  size: number;
+}
+
+export interface LpPosition {
+  buyOrderId: string;
+  sellOrderId: string;
+  tokenId: string;
+  buyPrice: string;
+  sellPrice: string;
+  size: string;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {

@@ -1,21 +1,33 @@
 import { PolyforgeError } from './errors.js';
 import type {
+  AccuracyScore,
   AiQueryResponse,
   Alert,
+  ArbitrageOpportunity,
+  BrowseMarketplaceParams,
   CancelOrderResponse,
   ClosePositionParams,
   CopyConfig,
   ImportStrategyParams,
+  LpPosition,
   Market,
+  MarketplaceListing,
+  MarketplacePurchaseResult,
+  MarketSentiment,
   MergePositionParams,
   NewsSignal,
   Order,
   PaginatedResponse,
   PlaceOrderParams,
   PlaceOrderResponse,
+  PlaceSmartOrderParams,
+  PlaceSmartOrderResponse,
   Portfolio,
   PolyforgeClientOptions,
+  PortfolioReview,
+  ProvideLiquidityParams,
   RedeemPositionParams,
+  SmartOrder,
   SplitPositionParams,
   Strategy,
   StrategyEvent,
@@ -364,6 +376,97 @@ export class PolyforgeClient {
    */
   async mergePosition(params: MergePositionParams): Promise<PlaceOrderResponse> {
     return this.request('POST', '/api/v1/orders/merge', { body: params });
+  }
+
+  // ── Arbitrage ────────────────────────────────────────────────────────────
+
+  /**
+   * Scan all active markets for merge arbitrage opportunities (YES + NO < $1.00).
+   */
+  async getArbitrageOpportunities(minMargin?: number): Promise<ArbitrageOpportunity[]> {
+    return this.request('GET', '/api/v1/arbitrage', {
+      query: minMargin !== undefined ? { minMargin } : undefined,
+    });
+  }
+
+  // ── Smart Orders ─────────────────────────────────────────────────────────
+
+  /**
+   * Place an advanced smart order (TWAP, DCA, BRACKET, or OCO).
+   */
+  async placeSmartOrder(params: PlaceSmartOrderParams): Promise<PlaceSmartOrderResponse> {
+    return this.request('POST', '/api/v1/orders/smart', { body: params });
+  }
+
+  /**
+   * List your smart orders with child order progress.
+   */
+  async listSmartOrders(): Promise<SmartOrder[]> {
+    return this.request('GET', '/api/v1/orders/smart');
+  }
+
+  /**
+   * Cancel a pending or active smart order and its child orders.
+   */
+  async cancelSmartOrder(id: string): Promise<{ cancelled: boolean }> {
+    return this.request('DELETE', `/api/v1/orders/smart/${encodeURIComponent(id)}`);
+  }
+
+  // ── Marketplace ──────────────────────────────────────────────────────────
+
+  /**
+   * Browse marketplace listings with optional sort and tag filter.
+   */
+  async browseMarketplace(
+    params?: BrowseMarketplaceParams,
+  ): Promise<{ items: MarketplaceListing[]; total: number; limit: number; offset: number }> {
+    return this.request('GET', '/api/v1/marketplace', {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get a single marketplace listing by ID.
+   */
+  async getMarketplaceListing(id: string): Promise<MarketplaceListing> {
+    return this.request('GET', `/api/v1/marketplace/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Purchase a marketplace strategy. Receive a private fork in your account.
+   */
+  async purchaseStrategy(listingId: string): Promise<MarketplacePurchaseResult> {
+    return this.request('POST', `/api/v1/marketplace/${encodeURIComponent(listingId)}/purchase`);
+  }
+
+  // ── Accuracy & Portfolio Review ──────────────────────────────────────────
+
+  /**
+   * Get prediction accuracy and calibration score for the authenticated user.
+   */
+  async getAccuracy(): Promise<AccuracyScore> {
+    return this.request('GET', '/api/v1/accuracy/me');
+  }
+
+  /**
+   * Get AI-generated portfolio review and optimization suggestions.
+   */
+  async getPortfolioReview(): Promise<PortfolioReview> {
+    return this.request('GET', '/api/v1/ai/portfolio-review');
+  }
+
+  /**
+   * Get aggregated news sentiment for a specific market.
+   */
+  async getMarketSentiment(marketId: string): Promise<MarketSentiment> {
+    return this.request('GET', `/api/v1/news/sentiment/${marketId}`);
+  }
+
+  /**
+   * Provide liquidity by placing two-sided quotes on a market token.
+   */
+  async provideLiquidity(params: ProvideLiquidityParams): Promise<LpPosition> {
+    return this.request('POST', '/api/v1/lp/provide', { body: params });
   }
 
   // ── Strategy Execution Watching (SSE) ────────────────────────────────────

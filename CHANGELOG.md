@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.6.0] — 2026-03-30
+
+### Added
+- `getAccuracy()` — `GET /api/v1/accuracy/me`; returns `AccuracyScore` with Brier score, win rate, calibration buckets array, and per-category breakdown
+- `getPortfolioReview()` — `GET /api/v1/ai/portfolio-review`; returns `PortfolioReview` with AI-generated review text, suggestions list, and score (1–10)
+- `getMarketSentiment(marketId)` — `GET /api/v1/news/sentiment/:marketId`; returns `MarketSentiment` with score (−100 to +100) and BULLISH / BEARISH / NEUTRAL label
+- `provideLiquidity(params)` — `POST /api/v1/lp/provide`; accepts `ProvideLiquidityParams`; returns `LpPosition` with buy and sell order IDs
+- New types: `AccuracyScore`, `PortfolioReview`, `MarketSentiment`, `ProvideLiquidityParams`, `LpPosition`
+
+## [1.5.0] — 2026-03-30
+
+### Added
+- `getArbitrageOpportunities(minMargin?)` — `GET /api/v1/arbitrage`; returns `ArbitrageOpportunity[]`
+- `placeSmartOrder(params)` — `POST /api/v1/orders/smart`; supports TWAP, DCA, BRACKET, OCO types
+- `listSmartOrders()` — `GET /api/v1/orders/smart`; returns `SmartOrder[]` with child order progress
+- `cancelSmartOrder(id)` — `DELETE /api/v1/orders/smart/:id`
+- `browseMarketplace(params?)` — `GET /api/v1/marketplace`; supports `sort`, `tag`, `limit`, `offset`
+- `getMarketplaceListing(id)` — `GET /api/v1/marketplace/:id`
+- `purchaseStrategy(listingId)` — `POST /api/v1/marketplace/:id/purchase`; returns `MarketplacePurchaseResult`
+- New types: `ArbitrageOpportunity`, `SmartOrderType`, `SmartOrderStatus`, `PlaceSmartOrderParams`, `SmartOrderChildOrder`, `SmartOrder`, `PlaceSmartOrderResponse`, `MarketplaceListing`, `MarketplacePurchaseResult`, `BrowseMarketplaceParams`
+
 ## [1.4.0] — 2026-03-29
 
 ### Fixed

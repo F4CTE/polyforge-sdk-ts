@@ -115,6 +115,15 @@ Stop the stream at any time by calling `ac.abort()`. The generator will clean up
 | Method | Description |
 |--------|-------------|
 | `aiQuery(query)` | Ask the Polyforge AI assistant a question |
+| `getPortfolioReview()` | AI-generated portfolio review with suggestions and score (1–10) |
+
+### Accuracy & Liquidity
+
+| Method | Description |
+|--------|-------------|
+| `getAccuracy()` | Brier score, win rate, calibration buckets, and per-category breakdown |
+| `getMarketSentiment(marketId)` | Sentiment score (−100 to +100) and BULLISH / BEARISH / NEUTRAL label |
+| `provideLiquidity(params)` | Post liquidity; returns `LpPosition` with buy and sell order IDs |
 
 ## Error Handling
 
@@ -144,7 +153,16 @@ Timeout errors surface as native `AbortError` from the Fetch API.
 All request parameters and response types are fully typed and exported:
 
 ```typescript
-import type { Market, Strategy, PaginatedResponse } from '@polyforge/sdk';
+import type {
+  Market,
+  Strategy,
+  PaginatedResponse,
+  AccuracyScore,
+  PortfolioReview,
+  MarketSentiment,
+  ProvideLiquidityParams,
+  LpPosition,
+} from '@polyforge/sdk';
 ```
 
 ## Testing
