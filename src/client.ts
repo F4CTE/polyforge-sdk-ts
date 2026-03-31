@@ -478,7 +478,7 @@ export class PolyforgeClient {
    * Get aggregated news sentiment for a specific market.
    */
   async getMarketSentiment(marketId: string): Promise<MarketSentiment> {
-    return this.request('GET', `/api/v1/news/sentiment/${marketId}`);
+    return this.request('GET', `/api/v1/news/sentiment/${encodeURIComponent(marketId)}`);
   }
 
   /**
@@ -513,6 +513,12 @@ export class PolyforgeClient {
     signal?: AbortSignal,
   ): AsyncGenerator<StrategyEvent> {
     const url = `${this.baseUrl}/api/v1/strategies/${encodeURIComponent(id)}/events`;
+    // Merge user-provided signal with a timeout signal to prevent indefinite hangs
+    const timeoutSignal = AbortSignal.timeout(this.timeout);
+    const combinedSignal = signal
+      ? AbortSignal.any([signal, timeoutSignal])
+      : timeoutSignal;
+
     let response: Response;
     try {
       response = await fetch(url, {
@@ -521,7 +527,7 @@ export class PolyforgeClient {
           Accept: 'text/event-stream',
           'Cache-Control': 'no-cache',
         },
-        signal,
+        signal: combinedSignal,
       });
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
@@ -562,7 +568,10 @@ export class PolyforgeClient {
           const raw = line.slice(6).trim();
           if (!raw) continue;
           try {
-            yield JSON.parse(raw) as StrategyEvent;
+            const parsed = JSON.parse(raw);
+            // Validate expected fields exist before yielding
+            if (typeof parsed.type !== 'string') continue;
+            yield parsed as StrategyEvent;
           } catch {
             // skip malformed frame
           }
