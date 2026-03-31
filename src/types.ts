@@ -216,6 +216,7 @@ export interface UpdateStrategyParams {
   name?: string;
   description?: string;
   blocks?: StrategyBlock[];
+  marketId?: string;
 }
 
 export interface ImportStrategyParams {

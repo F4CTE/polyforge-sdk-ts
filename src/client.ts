@@ -164,7 +164,7 @@ export class PolyforgeClient {
   /**
    * Create a new strategy.
    */
-  async createStrategy(params: { name: string; description?: string }): Promise<Strategy> {
+  async createStrategy(params: { name: string; description?: string; marketId?: string }): Promise<Strategy> {
     return this.request('POST', '/api/v1/strategies', { body: params });
   }
 
