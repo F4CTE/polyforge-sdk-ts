@@ -41,7 +41,7 @@ import type {
   WhaleTrade,
 } from './types.js';
 
-const DEFAULT_BASE_URL = 'http://localhost:3002';
+const DEFAULT_BASE_URL = 'https://localhost:3002';
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 /**
@@ -65,6 +65,16 @@ export class PolyforgeClient {
     this.baseUrl = (options.apiUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.apiKey = options.apiKey;
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
+
+    // Reject non-HTTPS URLs for non-localhost hosts to prevent credential leakage
+    const parsed = new URL(this.baseUrl);
+    if (
+      parsed.protocol !== 'https:' &&
+      parsed.hostname !== 'localhost' &&
+      parsed.hostname !== '127.0.0.1'
+    ) {
+      throw new Error('Non-localhost API URLs must use HTTPS');
+    }
   }
 
   // ── Internal request helper ─────────────────────────────────────────────
@@ -322,6 +332,15 @@ export class PolyforgeClient {
    * Register a new webhook.
    */
   async createWebhook(params: { url: string; events: WebhookEvent[] }): Promise<Webhook> {
+    // Validate webhook URL to prevent SSRF attacks
+    const parsed = new URL(params.url);
+    if (parsed.protocol !== 'https:') {
+      throw new Error('Webhook URL must use HTTPS');
+    }
+    const blockedHosts = ['127.0.0.1', 'localhost', '0.0.0.0', '169.254.169.254'];
+    if (blockedHosts.includes(parsed.hostname)) {
+      throw new Error('Webhook URL cannot point to localhost or internal addresses');
+    }
     return this.request('POST', '/api/v1/webhooks', { body: params });
   }
 
