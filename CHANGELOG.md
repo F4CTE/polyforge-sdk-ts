@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.2] — 2026-04-03
+
+### Fixed
+- **BREAKING**: `WebhookEvent` values changed from dot-notation (`'order.filled'`, `'strategy.error'`, etc.) to SCREAMING_SNAKE_CASE (`'ORDER_FILLED'`, `'STRATEGY_ERROR'`, etc.) to match the values the platform actually sends; the previous 11 dot-notation values are replaced by the 8 canonical event types: `ORDER_FILLED`, `STRATEGY_ERROR`, `WHALE_TRADE`, `NEWS_SIGNAL`, `BACKTEST_COMPLETE`, `DAILY_LOSS_LIMIT`, `MARKET_RESOLVED`, `PRICE_ALERT` (closes #7)
+
 ## [1.6.1] — 2026-03-30
 
 ### Fixed
