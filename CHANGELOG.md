@@ -4,6 +4,7 @@
 
 ### Fixed
 - **SSRF blocklist**: replaced naive hostname-only check with comprehensive `isBlockedHost()` validation covering IPv4 loopback (127.0.0.0/8), RFC 1918 ranges (10/8, 172.16/12, 192.168/16), link-local (169.254/16), CGNAT (100.64/10), IPv6 loopback (::1), IPv6 unique-local (fc00::/7), IPv6 link-local (fe80::/10), IPv4-mapped IPv6 (::ffff:*), reserved TLDs (.local, .internal, .localhost), and trailing-dot bypass (closes #6)
+- **BREAKING**: `WebhookEvent` values changed from dot-notation (`'order.filled'`, `'strategy.error'`, etc.) to SCREAMING_SNAKE_CASE (`'ORDER_FILLED'`, `'STRATEGY_ERROR'`, etc.) to match the values the platform actually sends; the previous 11 dot-notation values are replaced by the 8 canonical event types: `ORDER_FILLED`, `STRATEGY_ERROR`, `WHALE_TRADE`, `NEWS_SIGNAL`, `BACKTEST_COMPLETE`, `DAILY_LOSS_LIMIT`, `MARKET_RESOLVED`, `PRICE_ALERT` (closes #7)
 
 ## [1.6.1] — 2026-03-30
 
