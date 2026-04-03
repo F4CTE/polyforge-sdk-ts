@@ -46,6 +46,20 @@ const DEFAULT_BASE_URL = 'https://localhost:3002';
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 /**
+ * Expand a compressed IPv6 address into its full 8-group colon-hex form.
+ * E.g. "fe80::1" → "fe80:0000:0000:0000:0000:0000:0000:0001"
+ */
+function expandIPv6(addr: string): string {
+  const halves = addr.split('::');
+  const left = halves[0] ? halves[0].split(':') : [];
+  const right = halves.length > 1 && halves[1] ? halves[1].split(':') : [];
+  const missing = 8 - left.length - right.length;
+  const middle = Array.from({ length: missing }, () => '0000');
+  const groups = [...left, ...middle, ...right];
+  return groups.map((g) => g.padStart(4, '0')).join(':');
+}
+
+/**
  * Check whether a hostname or IP address points to a loopback, private,
  * link-local, CGNAT, or otherwise internal destination.  Used to prevent
  * SSRF when the caller supplies a webhook URL.
@@ -95,11 +109,24 @@ function isBlockedHost(hostname: string): boolean {
     // ::1 (loopback)
     if (addr === '::1') return true;
 
+    // :: (unspecified address)
+    if (addr === '::') return true;
+
     // IPv4-mapped IPv6 — ::ffff:a.b.c.d
     const v4MappedMatch = addr.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
     if (v4MappedMatch) {
       return isBlockedHost(v4MappedMatch[1]);
     }
+
+    // Expand the first 16-bit group to check prefix-based ranges.
+    // Split on ':', handle '::' expansion, then inspect the first group.
+    const expanded = expandIPv6(addr);
+    const firstWord = parseInt(expanded.split(':')[0], 16);
+
+    // fc00::/7 — unique local addresses (fc00::–fdff::)
+    if ((firstWord & 0xfe00) === 0xfc00) return true;
+    // fe80::/10 — link-local (fe80::–febf::)
+    if ((firstWord & 0xffc0) === 0xfe80) return true;
 
     return false;
   }

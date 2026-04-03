@@ -3,7 +3,7 @@
 ## [1.6.2] — 2026-04-03
 
 ### Fixed
-- **SSRF blocklist**: replaced naive hostname-only check with comprehensive `isBlockedHost()` validation covering IPv4 loopback (127.0.0.0/8), RFC 1918 ranges (10/8, 172.16/12, 192.168/16), link-local (169.254/16), CGNAT (100.64/10), IPv6 loopback (::1), IPv4-mapped IPv6 (::ffff:*), reserved TLDs (.local, .internal, .localhost), and trailing-dot bypass (closes #6)
+- **SSRF blocklist**: replaced naive hostname-only check with comprehensive `isBlockedHost()` validation covering IPv4 loopback (127.0.0.0/8), RFC 1918 ranges (10/8, 172.16/12, 192.168/16), link-local (169.254/16), CGNAT (100.64/10), IPv6 loopback (::1), IPv6 unique-local (fc00::/7), IPv6 link-local (fe80::/10), IPv4-mapped IPv6 (::ffff:*), reserved TLDs (.local, .internal, .localhost), and trailing-dot bypass (closes #6)
 
 ## [1.6.1] — 2026-03-30
 
