@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.3] — 2026-04-03
+
+### Added
+- Missing platform endpoints: backtests (list, get, run), portfolio PnL, conditional orders (list, create), alert CRUD (create, delete) (closes #8)
+
 ## [1.6.2] — 2026-04-03
 
 ### Fixed

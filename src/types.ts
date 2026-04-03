@@ -446,6 +446,76 @@ export interface LpPosition {
   size: string;
 }
 
+// ── Backtests ──────────────────────────────────────────────────────────────
+
+export interface Backtest {
+  id: string;
+  strategyId: string;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  startDate: string;
+  endDate: string;
+  initialBalance: number;
+  finalBalance: number;
+  pnl: number;
+  tradeCount: number;
+  winRate: number;
+  sharpeRatio: number | null;
+  maxDrawdown: number | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface RunBacktestParams {
+  strategyId: string;
+  startDate: string;
+  endDate: string;
+  initialBalance?: number;
+}
+
+// ── Alerts (create/delete) ──────────────────────────────────────────────────
+
+export interface CreateAlertParams {
+  name: string;
+  condition: string;
+  marketId?: string;
+}
+
+// ── Conditional Orders ──────────────────────────────────────────────────────
+
+export type ConditionalOrderStatus = 'PENDING' | 'TRIGGERED' | 'CANCELLED' | 'EXPIRED';
+
+export interface ConditionalOrder {
+  id: string;
+  marketId: string;
+  side: OrderSide;
+  size: number;
+  triggerPrice: number;
+  limitPrice?: number;
+  status: ConditionalOrderStatus;
+  createdAt: string;
+  triggeredAt: string | null;
+}
+
+export interface CreateConditionalOrderParams {
+  marketId: string;
+  side: OrderSide;
+  size: number;
+  triggerPrice: number;
+  limitPrice?: number;
+}
+
+// ── Portfolio PnL ──────────────────────────────────────────────────────────
+
+export interface PortfolioPnl {
+  totalPnl: number;
+  realizedPnl: number;
+  unrealizedPnl: number;
+  dailyPnl: number;
+  weeklyPnl: number;
+  monthlyPnl: number;
+  history: Array<{ date: string; pnl: number; cumulativePnl: number }>;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {

@@ -40,6 +40,18 @@ import type {
   Webhook,
   WebhookEvent,
   WhaleTrade,
+  Backtest,
+  ConditionalOrder,
+  CreateAlertParams,
+  CreateConditionalOrderParams,
+  PortfolioPnl,
+  RunBacktestParams,
+  Backtest,
+  ConditionalOrder,
+  CreateAlertParams,
+  CreateConditionalOrderParams,
+  PortfolioPnl,
+  RunBacktestParams,
 } from './types.js';
 
 const DEFAULT_BASE_URL = 'https://localhost:3002';
@@ -359,6 +371,11 @@ export class PolyforgeClient {
     return this.request('GET', '/api/v1/portfolio');
   }
 
+  /** Get portfolio profit-and-loss breakdown with history. */
+  async getPortfolioPnl(): Promise<PortfolioPnl> {
+    return this.request('GET', '/api/v1/portfolio/pnl');
+  }
+
   /**
    * List orders with optional filters.
    */
@@ -381,6 +398,36 @@ export class PolyforgeClient {
 
   // ── Social & Signals ────────────────────────────────────────────────────
 
+
+  // -- Backtests --
+
+  /** List backtests. */
+  async listBacktests(): Promise<Backtest[]> {
+    return this.request('GET', '/api/v1/backtests');
+  }
+
+  /** Get a single backtest by ID. */
+  async getBacktest(id: string): Promise<Backtest> {
+    return this.request('GET', `/api/v1/backtests/${encodeURIComponent(id)}`);
+  }
+
+  /** Run a new backtest. */
+  async runBacktest(params: RunBacktestParams): Promise<Backtest> {
+    return this.request('POST', '/api/v1/backtests', { body: params });
+  }
+
+  // -- Conditional Orders --
+
+  /** List conditional orders. */
+  async listConditionalOrders(): Promise<ConditionalOrder[]> {
+    return this.request('GET', '/api/v1/orders/conditional');
+  }
+
+  /** Create a conditional order. */
+  async createConditionalOrder(params: CreateConditionalOrderParams): Promise<ConditionalOrder> {
+    return this.request('POST', '/api/v1/orders/conditional', { body: params });
+  }
+
   /**
    * Get the whale-trade feed.
    */
@@ -402,6 +449,16 @@ export class PolyforgeClient {
    */
   async listAlerts(): Promise<Alert[]> {
     return this.request('GET', '/api/v1/alerts');
+  }
+
+  /** Create a new alert. */
+  async createAlert(params: CreateAlertParams): Promise<Alert> {
+    return this.request('POST', '/api/v1/alerts', { body: params });
+  }
+
+  /** Delete an alert by ID. */
+  async deleteAlert(id: string): Promise<void> {
+    return this.request('DELETE', `/api/v1/alerts/${encodeURIComponent(id)}`);
   }
 
   /**
