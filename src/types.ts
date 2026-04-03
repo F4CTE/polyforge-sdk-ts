@@ -3,17 +3,14 @@
 export type StrategyStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'PAPER';
 
 export type WebhookEvent =
-  | 'strategy.started'
-  | 'strategy.stopped'
-  | 'strategy.error'
-  | 'order.filled'
-  | 'order.cancelled'
-  | 'order.failed'
-  | 'position.opened'
-  | 'position.closed'
-  | 'alert.triggered'
-  | 'whale.detected'
-  | 'signal.generated';
+  | 'ORDER_FILLED'
+  | 'STRATEGY_ERROR'
+  | 'WHALE_TRADE'
+  | 'NEWS_SIGNAL'
+  | 'BACKTEST_COMPLETE'
+  | 'DAILY_LOSS_LIMIT'
+  | 'MARKET_RESOLVED'
+  | 'PRICE_ALERT';
 
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
@@ -447,6 +444,76 @@ export interface LpPosition {
   buyPrice: string;
   sellPrice: string;
   size: string;
+}
+
+// ── Backtests ──────────────────────────────────────────────────────────────
+
+export interface Backtest {
+  id: string;
+  strategyId: string;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  startDate: string;
+  endDate: string;
+  initialBalance: number;
+  finalBalance: number;
+  pnl: number;
+  tradeCount: number;
+  winRate: number;
+  sharpeRatio: number | null;
+  maxDrawdown: number | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface RunBacktestParams {
+  strategyId: string;
+  startDate: string;
+  endDate: string;
+  initialBalance?: number;
+}
+
+// ── Alerts (create/delete) ──────────────────────────────────────────────────
+
+export interface CreateAlertParams {
+  name: string;
+  condition: string;
+  marketId?: string;
+}
+
+// ── Conditional Orders ──────────────────────────────────────────────────────
+
+export type ConditionalOrderStatus = 'PENDING' | 'TRIGGERED' | 'CANCELLED' | 'EXPIRED';
+
+export interface ConditionalOrder {
+  id: string;
+  marketId: string;
+  side: OrderSide;
+  size: number;
+  triggerPrice: number;
+  limitPrice?: number;
+  status: ConditionalOrderStatus;
+  createdAt: string;
+  triggeredAt: string | null;
+}
+
+export interface CreateConditionalOrderParams {
+  marketId: string;
+  side: OrderSide;
+  size: number;
+  triggerPrice: number;
+  limitPrice?: number;
+}
+
+// ── Portfolio PnL ──────────────────────────────────────────────────────────
+
+export interface PortfolioPnl {
+  totalPnl: number;
+  realizedPnl: number;
+  unrealizedPnl: number;
+  dailyPnl: number;
+  weeklyPnl: number;
+  monthlyPnl: number;
+  history: Array<{ date: string; pnl: number; cumulativePnl: number }>;
 }
 
 // ── Client Options ──────────────────────────────────────────────────────────

@@ -4,10 +4,14 @@ import type {
   AiQueryResponse,
   Alert,
   ArbitrageOpportunity,
+  Backtest,
   BrowseMarketplaceParams,
   CancelOrderResponse,
   ClosePositionParams,
+  ConditionalOrder,
   CopyConfig,
+  CreateAlertParams,
+  CreateConditionalOrderParams,
   ImportStrategyParams,
   LpPosition,
   Market,
@@ -24,9 +28,11 @@ import type {
   PlaceSmartOrderResponse,
   Portfolio,
   PolyforgeClientOptions,
+  PortfolioPnl,
   PortfolioReview,
   ProvideLiquidityParams,
   RedeemPositionParams,
+  RunBacktestParams,
   SmartOrder,
   SplitPositionParams,
   Strategy,
@@ -43,6 +49,31 @@ import type {
 
 const DEFAULT_BASE_URL = 'https://localhost:3002';
 const DEFAULT_TIMEOUT_MS = 15_000;
+
+/**
+ * Check if a hostname resolves to a private/internal network address.
+ * Covers RFC1918, link-local IPv4, loopback, and private IPv6 ranges.
+ */
+function isPrivateHost(hostname: string): boolean {
+  // IPv4 patterns
+  if (/^10\./.test(hostname)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return true;
+  if (/^192\.168\./.test(hostname)) return true;
+  if (/^169\.254\./.test(hostname)) return true;
+  if (/^127\./.test(hostname)) return true;
+  if (/^0\./.test(hostname)) return true;
+
+  // IPv6 patterns (unique-local fc00::/7, link-local fe80::/10)
+  const lower = hostname.toLowerCase();
+  if (/^f[cd]/.test(lower)) return true;
+  if (/^fe[89ab]/.test(lower)) return true;
+
+  // IPv4-mapped IPv6 — ::ffff:A.B.C.D
+  const v4mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (v4mapped) return isPrivateHost(v4mapped[1]);
+
+  return false;
+}
 
 /**
  * Polyforge REST API client.
@@ -270,6 +301,13 @@ export class PolyforgeClient {
   }
 
   /**
+   * Get portfolio profit-and-loss breakdown with history.
+   */
+  async getPortfolioPnl(): Promise<PortfolioPnl> {
+    return this.request('GET', '/api/v1/portfolio/pnl');
+  }
+
+  /**
    * List orders with optional filters.
    */
   async getOrders(params?: {
@@ -287,6 +325,45 @@ export class PolyforgeClient {
    */
   async getScore(): Promise<TraderScore> {
     return this.request('GET', '/api/v1/scores/me');
+  }
+
+  // ── Backtests ───────────────────────────────────────────────────────────
+
+  /**
+   * List backtests for the authenticated user.
+   */
+  async listBacktests(): Promise<Backtest[]> {
+    return this.request('GET', '/api/v1/backtests');
+  }
+
+  /**
+   * Get a single backtest by ID.
+   */
+  async getBacktest(id: string): Promise<Backtest> {
+    return this.request('GET', `/api/v1/backtests/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Run a new backtest for a strategy.
+   */
+  async runBacktest(params: RunBacktestParams): Promise<Backtest> {
+    return this.request('POST', '/api/v1/backtests', { body: params });
+  }
+
+  // ── Conditional Orders ─────────────────────────────────────────────────
+
+  /**
+   * List conditional orders.
+   */
+  async listConditionalOrders(): Promise<ConditionalOrder[]> {
+    return this.request('GET', '/api/v1/orders/conditional');
+  }
+
+  /**
+   * Create a conditional order.
+   */
+  async createConditionalOrder(params: CreateConditionalOrderParams): Promise<ConditionalOrder> {
+    return this.request('POST', '/api/v1/orders/conditional', { body: params });
   }
 
   // ── Social & Signals ────────────────────────────────────────────────────
@@ -315,6 +392,20 @@ export class PolyforgeClient {
   }
 
   /**
+   * Create a new alert.
+   */
+  async createAlert(params: CreateAlertParams): Promise<Alert> {
+    return this.request('POST', '/api/v1/alerts', { body: params });
+  }
+
+  /**
+   * Delete an alert by ID.
+   */
+  async deleteAlert(id: string): Promise<void> {
+    return this.request('DELETE', `/api/v1/alerts/${encodeURIComponent(id)}`);
+  }
+
+  /**
    * List copy-trading configurations.
    */
   async listCopyConfigs(): Promise<CopyConfig[]> {
@@ -337,9 +428,17 @@ export class PolyforgeClient {
     if (parsed.protocol !== 'https:') {
       throw new Error('Webhook URL must use HTTPS');
     }
-    const blockedHosts = ['127.0.0.1', 'localhost', '0.0.0.0', '169.254.169.254'];
-    if (blockedHosts.includes(parsed.hostname)) {
+    const hostname = parsed.hostname.replace(/^\[|\]$/g, ''); // strip IPv6 brackets
+    const blockedHosts = [
+      '127.0.0.1', 'localhost', '0.0.0.0', '169.254.169.254',
+      '::1', '::ffff:127.0.0.1', 'metadata.google.internal',
+    ];
+    if (blockedHosts.includes(hostname)) {
       throw new Error('Webhook URL cannot point to localhost or internal addresses');
+    }
+    // Block RFC1918, link-local, and private IPv6 ranges
+    if (isPrivateHost(hostname)) {
+      throw new Error('Webhook URL cannot point to private or internal network addresses');
     }
     return this.request('POST', '/api/v1/webhooks', { body: params });
   }
