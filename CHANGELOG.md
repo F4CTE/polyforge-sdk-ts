@@ -1,21 +1,15 @@
 # Changelog
 
-## [1.7.0] — 2026-04-03
-
-### Fixed
-- **BREAKING**: `WebhookEvent` type changed from dot-notation (`strategy.started`) to SCREAMING_SNAKE_CASE (`STRATEGY_ERROR`, `ORDER_FILLED`, etc.) matching the platform contract (closes #7)
-- SSRF bypass in `createWebhook()` — expanded blocklist to cover IPv6 loopback (`::1`), RFC1918 private ranges (`10.x`, `172.16-31.x`, `192.168.x`), IPv6 unique-local (`fc00::/7`), link-local (`fe80::/10`), IPv4-mapped IPv6 (`::ffff:127.0.0.1`), and cloud metadata (`metadata.google.internal`) (closes #6)
+## [1.6.3] — 2026-04-03
 
 ### Added
-- `getPortfolioPnl()` — `GET /api/v1/portfolio/pnl`; returns `PortfolioPnl` with daily/weekly/monthly breakdown and history
-- `listBacktests()` — `GET /api/v1/backtests`; returns `Backtest[]`
-- `getBacktest(id)` — `GET /api/v1/backtests/:id`; returns `Backtest`
-- `runBacktest(params)` — `POST /api/v1/backtests`; accepts `RunBacktestParams`; returns `Backtest`
-- `createAlert(params)` — `POST /api/v1/alerts`; accepts `CreateAlertParams`; returns `Alert`
-- `deleteAlert(id)` — `DELETE /api/v1/alerts/:id`
-- `listConditionalOrders()` — `GET /api/v1/orders/conditional`; returns `ConditionalOrder[]`
-- `createConditionalOrder(params)` — `POST /api/v1/orders/conditional`; accepts `CreateConditionalOrderParams`; returns `ConditionalOrder`
-- New types: `Backtest`, `RunBacktestParams`, `CreateAlertParams`, `ConditionalOrder`, `ConditionalOrderStatus`, `CreateConditionalOrderParams`, `PortfolioPnl`
+- Missing platform endpoints: backtests (list, get, run), portfolio PnL, conditional orders (list, create), alert CRUD (create, delete) (closes #8)
+
+## [1.6.2] — 2026-04-03
+
+### Fixed
+- **SSRF blocklist**: replaced naive hostname-only check with comprehensive `isBlockedHost()` validation covering IPv4 loopback (127.0.0.0/8), RFC 1918 ranges (10/8, 172.16/12, 192.168/16), link-local (169.254/16), CGNAT (100.64/10), IPv6 loopback (::1), IPv6 unique-local (fc00::/7), IPv6 link-local (fe80::/10), IPv4-mapped IPv6 (::ffff:*), reserved TLDs (.local, .internal, .localhost), and trailing-dot bypass (closes #6)
+- **BREAKING**: `WebhookEvent` values changed from dot-notation (`'order.filled'`, `'strategy.error'`, etc.) to SCREAMING_SNAKE_CASE (`'ORDER_FILLED'`, `'STRATEGY_ERROR'`, etc.) to match the values the platform actually sends; the previous 11 dot-notation values are replaced by the 8 canonical event types: `ORDER_FILLED`, `STRATEGY_ERROR`, `WHALE_TRADE`, `NEWS_SIGNAL`, `BACKTEST_COMPLETE`, `DAILY_LOSS_LIMIT`, `MARKET_RESOLVED`, `PRICE_ALERT` (closes #7)
 
 ## [1.6.1] — 2026-03-30
 
