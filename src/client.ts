@@ -1,3 +1,4 @@
+import { isIPv4, isIPv6 } from 'node:net';
 import { PolyforgeError } from './errors.js';
 import type {
   AccuracyScore,
@@ -43,6 +44,68 @@ import type {
 
 const DEFAULT_BASE_URL = 'https://localhost:3002';
 const DEFAULT_TIMEOUT_MS = 15_000;
+
+/**
+ * Check whether a hostname or IP address points to a loopback, private,
+ * link-local, CGNAT, or otherwise internal destination.  Used to prevent
+ * SSRF when the caller supplies a webhook URL.
+ */
+function isBlockedHost(hostname: string): boolean {
+  // Strip trailing dot (DNS root label) so "localhost." is caught too.
+  const host = hostname.replace(/\.+$/, '').toLowerCase();
+
+  // Block reserved TLDs
+  if (host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.localhost')) {
+    return true;
+  }
+
+  // Block well-known loopback names
+  if (host === 'localhost') {
+    return true;
+  }
+
+  // IPv4 checks
+  if (isIPv4(host)) {
+    const parts = host.split('.').map(Number);
+    const [a, b] = parts;
+
+    // 0.0.0.0
+    if (host === '0.0.0.0') return true;
+    // 127.0.0.0/8
+    if (a === 127) return true;
+    // 10.0.0.0/8
+    if (a === 10) return true;
+    // 172.16.0.0/12 (172.16.x.x – 172.31.x.x)
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    // 192.168.0.0/16
+    if (a === 192 && b === 168) return true;
+    // 169.254.0.0/16 (link-local)
+    if (a === 169 && b === 254) return true;
+    // 100.64.0.0/10 (CGNAT, 100.64.x.x – 100.127.x.x)
+    if (a === 100 && b >= 64 && b <= 127) return true;
+
+    return false;
+  }
+
+  // IPv6 checks
+  if (isIPv6(host)) {
+    // Normalise by removing surrounding brackets (URL-style) just in case.
+    const addr = host.replace(/^\[|\]$/g, '').toLowerCase();
+
+    // ::1 (loopback)
+    if (addr === '::1') return true;
+
+    // IPv4-mapped IPv6 — ::ffff:a.b.c.d
+    const v4MappedMatch = addr.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+    if (v4MappedMatch) {
+      return isBlockedHost(v4MappedMatch[1]);
+    }
+
+    return false;
+  }
+
+  return false;
+}
 
 /**
  * Polyforge REST API client.
@@ -337,8 +400,7 @@ export class PolyforgeClient {
     if (parsed.protocol !== 'https:') {
       throw new Error('Webhook URL must use HTTPS');
     }
-    const blockedHosts = ['127.0.0.1', 'localhost', '0.0.0.0', '169.254.169.254'];
-    if (blockedHosts.includes(parsed.hostname)) {
+    if (isBlockedHost(parsed.hostname)) {
       throw new Error('Webhook URL cannot point to localhost or internal addresses');
     }
     return this.request('POST', '/api/v1/webhooks', { body: params });
