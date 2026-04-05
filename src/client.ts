@@ -46,12 +46,6 @@ import type {
   CreateConditionalOrderParams,
   PortfolioPnl,
   RunBacktestParams,
-  Backtest,
-  ConditionalOrder,
-  CreateAlertParams,
-  CreateConditionalOrderParams,
-  PortfolioPnl,
-  RunBacktestParams,
 } from './types.js';
 
 const DEFAULT_BASE_URL = 'https://localhost:3002';
@@ -113,10 +107,11 @@ function isBlockedHost(hostname: string): boolean {
     return false;
   }
 
-  // IPv6 checks
-  if (isIPv6(host)) {
-    // Normalise by removing surrounding brackets (URL-style) just in case.
-    const addr = host.replace(/^\[|\]$/g, '').toLowerCase();
+  // IPv6 checks — strip brackets first because URL.hostname returns
+  // bracketed IPv6 (e.g. "[::1]") and net.isIPv6 requires bare addresses.
+  const bareHost = host.replace(/^\[|\]$/g, '');
+  if (isIPv6(bareHost)) {
+    const addr = bareHost.toLowerCase();
 
     // ::1 (loopback)
     if (addr === '::1') return true;

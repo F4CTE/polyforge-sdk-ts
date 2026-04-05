@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.4] — 2026-04-05
+
+### Fixed
+- **CRITICAL SSRF bypass**: `isBlockedHost` now strips brackets from IPv6 hostnames before calling `net.isIPv6()` — previously `URL.hostname` returned bracketed addresses (e.g. `[::1]`) which `isIPv6` rejected, making the entire IPv6 validation branch unreachable (closes #15)
+
 ## [1.6.3] — 2026-04-03
 
 ### Added
