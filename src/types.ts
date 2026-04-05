@@ -3,14 +3,14 @@
 export type StrategyStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'PAPER';
 
 export type WebhookEvent =
-  | 'ORDER_FILLED'
-  | 'STRATEGY_ERROR'
-  | 'WHALE_TRADE'
-  | 'NEWS_SIGNAL'
-  | 'BACKTEST_COMPLETE'
-  | 'DAILY_LOSS_LIMIT'
-  | 'MARKET_RESOLVED'
-  | 'PRICE_ALERT';
+  | 'order.filled'
+  | 'strategy.error'
+  | 'whale.trade'
+  | 'news.signal'
+  | 'backtest.complete'
+  | 'daily.loss.limit'
+  | 'market.resolved'
+  | 'price.alert';
 
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
@@ -467,8 +467,8 @@ export interface Backtest {
 
 export interface RunBacktestParams {
   strategyId: string;
-  startDate: string;
-  endDate: string;
+  dateRangeStart: string;
+  dateRangeEnd: string;
   initialBalance?: number;
 }
 
