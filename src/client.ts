@@ -48,8 +48,9 @@ import type {
   RunBacktestParams,
 } from './types.js';
 
-const DEFAULT_BASE_URL = 'https://localhost:3002';
+const DEFAULT_BASE_URL = 'https://api.polyforge.app';
 const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_STREAM_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours for long-lived SSE streams
 
 /**
  * Expand a compressed IPv6 address into its full 8-group colon-hex form.
@@ -154,6 +155,7 @@ export class PolyforgeClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly timeout: number;
+  private readonly streamTimeout: number;
 
   constructor(options: PolyforgeClientOptions) {
     if (!options.apiKey) {
@@ -162,6 +164,7 @@ export class PolyforgeClient {
     this.baseUrl = (options.apiUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.apiKey = options.apiKey;
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
+    this.streamTimeout = options.streamTimeout ?? DEFAULT_STREAM_TIMEOUT_MS;
 
     // Reject non-HTTPS URLs for non-localhost hosts to prevent credential leakage
     const parsed = new URL(this.baseUrl);
@@ -171,6 +174,27 @@ export class PolyforgeClient {
       parsed.hostname !== '127.0.0.1'
     ) {
       throw new Error('Non-localhost API URLs must use HTTPS');
+    }
+  }
+
+  /** Prevent API key from leaking via JSON.stringify(client). */
+  toJSON(): Record<string, unknown> {
+    return { baseUrl: this.baseUrl };
+  }
+
+  /** Prevent API key from leaking via util.inspect(client) or console.log(client). */
+  [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return `PolyforgeClient { baseUrl: '${this.baseUrl}', apiKey: '[REDACTED]' }`;
+  }
+
+  // ── Financial parameter validation ──────────────────────────────────────
+
+  private validateFinancialParam(name: string, value: number, allowZero = false): void {
+    if (!Number.isFinite(value)) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `${name} must be a finite number` });
+    }
+    if (allowZero ? value < 0 : value <= 0) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `${name} must be ${allowZero ? 'non-negative' : 'positive'}` });
     }
   }
 
@@ -502,6 +526,8 @@ export class PolyforgeClient {
    * Place a direct buy or sell order on a prediction market.
    */
   async placeOrder(params: PlaceOrderParams): Promise<PlaceOrderResponse> {
+    this.validateFinancialParam('size', params.size);
+    this.validateFinancialParam('price', params.price);
     return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', { body: params });
   }
 
@@ -557,6 +583,7 @@ export class PolyforgeClient {
    * Place an advanced smart order (TWAP, DCA, BRACKET, or OCO).
    */
   async placeSmartOrder(params: PlaceSmartOrderParams): Promise<PlaceSmartOrderResponse> {
+    this.validateFinancialParam('totalSize', params.totalSize);
     return this.request('POST', '/api/v1/orders/smart', { body: params });
   }
 
@@ -628,6 +655,8 @@ export class PolyforgeClient {
    * Provide liquidity by placing two-sided quotes on a market token.
    */
   async provideLiquidity(params: ProvideLiquidityParams): Promise<LpPosition> {
+    this.validateFinancialParam('spread', params.spread);
+    this.validateFinancialParam('size', params.size);
     return this.request('POST', '/api/v1/lp/provide', { body: params });
   }
 
@@ -657,7 +686,7 @@ export class PolyforgeClient {
   ): AsyncGenerator<StrategyEvent> {
     const url = `${this.baseUrl}/api/v1/strategies/${encodeURIComponent(id)}/events`;
     // Merge user-provided signal with a timeout signal to prevent indefinite hangs
-    const timeoutSignal = AbortSignal.timeout(this.timeout);
+    const timeoutSignal = AbortSignal.timeout(this.streamTimeout);
     const combinedSignal = signal
       ? AbortSignal.any([signal, timeoutSignal])
       : timeoutSignal;
