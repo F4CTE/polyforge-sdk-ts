@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.4] — 2026-04-08
+
+### Security
+- Switch CI from self-hosted to GitHub-hosted runners (`ubuntu-latest`) and add `permissions: contents: read` to prevent arbitrary code execution from fork PRs (closes #69)
+- Pin `vite` to `>=8.0.5` via npm overrides to fix 3 path traversal and file read CVEs: GHSA-4w7w-66w2-5vf9, GHSA-v2wj-q39q-566r, GHSA-p9ff-h696-f583 (closes #68)
+
 ## [1.6.3] — 2026-04-03
 
 ### Added
