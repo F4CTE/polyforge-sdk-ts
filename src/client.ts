@@ -46,12 +46,6 @@ import type {
   CreateConditionalOrderParams,
   PortfolioPnl,
   RunBacktestParams,
-  Backtest,
-  ConditionalOrder,
-  CreateAlertParams,
-  CreateConditionalOrderParams,
-  PortfolioPnl,
-  RunBacktestParams,
 } from './types.js';
 
 const DEFAULT_BASE_URL = 'https://localhost:3002';
