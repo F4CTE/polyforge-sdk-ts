@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.5] — 2026-04-12
+
+### Security
+- **Default base URL changed to production** — `https://localhost:3002` → `https://api.polyforge.app`; prevents TLS failures that encourage `NODE_TLS_REJECT_UNAUTHORIZED=0` workarounds (closes #44)
+- **API key serialisation guards** — added `toJSON()` and `[Symbol.for('nodejs.util.inspect.custom')]()` to `PolyforgeClient` to prevent API key leakage via `JSON.stringify()` or `util.inspect()` (closes #38)
+- **Financial parameter validation** — `placeOrder()`, `placeSmartOrder()`, `provideLiquidity()` now validate that size/price/spread/totalSize are finite positive numbers before sending to the API; rejects `NaN`, `Infinity`, negative, and zero values (closes #34)
+- **Separate stream timeout** — added `streamTimeout` option (default: 24 hours) for SSE streams; `watchStrategy()` no longer killed by the 15-second request timeout (closes #35)
+
 ## [1.6.4] — 2026-04-05
 
 ### Fixed

@@ -521,5 +521,8 @@ export interface PortfolioPnl {
 export interface PolyforgeClientOptions {
   apiUrl?: string;
   apiKey: string;
+  /** Timeout for regular API requests in milliseconds (default: 15000). */
   timeout?: number;
+  /** Timeout for SSE streams in milliseconds (default: 24 hours). */
+  streamTimeout?: number;
 }
