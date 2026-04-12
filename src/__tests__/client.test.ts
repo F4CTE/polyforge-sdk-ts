@@ -61,6 +61,29 @@ describe('PolyforgeClient', () => {
       expect(client).toBeDefined();
     });
   });
+
+  describe('HTTPS enforcement', () => {
+    it('should reject HTTP for non-local hosts', () => {
+      expect(() => new PolyforgeClient({ apiKey: 'k', apiUrl: 'http://api.example.com' }))
+        .toThrow('Non-localhost API URLs must use HTTPS');
+    });
+
+    it.each([
+      'http://localhost:3002',
+      'http://127.0.0.1:3002',
+      'http://127.0.0.2:3002',
+      'http://0.0.0.0:3002',
+      'http://[::1]:3002',
+      'http://localhost.localdomain:3002',
+    ])('should allow HTTP for local address %s', (url) => {
+      expect(() => new PolyforgeClient({ apiKey: 'k', apiUrl: url })).not.toThrow();
+    });
+
+    it('should allow HTTPS for any host', () => {
+      expect(() => new PolyforgeClient({ apiKey: 'k', apiUrl: 'https://api.example.com' }))
+        .not.toThrow();
+    });
+  });
 });
 
 describe('PolyforgeError', () => {

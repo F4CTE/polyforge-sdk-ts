@@ -167,14 +167,22 @@ export class PolyforgeClient {
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
     this.streamTimeout = options.streamTimeout ?? DEFAULT_STREAM_TIMEOUT_MS;
 
-    // Reject non-HTTPS URLs for non-localhost hosts to prevent credential leakage
+    // Reject non-HTTPS URLs for non-local hosts to prevent credential leakage.
+    // Cover all loopback representations: IPv4, IPv6, and common aliases.
     const parsed = new URL(this.baseUrl);
-    if (
-      parsed.protocol !== 'https:' &&
-      parsed.hostname !== 'localhost' &&
-      parsed.hostname !== '127.0.0.1'
-    ) {
-      throw new Error('Non-localhost API URLs must use HTTPS');
+    if (parsed.protocol !== 'https:') {
+      const h = parsed.hostname;
+      const isLocal =
+        h === 'localhost' ||
+        h === '127.0.0.1' ||
+        h === '[::1]' ||
+        h === '::1' ||
+        h === '0.0.0.0' ||
+        h.startsWith('127.') ||
+        h === 'localhost.localdomain';
+      if (!isLocal) {
+        throw new Error('Non-localhost API URLs must use HTTPS');
+      }
     }
   }
 
