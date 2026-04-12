@@ -282,7 +282,19 @@ export type StrategyEventType =
   | 'BACKTEST_PROGRESS'
   | 'BACKTEST_COMPLETED'
   | 'BACKTEST_FAILED'
-  | string;
+  | (string & {}); // Allows unknown server event types while preserving autocomplete
+
+/**
+ * Set of known strategy event types for runtime validation.
+ * Events not in this set are still yielded but trigger a console warning.
+ */
+export const KNOWN_STRATEGY_EVENTS: ReadonlySet<string> = new Set<StrategyEventType>([
+  'CONNECTED', 'STRATEGY_STARTED', 'STRATEGY_STOPPED',
+  'STRATEGY_PAUSED', 'STRATEGY_RESUMED', 'STRATEGY_ERROR',
+  'ORDER_PLACED', 'ORDER_SUBMITTED', 'ORDER_FILLED',
+  'ORDER_PARTIAL', 'ORDER_CANCELLED', 'ORDER_FAILED', 'ORDER_ERROR',
+  'BACKTEST_PROGRESS', 'BACKTEST_COMPLETED', 'BACKTEST_FAILED',
+]);
 
 /** A single event received from the strategy execution SSE stream. */
 export interface StrategyEvent {

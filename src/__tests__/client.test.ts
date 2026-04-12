@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PolyforgeClient } from '../client';
 import { PolyforgeError } from '../errors';
+import { KNOWN_STRATEGY_EVENTS } from '../types';
 
 describe('PolyforgeClient', () => {
   describe('constructor', () => {
@@ -146,6 +147,27 @@ describe('PolyforgeError', () => {
 
       expect(error.status).toBe(503);
       expect(error.code).toBe('SERVICE_UNAVAILABLE');
+    });
+  });
+
+  describe('KNOWN_STRATEGY_EVENTS', () => {
+    it('should contain all documented event types', () => {
+      const expected = [
+        'CONNECTED', 'STRATEGY_STARTED', 'STRATEGY_STOPPED',
+        'STRATEGY_PAUSED', 'STRATEGY_RESUMED', 'STRATEGY_ERROR',
+        'ORDER_PLACED', 'ORDER_SUBMITTED', 'ORDER_FILLED',
+        'ORDER_PARTIAL', 'ORDER_CANCELLED', 'ORDER_FAILED', 'ORDER_ERROR',
+        'BACKTEST_PROGRESS', 'BACKTEST_COMPLETED', 'BACKTEST_FAILED',
+      ];
+      for (const type of expected) {
+        expect(KNOWN_STRATEGY_EVENTS.has(type)).toBe(true);
+      }
+      expect(KNOWN_STRATEGY_EVENTS.size).toBe(expected.length);
+    });
+
+    it('should not contain unknown event types', () => {
+      expect(KNOWN_STRATEGY_EVENTS.has('UNKNOWN_TYPE')).toBe(false);
+      expect(KNOWN_STRATEGY_EVENTS.has('')).toBe(false);
     });
   });
 });

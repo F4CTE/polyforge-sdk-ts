@@ -9,6 +9,9 @@
 ## [Unreleased]
 
 ### Security
+- **StrategyEventType**: replace `| string` catch-all with `| (string & {})` to preserve TypeScript autocomplete; add `KNOWN_STRATEGY_EVENTS` set and runtime `console.warn` for unrecognized SSE event types (closes #80)
+
+### Security
 - **CI**: switch from self-hosted runner to `ubuntu-latest` for `pull_request` events and add `permissions: contents: read` to restrict GITHUB_TOKEN scope (closes #69)
 - **deps**: add npm `overrides` to pin `vite >= 8.0.5`, fixing 3 HIGH advisories (GHSA-4w7w-66w2-5vf9, GHSA-v2wj-q39q-566r, GHSA-p9ff-h696-f583) in transitive vitest dependency (closes #68)
 
