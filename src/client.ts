@@ -47,6 +47,7 @@ import type {
   PortfolioPnl,
   RunBacktestParams,
 } from './types.js';
+import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
 const DEFAULT_BASE_URL = 'https://api.polyforge.app';
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -743,6 +744,9 @@ export class PolyforgeClient {
             const parsed = JSON.parse(raw);
             // Validate expected fields exist before yielding
             if (typeof parsed.type !== 'string') continue;
+            if (!KNOWN_STRATEGY_EVENTS.has(parsed.type)) {
+              console.warn(`[polyforge-sdk] Unknown strategy event type: "${parsed.type}"`);
+            }
             yield parsed as StrategyEvent;
           } catch {
             // skip malformed frame

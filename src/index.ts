@@ -1,5 +1,6 @@
 export { PolyforgeClient } from './client.js';
 export { PolyforgeError } from './errors.js';
+export { KNOWN_STRATEGY_EVENTS } from './types.js';
 export type {
   AiQueryResponse,
   Alert,
