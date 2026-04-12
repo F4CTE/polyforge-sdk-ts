@@ -9,6 +9,9 @@
 ## [Unreleased]
 
 ### Security
+- Extend HTTPS enforcement to cover all loopback representations (`[::1]`, `0.0.0.0`, `127.0.0.x`, `localhost.localdomain`) — previously only `localhost` and `127.0.0.1` were exempted, allowing credential leakage over HTTP on non-standard local addresses (closes #71)
+
+### Security
 - **StrategyEventType**: replace `| string` catch-all with `| (string & {})` to preserve TypeScript autocomplete; add `KNOWN_STRATEGY_EVENTS` set and runtime `console.warn` for unrecognized SSE event types (closes #80)
 
 ### Security
