@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.7] — 2026-04-12
+
+### Fixed
+- **BREAKING** `PlaceSmartOrderParams`: rename `intervalMinutes` to `intervalSeconds` to match platform contract — TWAP/DCA orders were executing 60x too fast (closes #62)
+- `RunBacktestParams`: remove phantom `initialBalance` field that is silently stripped by the platform's `CreateBacktestDto` (closes #64)
+
 ## [Unreleased]
 
 ### Security

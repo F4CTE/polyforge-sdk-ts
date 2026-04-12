@@ -326,7 +326,7 @@ export interface PlaceSmartOrderParams {
   totalSize: number;
   // TWAP / DCA
   slices?: number;
-  intervalMinutes?: number;
+  intervalSeconds?: number;
   limitPrice?: number;
   // BRACKET
   entryPrice?: number;
@@ -469,7 +469,6 @@ export interface RunBacktestParams {
   strategyId: string;
   dateRangeStart: string;
   dateRangeEnd: string;
-  initialBalance?: number;
 }
 
 // ── Alerts (create/delete) ──────────────────────────────────────────────────
