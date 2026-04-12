@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.4] — 2026-04-05
+
+### Fixed
+- **CRITICAL SSRF bypass**: `isBlockedHost` now strips brackets from IPv6 hostnames before calling `net.isIPv6()` — previously `URL.hostname` returned bracketed addresses making the entire IPv6 validation branch unreachable (closes #15)
+- **BREAKING**: `aiQuery()` sends `{ question }` instead of `{ query }` to match platform `AiQueryDto` (closes #46)
+- **BREAKING**: `RunBacktestParams` uses `dateRangeStart`/`dateRangeEnd` instead of `startDate`/`endDate` to match platform (closes #47)
+- **BREAKING**: `WebhookEvent` values reverted from SCREAMING_SNAKE_CASE to dot.notation to match actual platform events (closes #42)
+- **BREAKING**: `createStrategyFromDescription()` sends `{ query }` instead of `{ description }` to match platform (closes #40)
+- **BREAKING**: `startStrategy()` sends uppercase `"LIVE"`/`"PAPER"` mode values to match platform (closes #41)
+- Removed duplicate type imports that prevented build
+
 ## [1.6.3] — 2026-04-03
 
 ### Added

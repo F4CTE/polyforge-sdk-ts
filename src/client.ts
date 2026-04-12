@@ -107,10 +107,11 @@ function isBlockedHost(hostname: string): boolean {
     return false;
   }
 
-  // IPv6 checks
-  if (isIPv6(host)) {
-    // Normalise by removing surrounding brackets (URL-style) just in case.
-    const addr = host.replace(/^\[|\]$/g, '').toLowerCase();
+  // IPv6 checks — strip brackets first because URL.hostname returns
+  // bracketed IPv6 (e.g. "[::1]") and net.isIPv6 requires bare addresses.
+  const bareHost = host.replace(/^\[|\]$/g, '');
+  if (isIPv6(bareHost)) {
+    const addr = bareHost.toLowerCase();
 
     // ::1 (loopback)
     if (addr === '::1') return true;
@@ -281,7 +282,9 @@ export class PolyforgeClient {
     description: string;
     marketId?: string;
   }): Promise<Strategy> {
-    return this.request('POST', '/api/v1/strategies/from-description', { body: params });
+    return this.request('POST', '/api/v1/strategies/from-description', {
+      body: { query: params.description, ...(params.marketId !== undefined && { marketId: params.marketId }) },
+    });
   }
 
   /**
@@ -289,7 +292,7 @@ export class PolyforgeClient {
    */
   async startStrategy(id: string, mode: 'live' | 'paper' = 'paper'): Promise<Strategy> {
     return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/start`, {
-      body: { mode },
+      body: { mode: mode.toUpperCase() },
     });
   }
 
@@ -490,7 +493,7 @@ export class PolyforgeClient {
    * Ask the Polyforge AI assistant a natural-language question.
    */
   async aiQuery(query: string): Promise<AiQueryResponse> {
-    return this.request('POST', '/api/v1/ai/query', { body: { query } });
+    return this.request('POST', '/api/v1/ai/query', { body: { question: query } });
   }
 
   // ── Direct Trading ────────────────────────────────────────────────────────
