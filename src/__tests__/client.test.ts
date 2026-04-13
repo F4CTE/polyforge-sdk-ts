@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -531,7 +531,7 @@ describe('PaginatedResponse type (#78)', () => {
   it('should correctly type a paginated strategy response', () => {
     const resp: PaginatedResponse<Strategy> = {
       data: [
-        { id: 's1', name: 'Alpha', status: 'IDLE' as StrategyStatus, blocks: [], pnl: 0, tradeCount: 0, winRate: 0, createdAt: '', updatedAt: '' },
+        { id: 's1', name: 'Alpha', status: 'IDLE' as StrategyStatus, visibility: 'PRIVATE', execMode: 'TICK', tickMs: 1000, triggers: [], conditions: [], actions: [], safety: [], logicBlocks: [], calcBlocks: [], tags: [], variables: [], pnl: 0, tradeCount: 0, winRate: 0, createdAt: '', updatedAt: '' },
       ],
       total: 1,
       page: 1,
@@ -621,7 +621,7 @@ describe('ImportStrategyParams matches platform DTO (#27)', () => {
     const params: ImportStrategyParams = {
       polyforge: '1.7.1',
       exportedAt: '2026-04-13T00:00:00Z',
-      strategy: { name: 'Test', blocks: [] },
+      strategy: { name: 'Test' },
     };
     await client.importStrategy(params);
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
@@ -668,9 +668,10 @@ describe('Order/Position monetary fields are string (#33)', () => {
     const order: Order = {
       id: 'o-1',
       marketId: 'mkt-1',
-      marketName: 'Test Market',
+      tokenId: 'tok-1',
+      outcome: 'YES',
       side: 'BUY',
-      type: 'GTC',
+      orderType: 'GTC',
       status: 'LIVE',
       price: '0.65',
       size: '100',
@@ -688,13 +689,16 @@ describe('Order/Position monetary fields are string (#33)', () => {
     // Ensure old field names do not exist
     expect((order as any).filledSize).toBeUndefined();
     expect((order as any).filledPrice).toBeUndefined();
+    expect((order as any).marketName).toBeUndefined();
+    expect((order as any).type).toBeUndefined();
   });
 
   it('Position fields size/avgPrice/currentPrice/unrealizedPnl/realizedPnl should be string', () => {
     const position: Position = {
       id: 'p-1',
       marketId: 'mkt-1',
-      marketName: 'Test Market',
+      tokenId: 'tok-1',
+      outcome: 'YES',
       side: 'BUY',
       size: '200',
       avgPrice: '0.55',
@@ -708,8 +712,9 @@ describe('Order/Position monetary fields are string (#33)', () => {
     expect(typeof position.currentPrice).toBe('string');
     expect(typeof position.unrealizedPnl).toBe('string');
     expect(typeof position.realizedPnl).toBe('string');
-    // Ensure old field name does not exist
+    // Ensure old field names do not exist
     expect((position as any).entryPrice).toBeUndefined();
+    expect((position as any).marketName).toBeUndefined();
   });
 });
 
@@ -1025,5 +1030,259 @@ describe('RunBacktestParams has all platform fields (#14)', () => {
     expect((params as any).startDate).toBeUndefined();
     expect((params as any).endDate).toBeUndefined();
     expect((params as any).initialBalance).toBeUndefined();
+  });
+});
+
+// --- Breaking compat fixes (#18, #24, #31, #32) ---
+
+describe('TraderScore fields match platform (#18)', () => {
+  it('should use score instead of overall', () => {
+    const ts: TraderScore = {
+      score: 85,
+      totalTrades: 120,
+      winRate: 0.62,
+      sharpeRatio: 1.5,
+      profitFactor: 2.1,
+      maxDrawdown: -0.15,
+      consistency: 0.78,
+      rank: 5,
+      updatedAt: '2026-04-13T00:00:00Z',
+    };
+    expect(ts.score).toBe(85);
+    expect(ts.totalTrades).toBe(120);
+    expect(ts.winRate).toBe(0.62);
+    expect(ts.sharpeRatio).toBe(1.5);
+    expect(ts.profitFactor).toBe(2.1);
+    expect(ts.maxDrawdown).toBe(-0.15);
+    // Old fields must not exist
+    expect((ts as any).overall).toBeUndefined();
+    expect((ts as any).profitability).toBeUndefined();
+    expect((ts as any).riskManagement).toBeUndefined();
+    expect((ts as any).volume).toBeUndefined();
+    expect((ts as any).percentile).toBeUndefined();
+  });
+
+  it('should allow nullable sharpeRatio, profitFactor, maxDrawdown', () => {
+    const ts: TraderScore = {
+      score: 0,
+      totalTrades: 0,
+      winRate: 0,
+      sharpeRatio: null,
+      profitFactor: null,
+      maxDrawdown: null,
+      consistency: 0,
+      rank: 999,
+      updatedAt: '',
+    };
+    expect(ts.sharpeRatio).toBeNull();
+    expect(ts.profitFactor).toBeNull();
+    expect(ts.maxDrawdown).toBeNull();
+  });
+});
+
+describe('WhaleTrade fields match platform (#18)', () => {
+  it('should use walletAddress and notional instead of wallet and usdValue', () => {
+    const wt: WhaleTrade = {
+      id: 'wt-1',
+      walletAddress: '0xabc123',
+      marketId: 'mkt-1',
+      tokenId: 'tok-1',
+      side: 'BUY',
+      outcome: 'YES',
+      size: 5000,
+      price: 0.65,
+      notional: 3250,
+      timestamp: '2026-04-13T00:00:00Z',
+    };
+    expect(wt.walletAddress).toBe('0xabc123');
+    expect(wt.notional).toBe(3250);
+    expect(wt.tokenId).toBe('tok-1');
+    expect(wt.outcome).toBe('YES');
+    expect(wt.price).toBe(0.65);
+    // Old fields must not exist
+    expect((wt as any).wallet).toBeUndefined();
+    expect((wt as any).usdValue).toBeUndefined();
+    expect((wt as any).marketName).toBeUndefined();
+  });
+});
+
+describe('NewsSignal fields match platform (#18)', () => {
+  it('should use direction instead of sentiment, marketId instead of relatedMarkets', () => {
+    const ns: NewsSignal = {
+      id: 'ns-1',
+      headline: 'Breaking news',
+      source: 'reuters',
+      direction: 'BUY',
+      confidence: 0.9,
+      marketId: 'mkt-1',
+      outcome: 'YES',
+      articleId: 'art-123',
+      createdAt: '2026-04-13T00:00:00Z',
+    };
+    expect(ns.direction).toBe('BUY');
+    expect(ns.marketId).toBe('mkt-1');
+    expect(ns.createdAt).toBeDefined();
+    // Old fields must not exist
+    expect((ns as any).sentiment).toBeUndefined();
+    expect((ns as any).relatedMarkets).toBeUndefined();
+    expect((ns as any).publishedAt).toBeUndefined();
+  });
+});
+
+describe('AiQueryResponse fields match platform (#18)', () => {
+  it('should use query/intent/filters/data/summary shape', () => {
+    const resp: AiQueryResponse = {
+      query: 'what is BTC price?',
+      intent: 'market_lookup',
+      filters: { category: 'crypto' },
+      data: [{ marketId: 'mkt-1', price: 0.65 }],
+      summary: 'BTC market is at 0.65',
+    };
+    expect(resp.query).toBe('what is BTC price?');
+    expect(resp.intent).toBe('market_lookup');
+    expect(resp.summary).toBeDefined();
+    // Old fields must not exist
+    expect((resp as any).answer).toBeUndefined();
+    expect((resp as any).confidence).toBeUndefined();
+    expect((resp as any).sources).toBeUndefined();
+    expect((resp as any).suggestedActions).toBeUndefined();
+  });
+});
+
+describe('SplitPositionParams and MergePositionParams match platform (#24)', () => {
+  it('SplitPositionParams uses tokenId + amount (string)', () => {
+    const params: SplitPositionParams = {
+      tokenId: 'tok-1',
+      amount: '100.50',
+    };
+    expect(params.tokenId).toBe('tok-1');
+    expect(typeof params.amount).toBe('string');
+    // Old fields must not exist
+    expect((params as any).size).toBeUndefined();
+    expect((params as any).price).toBeUndefined();
+  });
+
+  it('MergePositionParams uses tokenId + amount (string), not tokenIds[]', () => {
+    const params: MergePositionParams = {
+      tokenId: 'tok-1',
+      amount: '200.00',
+    };
+    expect(params.tokenId).toBe('tok-1');
+    expect(typeof params.amount).toBe('string');
+    // Old field must not exist
+    expect((params as any).tokenIds).toBeUndefined();
+  });
+});
+
+describe('Strategy uses categorized block arrays (#31)', () => {
+  it('should have triggers/conditions/actions/safety/logicBlocks/calcBlocks instead of flat blocks', () => {
+    const strat: Strategy = {
+      id: 's-1',
+      name: 'Test Strategy',
+      status: 'IDLE',
+      visibility: 'PRIVATE',
+      execMode: 'TICK',
+      tickMs: 1000,
+      triggers: [{ id: 'b1', type: 'price_above', label: 'Price > 0.5', config: { threshold: 0.5 }, connections: ['b2'] }],
+      conditions: [{ id: 'b2', type: 'time_window', label: 'Morning', config: {}, connections: ['b3'] }],
+      actions: [{ id: 'b3', type: 'buy', label: 'Buy YES', config: { size: 100 }, connections: [] }],
+      safety: [],
+      logicBlocks: [],
+      calcBlocks: [],
+      tags: ['test'],
+      variables: [],
+      pnl: 0,
+      tradeCount: 0,
+      winRate: 0,
+      createdAt: '',
+      updatedAt: '',
+    };
+    expect(strat.triggers).toHaveLength(1);
+    expect(strat.conditions).toHaveLength(1);
+    expect(strat.actions).toHaveLength(1);
+    expect(strat.safety).toHaveLength(0);
+    // Old flat blocks field must not exist
+    expect((strat as any).blocks).toBeUndefined();
+  });
+});
+
+describe('CreateStrategyParams includes all platform fields (#32)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('should accept all CreateStrategyDto fields', async () => {
+    const params: CreateStrategyParams = {
+      name: 'Full Strategy',
+      description: 'A complete strategy',
+      visibility: 'PUBLIC',
+      execMode: 'EVENT',
+      tickMs: 5000,
+      triggers: [{ id: 't1', type: 'price', label: 'Price trigger', config: {}, connections: [] }],
+      conditions: [],
+      actions: [{ id: 'a1', type: 'buy', label: 'Buy', config: {}, connections: [] }],
+      safety: [],
+      logicBlocks: [],
+      calcBlocks: [],
+      tags: ['alpha', 'crypto'],
+      variables: [{ name: 'threshold', type: 'number', defaultValue: '0.5' }],
+      canvas: { zoom: 1, offsetX: 0, offsetY: 0 },
+      marketId: 'mkt-1',
+      marketSlots: [{ slotId: 'slot-1', marketId: 'mkt-1', tokenId: 'tok-1' }],
+    };
+    await client.createStrategy(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('name', 'Full Strategy');
+    expect(body).toHaveProperty('visibility', 'PUBLIC');
+    expect(body).toHaveProperty('execMode', 'EVENT');
+    expect(body).toHaveProperty('tickMs', 5000);
+    expect(body).toHaveProperty('triggers');
+    expect(body.triggers).toHaveLength(1);
+    expect(body).toHaveProperty('tags');
+    expect(body.tags).toEqual(['alpha', 'crypto']);
+    expect(body).toHaveProperty('variables');
+    expect(body).toHaveProperty('canvas');
+    expect(body).toHaveProperty('marketSlots');
+  });
+
+  it('should still work with minimal params (backward compat)', async () => {
+    await client.createStrategy({ name: 'Simple Strategy' });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ name: 'Simple Strategy' });
+    // Must not send undefined fields
+    expect(body).not.toHaveProperty('visibility');
+    expect(body).not.toHaveProperty('triggers');
+  });
+
+  it('Order uses orderType field name (#18)', () => {
+    const order: Order = {
+      id: 'o-1', marketId: 'mkt-1', tokenId: 'tok-1', outcome: 'YES',
+      side: 'BUY', orderType: 'GTC', status: 'LIVE',
+      price: '0.65', size: '100', fillSize: '0',
+      createdAt: '', updatedAt: '',
+    };
+    expect(order.orderType).toBe('GTC');
+    expect((order as any).type).toBeUndefined();
+  });
+
+  it('Position has tokenId and outcome, no marketName (#18)', () => {
+    const pos: Position = {
+      id: 'p-1', marketId: 'mkt-1', tokenId: 'tok-1', outcome: 'YES',
+      side: 'BUY', size: '100', avgPrice: '0.55', currentPrice: '0.60',
+      unrealizedPnl: '5.00', realizedPnl: '0', openedAt: '',
+    };
+    expect(pos.tokenId).toBe('tok-1');
+    expect(pos.outcome).toBe('YES');
+    expect((pos as any).marketName).toBeUndefined();
   });
 });

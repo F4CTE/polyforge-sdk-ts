@@ -60,18 +60,39 @@ export interface StrategyBlock {
   connections: string[];
 }
 
+export type StrategyVisibility = 'PRIVATE' | 'PUBLIC' | 'UNLISTED';
+export type StrategyExecMode = 'TICK' | 'EVENT' | 'HYBRID';
+
 export interface Strategy {
   id: string;
   name: string;
   description?: string;
   status: StrategyStatus;
-  blocks: StrategyBlock[];
+  visibility: StrategyVisibility;
+  execMode: StrategyExecMode;
+  tickMs: number;
+  triggers: StrategyBlock[];
+  conditions: StrategyBlock[];
+  actions: StrategyBlock[];
+  safety: StrategyBlock[];
+  logicBlocks: StrategyBlock[];
+  calcBlocks: StrategyBlock[];
+  tags: string[];
+  variables: StrategyVariable[];
+  canvas?: Record<string, unknown>;
   marketId?: string;
   pnl: number;
   tradeCount: number;
   winRate: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface StrategyVariable {
+  name: string;
+  type: 'number' | 'string' | 'boolean';
+  defaultValue?: string;
+  description?: string;
 }
 
 /** Response from strategy lifecycle operations (start/stop/pause/resume). */
@@ -102,7 +123,8 @@ export interface StrategyExport {
 export interface Position {
   id: string;
   marketId: string;
-  marketName: string;
+  tokenId: string;
+  outcome: 'YES' | 'NO';
   side: OrderSide;
   size: string;
   avgPrice: string;
@@ -124,10 +146,12 @@ export interface Portfolio {
 export interface Order {
   id: string;
   marketId: string;
-  marketName: string;
+  tokenId: string;
+  outcome: 'YES' | 'NO';
   strategyId?: string;
+  intentId?: string;
   side: OrderSide;
-  type: OrderType;
+  orderType: OrderType;
   status: OrderStatus;
   price: string;
   size: string;
@@ -142,12 +166,14 @@ export interface Order {
 
 export interface WhaleTrade {
   id: string;
-  wallet: string;
+  walletAddress: string;
   marketId: string;
-  marketName: string;
+  tokenId: string;
   side: OrderSide;
+  outcome: 'YES' | 'NO';
   size: number;
-  usdValue: number;
+  price: number;
+  notional: number;
   timestamp: string;
 }
 
@@ -155,10 +181,12 @@ export interface NewsSignal {
   id: string;
   headline: string;
   source: string;
-  sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  direction: 'BUY' | 'SELL';
   confidence: number;
-  relatedMarkets: string[];
-  publishedAt: string;
+  marketId: string;
+  outcome?: string;
+  articleId?: string;
+  createdAt: string;
 }
 
 // ── Configuration ───────────────────────────────────────────────────────────
@@ -201,38 +229,82 @@ export interface Webhook {
 // ── Scoring ─────────────────────────────────────────────────────────────────
 
 export interface TraderScore {
-  overall: number;
-  profitability: number;
+  score: number;
+  totalTrades: number;
+  winRate: number;
+  sharpeRatio: number | null;
+  profitFactor: number | null;
+  maxDrawdown: number | null;
   consistency: number;
-  riskManagement: number;
-  volume: number;
   rank: number;
-  percentile: number;
   updatedAt: string;
 }
 
 // ── AI ──────────────────────────────────────────────────────────────────────
 
 export interface AiQueryResponse {
-  answer: string;
-  confidence: number;
-  sources: string[];
-  suggestedActions?: string[];
+  query: string;
+  intent: string;
+  filters: Record<string, unknown>;
+  data: unknown;
+  summary: string;
 }
 
 // ── Strategy Management ──────────────────────────────────────────────────────
 
+export interface CreateStrategyParams {
+  name: string;
+  description?: string;
+  visibility?: StrategyVisibility;
+  execMode?: StrategyExecMode;
+  tickMs?: number;
+  triggers?: StrategyBlock[];
+  conditions?: StrategyBlock[];
+  actions?: StrategyBlock[];
+  safety?: StrategyBlock[];
+  logicBlocks?: StrategyBlock[];
+  calcBlocks?: StrategyBlock[];
+  tags?: string[];
+  variables?: StrategyVariable[];
+  canvas?: Record<string, unknown>;
+  marketId?: string;
+  marketSlots?: MarketSlot[];
+}
+
+export interface MarketSlot {
+  slotId: string;
+  marketId: string;
+  tokenId?: string;
+}
+
 export interface UpdateStrategyParams {
   name?: string;
   description?: string;
-  blocks?: StrategyBlock[];
+  visibility?: StrategyVisibility;
+  execMode?: StrategyExecMode;
+  tickMs?: number;
+  triggers?: StrategyBlock[];
+  conditions?: StrategyBlock[];
+  actions?: StrategyBlock[];
+  safety?: StrategyBlock[];
+  logicBlocks?: StrategyBlock[];
+  calcBlocks?: StrategyBlock[];
+  tags?: string[];
+  variables?: StrategyVariable[];
+  canvas?: Record<string, unknown>;
   marketId?: string;
+  marketSlots?: MarketSlot[];
 }
 
 export interface ImportStrategyPayload {
   name: string;
   description?: string;
-  blocks: StrategyBlock[];
+  triggers?: StrategyBlock[];
+  conditions?: StrategyBlock[];
+  actions?: StrategyBlock[];
+  safety?: StrategyBlock[];
+  logicBlocks?: StrategyBlock[];
+  calcBlocks?: StrategyBlock[];
   marketId?: string;
 }
 
@@ -276,12 +348,12 @@ export interface RedeemPositionParams {
 
 export interface SplitPositionParams {
   tokenId: string;
-  size: number;
-  price: number;
+  amount: string;
 }
 
 export interface MergePositionParams {
-  tokenIds: string[];
+  tokenId: string;
+  amount: string;
 }
 
 // ── Strategy Events (SSE) ────────────────────────────────────────────────────
