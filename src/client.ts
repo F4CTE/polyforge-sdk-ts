@@ -40,8 +40,12 @@ import type {
   StrategyTemplate,
   TraderScore,
   UpdateStrategyParams,
+  WatchlistAddResult,
+  WatchlistItem,
+  WatchlistStatus,
   Webhook,
   WebhookEvent,
+  WebhookTestResult,
   WhaleTrade,
   Backtest,
   ConditionalOrder,
@@ -618,6 +622,50 @@ export class PolyforgeClient {
     // Resolves DNS to detect rebinding — see validateWebhookUrl() JSDoc.
     await validateWebhookUrl(params.url);
     return this.request('POST', '/api/v1/webhooks', { body: params });
+  }
+
+  /**
+   * Delete a webhook by ID.
+   */
+  async deleteWebhook(id: string): Promise<void> {
+    return this.request('DELETE', `/api/v1/webhooks/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Send a test delivery to a webhook and return the result.
+   */
+  async testWebhook(id: string): Promise<WebhookTestResult> {
+    return this.request('POST', `/api/v1/webhooks/${encodeURIComponent(id)}/test`);
+  }
+
+  // ── Watchlist ──────────────────────────────────────────────────────────────
+
+  /**
+   * List all markets on the authenticated user's watchlist.
+   */
+  async getWatchlist(): Promise<WatchlistItem[]> {
+    return this.request('GET', '/api/v1/watchlist');
+  }
+
+  /**
+   * Add a market to the watchlist.
+   */
+  async addToWatchlist(marketId: string): Promise<WatchlistAddResult> {
+    return this.request('POST', '/api/v1/watchlist', { body: { marketId } });
+  }
+
+  /**
+   * Remove a market from the watchlist.
+   */
+  async removeFromWatchlist(marketId: string): Promise<void> {
+    return this.request('DELETE', `/api/v1/watchlist/${encodeURIComponent(marketId)}`);
+  }
+
+  /**
+   * Check whether a specific market is on the watchlist.
+   */
+  async getWatchlistStatus(marketId: string): Promise<WatchlistStatus> {
+    return this.request('GET', `/api/v1/watchlist/status/${encodeURIComponent(marketId)}`);
   }
 
   // ── AI ──────────────────────────────────────────────────────────────────
