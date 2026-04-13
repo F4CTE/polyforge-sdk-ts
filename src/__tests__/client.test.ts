@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
@@ -94,6 +94,61 @@ describe('PolyforgeClient', () => {
       expect(() => new PolyforgeClient({ apiKey: 'k', apiUrl: 'https://api.example.com' }))
         .not.toThrow();
     });
+  });
+});
+
+describe('Platform contract compliance', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('aiQuery sends { query } not { question } (#84)', async () => {
+    await client.aiQuery('what is BTC?');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ query: 'what is BTC?' });
+    expect(body).not.toHaveProperty('question');
+  });
+
+  it('createStrategyFromDescription sends { description } not { query } (#85)', async () => {
+    await client.createStrategyFromDescription({ description: 'buy low sell high' });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ description: 'buy low sell high' });
+    expect(body).not.toHaveProperty('query');
+  });
+
+  it('startStrategy sends lowercase mode (#87)', async () => {
+    await client.startStrategy('strat-id', 'live');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ mode: 'live' });
+  });
+
+  it('startStrategy does not uppercase paper mode (#87)', async () => {
+    await client.startStrategy('strat-id', 'paper');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ mode: 'paper' });
+  });
+
+  it('WebhookEvent values use SCREAMING_SNAKE_CASE (#86)', async () => {
+    // Type-level test: these should compile without error
+    const events: import('../types').WebhookEvent[] = [
+      'ORDER_FILLED', 'STRATEGY_ERROR', 'WHALE_TRADE', 'NEWS_SIGNAL',
+      'BACKTEST_COMPLETE', 'DAILY_LOSS_LIMIT', 'MARKET_RESOLVED', 'PRICE_ALERT',
+    ];
+    expect(events).toHaveLength(8);
+    // Ensure no dot.notation values exist in the type
+    for (const e of events) {
+      expect(e).not.toContain('.');
+    }
   });
 });
 

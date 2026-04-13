@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.8] — 2026-04-13
+
+### Fixed
+- **BREAKING** `aiQuery()`: send `{ query }` instead of `{ question }` to match platform `AiQueryDto` — AI queries were returning HTTP 400 (closes #84, regression of #46)
+- **BREAKING** `createStrategyFromDescription()`: send `{ description }` instead of `{ query }` to match platform `CreateFromDescriptionDto` — AI strategy creation was returning HTTP 400 (closes #85, regression of #40)
+- **BREAKING** `WebhookEvent`: change values from dot.notation (`order.filled`) to SCREAMING_SNAKE_CASE (`ORDER_FILLED`) to match platform `CreateWebhookDto` validation — webhook creation was returning HTTP 400 (closes #86, regression of #42)
+- **BREAKING** `startStrategy()`: send lowercase `mode` (`"live"`, `"paper"`) instead of uppercase — strategy start was returning HTTP 400 (closes #87, regression of #41)
+
 ## [1.6.7] — 2026-04-12
 
 ### Fixed
