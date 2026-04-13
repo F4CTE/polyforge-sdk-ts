@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.0] — 2026-04-13
+
+### Fixed
+- **BREAKING** Strategy lifecycle methods (`startStrategy`, `stopStrategy`, `pauseStrategy`, `resumeStrategy`): return `StrategyStatusResponse` instead of `Strategy` — the platform returns `{"status":"RUNNING"}` not a full strategy object; callers accessing `strategy.name` etc. got `undefined` (closes #61)
+- **BREAKING** List endpoints (`listStrategies`, `getOrders`, `listBacktests`, `listConditionalOrders`, `getWhaleFeed`, `getNewsSignals`, `listAlerts`, `listCopyConfigs`, `listWebhooks`, `getStrategyTemplates`, `listSmartOrders`): return `PaginatedResponse<T>` instead of `T[]` — the platform wraps all list responses in `{"data":[...],"total":N,...}` (closes #78)
+
 ## [1.6.9] — 2026-04-13
 
 ### Fixed

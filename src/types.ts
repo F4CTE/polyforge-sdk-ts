@@ -74,6 +74,13 @@ export interface Strategy {
   updatedAt: string;
 }
 
+/** Response from strategy lifecycle operations (start/stop/pause/resume). */
+export interface StrategyStatusResponse {
+  status: StrategyStatus;
+  startedAt?: string;
+  stoppedAt?: string;
+}
+
 export interface StrategyTemplate {
   id: string;
   name: string;
