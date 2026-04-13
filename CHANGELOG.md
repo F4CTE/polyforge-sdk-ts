@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.10.0] — 2026-04-13
+
+### Security
+- **SSE null-body guard**: replace `response.body!` non-null assertion with explicit null check that throws `PolyforgeError` with code `STREAM_ERROR` — prevents unhandled `TypeError` crash when a proxy or HTTP/1.0 server returns a null body (closes #16)
+
+### Fixed
+- **BREAKING** `Market`: rename `name` to `title`, replace `baseToken`/`quoteToken` with `tokens: Token[]` array, add optional `description`, `endDate`, `resolved` fields to match platform Prisma schema (closes #17)
+- **BREAKING** `Token`: replace `{ symbol, name, address, decimals, logoUrl? }` with `{ id, outcome?, price? }` to match platform Token entity (closes #17)
+- **BREAKING** `OrderType`: replace exchange-style values (`MARKET | LIMIT | STOP | STOP_LIMIT`) with platform prediction-market values (`GTC | GTD | FOK | FAK`) — fixes type mismatches on `Order.type` and removes misleading exports (closes #36)
+- **BREAKING** `RunBacktestParams`: make `strategyId` optional, make `dateRangeStart`/`dateRangeEnd` optional, add `quickMode`, `strategyBlocks`, `marketBindings` optional fields to match platform `CreateBacktestDto` (closes #14)
+- Confirm `CreateAlertParams` already matches platform `CreateAlertDto` (closes #12)
+- Confirm `CreateConditionalOrderParams` already matches platform DTO (closes #13)
+
 ## [1.9.0] — 2026-04-13
 
 ### Fixed
