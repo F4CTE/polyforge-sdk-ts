@@ -1,7 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { PolyforgeClient } from '../client';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
+
+// Mock node:dns/promises at the module level for ESM compatibility.
+vi.mock('node:dns/promises', () => ({
+  resolve4: vi.fn(),
+  resolve6: vi.fn(),
+}));
+
+import { resolve4, resolve6 } from 'node:dns/promises';
+
+const mockResolve4 = vi.mocked(resolve4);
+const mockResolve6 = vi.mocked(resolve6);
 
 describe('PolyforgeClient', () => {
   describe('constructor', () => {
@@ -192,5 +203,173 @@ describe('PolyforgeError', () => {
       expect(KNOWN_STRATEGY_EVENTS.has('UNKNOWN_TYPE')).toBe(false);
       expect(KNOWN_STRATEGY_EVENTS.has('')).toBe(false);
     });
+  });
+});
+
+describe('isBlockedHost', () => {
+  describe('IPv4 blocked ranges', () => {
+    it.each([
+      ['127.0.0.1', 'loopback'],
+      ['127.255.255.255', 'loopback high'],
+      ['10.0.0.1', 'RFC 1918 10/8'],
+      ['10.255.255.255', 'RFC 1918 10/8 high'],
+      ['172.16.0.1', 'RFC 1918 172.16/12'],
+      ['172.31.255.255', 'RFC 1918 172.16/12 high'],
+      ['192.168.0.1', 'RFC 1918 192.168/16'],
+      ['192.168.255.255', 'RFC 1918 192.168/16 high'],
+      ['169.254.1.1', 'link-local'],
+      ['100.64.0.1', 'CGNAT low'],
+      ['100.127.255.255', 'CGNAT high'],
+      ['0.0.0.0', 'unspecified'],
+    ])('should block %s (%s)', (ip) => {
+      expect(isBlockedHost(ip)).toBe(true);
+    });
+  });
+
+  describe('IPv4 allowed addresses', () => {
+    it.each([
+      ['8.8.8.8', 'public DNS'],
+      ['1.1.1.1', 'Cloudflare DNS'],
+      ['100.128.0.1', 'above CGNAT'],
+      ['172.32.0.1', 'above RFC 1918 172 range'],
+      ['192.169.0.1', 'above RFC 1918 192.168 range'],
+    ])('should allow %s (%s)', (ip) => {
+      expect(isBlockedHost(ip)).toBe(false);
+    });
+  });
+
+  describe('IPv6 blocked ranges', () => {
+    it.each([
+      ['::1', 'loopback'],
+      ['::', 'unspecified'],
+      ['fc00::1', 'unique-local fc00'],
+      ['fd12:3456::1', 'unique-local fd'],
+      ['fe80::1', 'link-local'],
+      ['::ffff:127.0.0.1', 'IPv4-mapped loopback'],
+      ['::ffff:10.0.0.1', 'IPv4-mapped private'],
+      ['::ffff:192.168.1.1', 'IPv4-mapped private 192.168'],
+      ['::ffff:100.64.0.1', 'IPv4-mapped CGNAT'],
+    ])('should block %s (%s)', (ip) => {
+      expect(isBlockedHost(ip)).toBe(true);
+    });
+  });
+
+  describe('IPv6 allowed addresses', () => {
+    it.each([
+      ['2001:db8::1', 'documentation prefix'],
+      ['2607:f8b0:4004:800::200e', 'Google public'],
+    ])('should allow %s (%s)', (ip) => {
+      expect(isBlockedHost(ip)).toBe(false);
+    });
+  });
+
+  describe('hostname checks', () => {
+    it('should block localhost', () => {
+      expect(isBlockedHost('localhost')).toBe(true);
+    });
+
+    it('should block localhost with trailing dot', () => {
+      expect(isBlockedHost('localhost.')).toBe(true);
+    });
+
+    it.each(['.local', '.internal', '.localhost'])(
+      'should block reserved TLD %s',
+      (tld) => {
+        expect(isBlockedHost(`myhost${tld}`)).toBe(true);
+      },
+    );
+
+    it('should allow public hostnames', () => {
+      expect(isBlockedHost('example.com')).toBe(false);
+      expect(isBlockedHost('api.polyforge.app')).toBe(false);
+    });
+  });
+});
+
+describe('validateWebhookUrl', () => {
+  it('should reject non-HTTPS URLs', async () => {
+    await expect(validateWebhookUrl('http://example.com/hook')).rejects.toThrow(
+      'Webhook URL must use HTTPS',
+    );
+  });
+
+  it('should reject literal blocked IPv4', async () => {
+    await expect(validateWebhookUrl('https://127.0.0.1/hook')).rejects.toThrow(
+      'Webhook URL cannot point to localhost or internal addresses',
+    );
+  });
+
+  it('should reject literal blocked IPv6', async () => {
+    await expect(validateWebhookUrl('https://[::1]/hook')).rejects.toThrow(
+      'Webhook URL cannot point to localhost or internal addresses',
+    );
+  });
+
+  it('should reject localhost hostname', async () => {
+    await expect(validateWebhookUrl('https://localhost/hook')).rejects.toThrow(
+      'Webhook URL cannot point to localhost or internal addresses',
+    );
+  });
+
+  beforeEach(() => {
+    mockResolve4.mockReset();
+    mockResolve6.mockReset();
+  });
+
+  it('should reject hostnames resolving to blocked IPs', async () => {
+    mockResolve4.mockResolvedValue(['10.0.0.1']);
+    mockResolve6.mockRejectedValue(new Error('ENODATA'));
+
+    await expect(validateWebhookUrl('https://evil.example.com/hook')).rejects.toThrow(
+      'Webhook URL resolves to a blocked address (10.0.0.1)',
+    );
+  });
+
+  it('should reject hostnames where any resolved IP is blocked', async () => {
+    mockResolve4.mockResolvedValue(['8.8.8.8', '192.168.1.1']);
+    mockResolve6.mockRejectedValue(new Error('ENODATA'));
+
+    await expect(validateWebhookUrl('https://mixed.example.com/hook')).rejects.toThrow(
+      'Webhook URL resolves to a blocked address (192.168.1.1)',
+    );
+  });
+
+  it('should reject unresolvable hostnames', async () => {
+    mockResolve4.mockRejectedValue(new Error('ENOTFOUND'));
+    mockResolve6.mockRejectedValue(new Error('ENOTFOUND'));
+
+    await expect(validateWebhookUrl('https://nonexistent.invalid/hook')).rejects.toThrow(
+      'Webhook URL hostname could not be resolved',
+    );
+  });
+
+  it('should allow hostnames resolving to public IPs', async () => {
+    mockResolve4.mockResolvedValue(['93.184.216.34']);
+    mockResolve6.mockResolvedValue(['2606:2800:220:1:248:1893:25c8:1946']);
+
+    await expect(validateWebhookUrl('https://example.com/hook')).resolves.toBeUndefined();
+  });
+
+  it('should allow literal public IPv4', async () => {
+    // Literal IPs skip DNS — no mock needed
+    await expect(validateWebhookUrl('https://93.184.216.34/hook')).resolves.toBeUndefined();
+  });
+
+  it('should reject CGNAT range via DNS', async () => {
+    mockResolve4.mockResolvedValue(['100.100.100.100']);
+    mockResolve6.mockRejectedValue(new Error('ENODATA'));
+
+    await expect(validateWebhookUrl('https://cgnat.example.com/hook')).rejects.toThrow(
+      'Webhook URL resolves to a blocked address (100.100.100.100)',
+    );
+  });
+
+  it('should reject IPv6 unique-local via DNS', async () => {
+    mockResolve4.mockRejectedValue(new Error('ENODATA'));
+    mockResolve6.mockResolvedValue(['fd00::1']);
+
+    await expect(validateWebhookUrl('https://v6internal.example.com/hook')).rejects.toThrow(
+      'Webhook URL resolves to a blocked address (fd00::1)',
+    );
   });
 });

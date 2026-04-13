@@ -1,4 +1,5 @@
-import { isIPv4, isIPv6 } from 'node:net';
+import { isIPv4, isIPv6, isIP } from 'node:net';
+import { resolve4, resolve6 } from 'node:dns/promises';
 import { PolyforgeError } from './errors.js';
 import type {
   AccuracyScore,
@@ -72,7 +73,7 @@ function expandIPv6(addr: string): string {
  * link-local, CGNAT, or otherwise internal destination.  Used to prevent
  * SSRF when the caller supplies a webhook URL.
  */
-function isBlockedHost(hostname: string): boolean {
+export function isBlockedHost(hostname: string): boolean {
   // Strip trailing dot (DNS root label) so "localhost." is caught too.
   const host = hostname.replace(/\.+$/, '').toLowerCase();
 
@@ -141,6 +142,75 @@ function isBlockedHost(hostname: string): boolean {
   }
 
   return false;
+}
+
+/**
+ * Resolve a hostname to all its IPv4 and IPv6 addresses, then verify
+ * that **every** resolved IP passes the SSRF blocklist.
+ *
+ * If the hostname is already a literal IP address, DNS resolution is
+ * skipped and the literal is checked directly.
+ *
+ * This is a client-side best-effort check.  The server **must** perform
+ * its own independent validation — DNS can change between the time this
+ * check runs and the time the server delivers the webhook.
+ *
+ * @throws Error if the URL is non-HTTPS, points to a blocked address,
+ *         or the hostname cannot be resolved.
+ */
+export async function validateWebhookUrl(url: string): Promise<void> {
+  const parsed = new URL(url);
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error('Webhook URL must use HTTPS');
+  }
+
+  const hostname = parsed.hostname;
+
+  // Literal IP addresses skip DNS resolution entirely.
+  if (isIP(hostname) !== 0) {
+    if (isBlockedHost(hostname)) {
+      throw new Error('Webhook URL cannot point to localhost or internal addresses');
+    }
+    return;
+  }
+
+  // Hostname string-level checks (reserved TLDs, "localhost", etc.)
+  if (isBlockedHost(hostname)) {
+    throw new Error('Webhook URL cannot point to localhost or internal addresses');
+  }
+
+  // Resolve DNS and check every returned IP.
+  let ipv4s: string[] = [];
+  let ipv6s: string[] = [];
+
+  try {
+    ipv4s = await resolve4(hostname);
+  } catch {
+    // ENODATA / ENOTFOUND — no A records, which is fine if AAAA exist.
+  }
+
+  try {
+    ipv6s = await resolve6(hostname);
+  } catch {
+    // ENODATA / ENOTFOUND — no AAAA records.
+  }
+
+  const allIPs = [...ipv4s, ...ipv6s];
+
+  if (allIPs.length === 0) {
+    throw new Error(
+      'Webhook URL hostname could not be resolved — no DNS records found',
+    );
+  }
+
+  for (const ip of allIPs) {
+    if (isBlockedHost(ip)) {
+      throw new Error(
+        `Webhook URL resolves to a blocked address (${ip})`,
+      );
+    }
+  }
 }
 
 /**
@@ -509,14 +579,9 @@ export class PolyforgeClient {
    * Register a new webhook.
    */
   async createWebhook(params: { url: string; events: WebhookEvent[] }): Promise<Webhook> {
-    // Validate webhook URL to prevent SSRF attacks
-    const parsed = new URL(params.url);
-    if (parsed.protocol !== 'https:') {
-      throw new Error('Webhook URL must use HTTPS');
-    }
-    if (isBlockedHost(parsed.hostname)) {
-      throw new Error('Webhook URL cannot point to localhost or internal addresses');
-    }
+    // Validate webhook URL to prevent SSRF attacks.
+    // Resolves DNS to detect rebinding — see validateWebhookUrl() JSDoc.
+    await validateWebhookUrl(params.url);
     return this.request('POST', '/api/v1/webhooks', { body: params });
   }
 
