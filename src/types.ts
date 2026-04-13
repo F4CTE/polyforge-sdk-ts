@@ -165,21 +165,26 @@ export interface NewsSignal {
 
 export interface Alert {
   id: string;
-  name: string;
-  condition: string;
-  marketId?: string;
+  tokenId: string;
+  direction: 'above' | 'below';
+  price: string;
+  persistent: boolean;
   enabled: boolean;
   lastTriggeredAt?: string;
   createdAt: string;
 }
 
+export type CopyMode = 'PERCENTAGE' | 'FIXED' | 'MIRROR';
+
 export interface CopyConfig {
   id: string;
-  sourceWallet: string;
-  label?: string;
-  maxPositionSize: number;
+  targetWallet: string;
+  mode?: CopyMode;
+  sizeValue?: string;
+  maxExposure?: string;
+  maxDailyLoss?: string;
+  priceOffset?: string;
   enabled: boolean;
-  totalCopiedTrades: number;
   createdAt: string;
 }
 
@@ -502,33 +507,46 @@ export interface RunBacktestParams {
 // ── Alerts (create/delete) ──────────────────────────────────────────────────
 
 export interface CreateAlertParams {
-  name: string;
-  condition: string;
-  marketId?: string;
+  tokenId: string;
+  direction: 'above' | 'below';
+  price: string;
+  persistent?: boolean;
 }
 
 // ── Conditional Orders ──────────────────────────────────────────────────────
 
-export type ConditionalOrderStatus = 'PENDING' | 'TRIGGERED' | 'CANCELLED' | 'EXPIRED';
+export type ConditionalOrderStatus = 'PENDING' | 'TRIGGERED' | 'CANCELLED' | 'EXPIRED' | 'FAILED';
 
 export interface ConditionalOrder {
   id: string;
   marketId: string;
+  tokenId: string;
+  type: ConditionalOrderType;
   side: OrderSide;
+  outcome: 'YES' | 'NO';
   size: number;
   triggerPrice: number;
-  limitPrice?: number;
+  limitPrice?: string;
+  trailingPct?: string;
+  expiresAt?: string;
   status: ConditionalOrderStatus;
   createdAt: string;
   triggeredAt: string | null;
 }
 
+export type ConditionalOrderType = 'TAKE_PROFIT' | 'STOP_LOSS' | 'TRAILING_STOP' | 'LIMIT' | 'PEGGED';
+
 export interface CreateConditionalOrderParams {
   marketId: string;
+  tokenId: string;
+  type: ConditionalOrderType;
   side: OrderSide;
+  outcome: 'YES' | 'NO';
   size: number;
   triggerPrice: number;
-  limitPrice?: number;
+  limitPrice?: string;
+  trailingPct?: string;
+  expiresAt?: string;
 }
 
 // ── Portfolio PnL ──────────────────────────────────────────────────────────

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.9.0] — 2026-04-13
+
+### Fixed
+- **BREAKING** `ConditionalOrderStatus`: add `FAILED` value to match platform's 5-value enum (closes #37)
+- **BREAKING** `CreateAlertParams`: replace `{ name, condition, marketId? }` with `{ tokenId, direction, price, persistent? }` to match platform `CreateAlertDto` — old fields caused 422 errors (closes #48)
+- **BREAKING** `Alert`: response type updated to match — `name`/`condition`/`marketId` replaced by `tokenId`/`direction`/`price`/`persistent` (closes #48)
+- **BREAKING** `CreateConditionalOrderParams`: add required `tokenId`, `type`, `outcome` fields; change `limitPrice` from `number` to `string` (NumberString); add optional `trailingPct` and `expiresAt` (closes #49)
+- **BREAKING** `ConditionalOrder`: response type updated with new fields `tokenId`, `type`, `outcome`, `trailingPct`, `expiresAt`; `limitPrice` changed to `string` (closes #49)
+- **BREAKING** `CopyConfig`: rename `sourceWallet` → `targetWallet`, remove `label`/`maxPositionSize`/`totalCopiedTrades`, add `mode`/`sizeValue`/`maxExposure`/`maxDailyLoss`/`priceOffset` to match platform (closes #50)
+
+### Added
+- `ConditionalOrderType` type: `'TAKE_PROFIT' | 'STOP_LOSS' | 'TRAILING_STOP' | 'LIMIT' | 'PEGGED'`
+- `CopyMode` type: `'PERCENTAGE' | 'FIXED' | 'MIRROR'`
+
 ## [1.8.0] — 2026-04-13
 
 ### Fixed
