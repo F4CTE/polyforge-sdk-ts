@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -441,5 +442,67 @@ describe('validateWebhookUrl', () => {
     await expect(validateWebhookUrl('https://v6internal.example.com/hook')).rejects.toThrow(
       'Webhook URL resolves to a blocked address (fd00::1)',
     );
+  });
+});
+
+// --- Breaking compat fixes (#61, #78) ---
+
+describe('StrategyStatusResponse type (#61)', () => {
+  it('should accept a minimal start response', () => {
+    const resp: StrategyStatusResponse = {
+      status: 'RUNNING',
+      startedAt: '2026-04-13T10:00:00Z',
+    };
+    expect(resp.status).toBe('RUNNING');
+    expect(resp.startedAt).toBe('2026-04-13T10:00:00Z');
+    expect(resp.stoppedAt).toBeUndefined();
+  });
+
+  it('should accept a stop response', () => {
+    const resp: StrategyStatusResponse = {
+      status: 'IDLE',
+      stoppedAt: '2026-04-13T10:05:00Z',
+    };
+    expect(resp.status).toBe('IDLE');
+    expect(resp.stoppedAt).toBeDefined();
+  });
+
+  it('should accept a pause response with only status', () => {
+    const resp: StrategyStatusResponse = { status: 'PAUSED' };
+    expect(resp.status).toBe('PAUSED');
+    expect(resp.startedAt).toBeUndefined();
+    expect(resp.stoppedAt).toBeUndefined();
+  });
+});
+
+describe('PaginatedResponse type (#78)', () => {
+  it('should correctly type a paginated strategy response', () => {
+    const resp: PaginatedResponse<Strategy> = {
+      data: [
+        { id: 's1', name: 'Alpha', status: 'IDLE', blocks: [], pnl: 0, tradeCount: 0, winRate: 0, createdAt: '', updatedAt: '' },
+      ],
+      total: 1,
+      page: 1,
+      limit: 10,
+      totalPages: 1,
+      hasNext: false,
+    };
+    expect(resp.data).toHaveLength(1);
+    expect(resp.data[0].id).toBe('s1');
+    expect(resp.total).toBe(1);
+    expect(resp.hasNext).toBe(false);
+  });
+
+  it('should have correct shape for empty response', () => {
+    const resp: PaginatedResponse<Strategy> = {
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 10,
+      totalPages: 0,
+      hasNext: false,
+    };
+    expect(resp.data).toHaveLength(0);
+    expect(resp.total).toBe(0);
   });
 });

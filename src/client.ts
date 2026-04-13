@@ -35,6 +35,7 @@ import type {
   StrategyEvent,
   StrategyExport,
   StrategyStatus,
+  StrategyStatusResponse,
   StrategyTemplate,
   TraderScore,
   UpdateStrategyParams,
@@ -360,7 +361,7 @@ export class PolyforgeClient {
   /**
    * List strategies owned by the authenticated user.
    */
-  async listStrategies(params?: { status?: StrategyStatus }): Promise<Strategy[]> {
+  async listStrategies(params?: { status?: StrategyStatus }): Promise<PaginatedResponse<Strategy>> {
     return this.request('GET', '/api/v1/strategies', { query: params as Record<string, unknown> });
   }
 
@@ -393,7 +394,7 @@ export class PolyforgeClient {
   /**
    * Start a strategy in live or paper mode.
    */
-  async startStrategy(id: string, mode: 'live' | 'paper' = 'paper'): Promise<Strategy> {
+  async startStrategy(id: string, mode: 'live' | 'paper' = 'paper'): Promise<StrategyStatusResponse> {
     return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/start`, {
       body: { mode },
     });
@@ -402,14 +403,14 @@ export class PolyforgeClient {
   /**
    * Stop a running strategy.
    */
-  async stopStrategy(id: string): Promise<Strategy> {
+  async stopStrategy(id: string): Promise<StrategyStatusResponse> {
     return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/stop`);
   }
 
   /**
    * List available strategy templates.
    */
-  async getStrategyTemplates(): Promise<StrategyTemplate[]> {
+  async getStrategyTemplates(): Promise<PaginatedResponse<StrategyTemplate>> {
     return this.request('GET', '/api/v1/strategies/templates');
   }
 
@@ -444,14 +445,14 @@ export class PolyforgeClient {
   /**
    * Pause a running strategy.
    */
-  async pauseStrategy(id: string): Promise<Strategy> {
+  async pauseStrategy(id: string): Promise<StrategyStatusResponse> {
     return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/pause`);
   }
 
   /**
    * Resume a paused strategy.
    */
-  async resumeStrategy(id: string): Promise<Strategy> {
+  async resumeStrategy(id: string): Promise<StrategyStatusResponse> {
     return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/resume`);
   }
 
@@ -485,7 +486,7 @@ export class PolyforgeClient {
     strategyId?: string;
     from?: string;
     to?: string;
-  }): Promise<Order[]> {
+  }): Promise<PaginatedResponse<Order>> {
     return this.request('GET', '/api/v1/orders', { query: params as Record<string, unknown> });
   }
 
@@ -502,7 +503,7 @@ export class PolyforgeClient {
   // -- Backtests --
 
   /** List backtests. */
-  async listBacktests(): Promise<Backtest[]> {
+  async listBacktests(): Promise<PaginatedResponse<Backtest>> {
     return this.request('GET', '/api/v1/backtests');
   }
 
@@ -519,7 +520,7 @@ export class PolyforgeClient {
   // -- Conditional Orders --
 
   /** List conditional orders. */
-  async listConditionalOrders(): Promise<ConditionalOrder[]> {
+  async listConditionalOrders(): Promise<PaginatedResponse<ConditionalOrder>> {
     return this.request('GET', '/api/v1/orders/conditional');
   }
 
@@ -531,14 +532,14 @@ export class PolyforgeClient {
   /**
    * Get the whale-trade feed.
    */
-  async getWhaleFeed(params?: { minSize?: number }): Promise<WhaleTrade[]> {
+  async getWhaleFeed(params?: { minSize?: number }): Promise<PaginatedResponse<WhaleTrade>> {
     return this.request('GET', '/api/v1/whales/feed', { query: params as Record<string, unknown> });
   }
 
   /**
    * Get AI-generated news signals.
    */
-  async getNewsSignals(params?: { minConfidence?: number }): Promise<NewsSignal[]> {
+  async getNewsSignals(params?: { minConfidence?: number }): Promise<PaginatedResponse<NewsSignal>> {
     return this.request('GET', '/api/v1/news/signals', { query: params as Record<string, unknown> });
   }
 
@@ -547,7 +548,7 @@ export class PolyforgeClient {
   /**
    * List configured alerts.
    */
-  async listAlerts(): Promise<Alert[]> {
+  async listAlerts(): Promise<PaginatedResponse<Alert>> {
     return this.request('GET', '/api/v1/alerts');
   }
 
@@ -564,14 +565,14 @@ export class PolyforgeClient {
   /**
    * List copy-trading configurations.
    */
-  async listCopyConfigs(): Promise<CopyConfig[]> {
+  async listCopyConfigs(): Promise<PaginatedResponse<CopyConfig>> {
     return this.request('GET', '/api/v1/copy');
   }
 
   /**
    * List registered webhooks.
    */
-  async listWebhooks(): Promise<Webhook[]> {
+  async listWebhooks(): Promise<PaginatedResponse<Webhook>> {
     return this.request('GET', '/api/v1/webhooks');
   }
 
@@ -664,7 +665,7 @@ export class PolyforgeClient {
   /**
    * List your smart orders with child order progress.
    */
-  async listSmartOrders(): Promise<SmartOrder[]> {
+  async listSmartOrders(): Promise<PaginatedResponse<SmartOrder>> {
     return this.request('GET', '/api/v1/orders/smart');
   }
 

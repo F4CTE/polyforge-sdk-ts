@@ -36,6 +36,7 @@ export type {
   StrategyEventType,
   StrategyExport,
   StrategyStatus,
+  StrategyStatusResponse,
   StrategyTemplate,
   Token,
   TraderScore,
