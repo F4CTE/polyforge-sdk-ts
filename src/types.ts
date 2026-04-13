@@ -641,6 +641,35 @@ export interface PortfolioPnl {
   history: Array<{ date: string; pnl: number; cumulativePnl: number }>;
 }
 
+// ── Watchlist ──────────────────────────────────────────────────────────────
+
+export interface WatchlistItem {
+  marketId: string;
+  slug: string;
+  title: string;
+  currentPrice: number;
+  volume24h: number;
+  priceDelta24h: number;
+  watched: true;
+}
+
+export interface WatchlistStatus {
+  marketId: string;
+  watched: boolean;
+}
+
+export interface WatchlistAddResult {
+  marketId: string;
+  addedAt: string;
+}
+
+// ── Webhook Test ──────────────────────────────────────────────────────────────
+
+export interface WebhookTestResult {
+  success: boolean;
+  statusCode: number;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {

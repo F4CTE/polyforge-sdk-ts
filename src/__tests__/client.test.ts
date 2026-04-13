@@ -1407,3 +1407,123 @@ describe('getConditionalOrder and cancelConditionalOrder (#65)', () => {
     expect(url.pathname).toContain('co%2Fspecial%26id');
   });
 });
+
+describe('Watchlist CRUD (issue #56)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('getWatchlist sends GET to /api/v1/watchlist', async () => {
+    await client.getWatchlist();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/watchlist');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('addToWatchlist sends POST with { marketId }', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ marketId: 'mkt-1', addedAt: '2026-01-01T00:00:00Z' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.addToWatchlist('mkt-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/watchlist');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ marketId: 'mkt-1' });
+  });
+
+  it('removeFromWatchlist sends DELETE to /api/v1/watchlist/:marketId', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.removeFromWatchlist('mkt-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/watchlist/mkt-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('DELETE');
+  });
+
+  it('removeFromWatchlist encodes special characters in marketId', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.removeFromWatchlist('mkt/special&id');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toContain('mkt%2Fspecial%26id');
+  });
+
+  it('getWatchlistStatus sends GET to /api/v1/watchlist/status/:marketId', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ marketId: 'mkt-1', watched: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getWatchlistStatus('mkt-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/watchlist/status/mkt-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getWatchlistStatus encodes special characters in marketId', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ marketId: 'mkt/special', watched: false }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getWatchlistStatus('mkt/special');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toContain('mkt%2Fspecial');
+  });
+});
+
+describe('Webhook mutations (issue #57)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('deleteWebhook sends DELETE to /api/v1/webhooks/:id', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.deleteWebhook('wh-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/webhooks/wh-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('DELETE');
+  });
+
+  it('deleteWebhook encodes special characters in ID', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.deleteWebhook('wh/special&id');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toContain('wh%2Fspecial%26id');
+  });
+
+  it('testWebhook sends POST to /api/v1/webhooks/:id/test', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, statusCode: 200 }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.testWebhook('wh-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/webhooks/wh-1/test');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect(result).toEqual({ success: true, statusCode: 200 });
+  });
+
+  it('testWebhook encodes special characters in ID', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: false, statusCode: 500 }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.testWebhook('wh/special&id');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toContain('wh%2Fspecial%26id');
+  });
+});

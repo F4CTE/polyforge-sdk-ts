@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.14.0] — 2026-04-13
+
+### Added
+- `getWatchlist()`: list all markets on the user's watchlist (closes #56)
+- `addToWatchlist(marketId)`: add a market to the watchlist (closes #56)
+- `removeFromWatchlist(marketId)`: remove a market from the watchlist (closes #56)
+- `getWatchlistStatus(marketId)`: check if a market is on the watchlist (closes #56)
+- `deleteWebhook(id)`: delete a webhook by ID (closes #57)
+- `testWebhook(id)`: send a test delivery to a webhook (closes #57)
+- Types: `WatchlistItem`, `WatchlistStatus`, `WatchlistAddResult`, `WebhookTestResult`
+
 ## [1.13.0] — 2026-04-13
 
 ### Added

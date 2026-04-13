@@ -50,7 +50,11 @@ export type {
   Token,
   TraderScore,
   UpdateStrategyParams,
+  WatchlistAddResult,
+  WatchlistItem,
+  WatchlistStatus,
   Webhook,
   WebhookEvent,
+  WebhookTestResult,
   WhaleTrade,
 } from './types.js';
