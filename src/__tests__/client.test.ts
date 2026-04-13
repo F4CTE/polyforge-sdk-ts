@@ -220,6 +220,58 @@ describe('PolyforgeError', () => {
     });
   });
 
+  describe('suggestion field (#89)', () => {
+    it('should capture suggestion from constructor params', () => {
+      const error = new PolyforgeError({
+        status: 400,
+        code: 'INVALID_STRATEGY',
+        message: 'Strategy has no blocks',
+        suggestion: 'Add at least one condition block before starting the strategy.',
+      });
+
+      expect(error.suggestion).toBe('Add at least one condition block before starting the strategy.');
+    });
+
+    it('should be undefined when not provided', () => {
+      const error = new PolyforgeError({
+        status: 400,
+        code: 'BAD_REQUEST',
+        message: 'Bad request',
+      });
+
+      expect(error.suggestion).toBeUndefined();
+    });
+
+    it('should be extracted from API error response body', async () => {
+      const client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            code: 'STRATEGY_LIMIT_REACHED',
+            message: 'You have reached the maximum number of strategies',
+            suggestion: 'Upgrade to Pro for up to 10 strategies.',
+            requestId: 'req-456',
+          }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+
+      try {
+        await client.listMarkets();
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(PolyforgeError);
+        const pErr = err as PolyforgeError;
+        expect(pErr.status).toBe(403);
+        expect(pErr.code).toBe('STRATEGY_LIMIT_REACHED');
+        expect(pErr.suggestion).toBe('Upgrade to Pro for up to 10 strategies.');
+        expect(pErr.requestId).toBe('req-456');
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
   describe('error types', () => {
     it('should handle 401 Unauthorized', () => {
       const error = new PolyforgeError({

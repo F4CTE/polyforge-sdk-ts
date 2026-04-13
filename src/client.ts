@@ -312,7 +312,7 @@ export class PolyforgeClient {
     });
 
     if (!response.ok) {
-      let errorBody: { code?: string; message?: string; requestId?: string } = {};
+      let errorBody: { code?: string; message?: string; requestId?: string; suggestion?: string } = {};
       try {
         errorBody = (await response.json()) as typeof errorBody;
       } catch {
@@ -324,6 +324,7 @@ export class PolyforgeClient {
         code: errorBody.code ?? 'UNKNOWN_ERROR',
         message: errorBody.message ?? `Request failed with status ${response.status}`,
         requestId: errorBody.requestId ?? response.headers.get('x-request-id') ?? undefined,
+        suggestion: errorBody.suggestion,
       });
     }
 
