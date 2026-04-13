@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.0] — 2026-04-13
+
+### Fixed
+- **BREAKING** `ProvideLiquidityParams`: replace `{ tokenId, spread, size }` with `{ marketId, size }` to match platform `ProvideLiquidityDto` (closes #25)
+- **BREAKING** `RedeemPositionParams`: replace `{ tokenId, conditionId }` with `{ positionId?, marketId? }` to match platform `RedeemDto` (closes #26)
+- **BREAKING** `ImportStrategyParams`: replace `{ data: StrategyExport }` with `{ polyforge, exportedAt?, strategy }` to match platform import DTO; body is now sent directly without wrapping (closes #27)
+- **BREAKING** `ClosePositionParams.size`: change from `number` to `string` (NumberString) to match platform (closes #28)
+- **BREAKING** `OrderStatus`: replace 5-value enum (`OPEN | FILLED | PARTIALLY_FILLED | CANCELLED | FAILED`) with platform's 12-value enum (`PENDING | SUBMITTED | LIVE | MATCHED | DELAYED | MINED | CONFIRMED | PARTIAL | CANCELLED | UNMATCHED | FAILED | ERROR`) (closes #29)
+- **BREAKING** `StrategyStatus`: add `ERROR` and `ARCHIVED` to match platform's 6-value enum (closes #30)
+- **BREAKING** `Order`: monetary fields `price`, `size`, `fillSize`, `fillPrice`, `fee` changed from `number` to `string` for decimal precision; renamed `filledSize` → `fillSize`, `filledPrice` → `fillPrice`, added `fee` field (closes #33)
+- **BREAKING** `Position`: monetary fields `size`, `avgPrice`, `currentPrice`, `unrealizedPnl`, `realizedPnl` changed from `number` to `string`; renamed `entryPrice` → `avgPrice` (closes #33)
+
+### Added
+- `ImportStrategyPayload` interface for the strategy object inside import params
+
 ## [1.7.1] — 2026-04-13
 
 ### Fixed
