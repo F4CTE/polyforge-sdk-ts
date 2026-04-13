@@ -791,7 +791,14 @@ export class PolyforgeClient {
       });
     }
 
-    const reader = response.body!.getReader();
+    if (!response.body) {
+      throw new PolyforgeError({
+        status: response.status,
+        code: 'STREAM_ERROR',
+        message: 'SSE response body is null — the server returned no readable stream',
+      });
+    }
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
 

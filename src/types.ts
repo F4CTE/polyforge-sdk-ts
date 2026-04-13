@@ -13,7 +13,7 @@ export type WebhookEvent =
   | 'PRICE_ALERT';
 
 export type OrderSide = 'BUY' | 'SELL';
-export type OrderType = 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
+export type OrderType = 'GTC' | 'GTD' | 'FOK' | 'FAK';
 export type OrderStatus = 'PENDING' | 'SUBMITTED' | 'LIVE' | 'MATCHED' | 'DELAYED' | 'MINED' | 'CONFIRMED' | 'PARTIAL' | 'CANCELLED' | 'UNMATCHED' | 'FAILED' | 'ERROR';
 
 // ── Pagination ──────────────────────────────────────────────────────────────
@@ -30,19 +30,19 @@ export interface PaginatedResponse<T> {
 // ── Markets ─────────────────────────────────────────────────────────────────
 
 export interface Token {
-  symbol: string;
-  name: string;
-  address: string;
-  decimals: number;
-  logoUrl?: string;
+  id: string;
+  outcome?: string;
+  price?: number;
 }
 
 export interface Market {
   id: string;
-  name: string;
-  baseToken: Token;
-  quoteToken: Token;
+  title: string;
+  description?: string;
   category: string;
+  endDate?: string | null;
+  resolved?: boolean;
+  tokens: Token[];
   price: number;
   volume24h: number;
   change24h: number;
@@ -499,9 +499,12 @@ export interface Backtest {
 }
 
 export interface RunBacktestParams {
-  strategyId: string;
-  dateRangeStart: string;
-  dateRangeEnd: string;
+  strategyId?: string;
+  dateRangeStart?: string;
+  dateRangeEnd?: string;
+  quickMode?: boolean;
+  strategyBlocks?: Record<string, unknown>;
+  marketBindings?: Record<string, string>;
 }
 
 // ── Alerts (create/delete) ──────────────────────────────────────────────────

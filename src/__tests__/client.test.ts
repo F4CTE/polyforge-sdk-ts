@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -670,7 +670,7 @@ describe('Order/Position monetary fields are string (#33)', () => {
       marketId: 'mkt-1',
       marketName: 'Test Market',
       side: 'BUY',
-      type: 'LIMIT',
+      type: 'GTC',
       status: 'LIVE',
       price: '0.65',
       size: '100',
@@ -898,5 +898,132 @@ describe('CopyConfig matches platform fields (#50)', () => {
     expect(config.maxExposure).toBeUndefined();
     expect(config.maxDailyLoss).toBeUndefined();
     expect(config.priceOffset).toBeUndefined();
+  });
+});
+
+// --- Breaking compat fixes (#16, #17, #36, #14) ---
+
+describe('SSE response.body null guard (#16)', () => {
+  it('should throw PolyforgeError when response.body is null', async () => {
+    const client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      { ok: true, status: 200, body: null } as any,
+    );
+
+    const gen = client.watchStrategy('strat-1');
+    try {
+      await gen.next();
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(PolyforgeError);
+      const pErr = err as PolyforgeError;
+      expect(pErr.code).toBe('STREAM_ERROR');
+      expect(pErr.message).toContain('null');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
+describe('Market type uses title and tokens[] (#17)', () => {
+  it('should have title field, not name', () => {
+    const market: Market = {
+      id: 'mkt-1',
+      title: 'Will BTC hit $100k?',
+      category: 'crypto',
+      tokens: [
+        { id: 'tok-yes', outcome: 'YES', price: 0.65 },
+        { id: 'tok-no', outcome: 'NO', price: 0.35 },
+      ],
+      price: 0.65,
+      volume24h: 50000,
+      change24h: 2.5,
+      liquidity: 100000,
+      createdAt: '2026-04-13T00:00:00Z',
+    };
+    expect(market.title).toBe('Will BTC hit $100k?');
+    expect((market as any).name).toBeUndefined();
+    expect(market.tokens).toHaveLength(2);
+    expect(market.tokens[0].id).toBe('tok-yes');
+    expect(market.tokens[0].outcome).toBe('YES');
+    expect((market as any).baseToken).toBeUndefined();
+    expect((market as any).quoteToken).toBeUndefined();
+  });
+
+  it('Token should have id, outcome, price fields', () => {
+    const token: Token = { id: 'tok-1', outcome: 'YES', price: 0.72 };
+    expect(token.id).toBe('tok-1');
+    expect(token.outcome).toBe('YES');
+    expect(token.price).toBe(0.72);
+    expect((token as any).symbol).toBeUndefined();
+    expect((token as any).address).toBeUndefined();
+    expect((token as any).decimals).toBeUndefined();
+  });
+
+  it('Market should support optional description, endDate, resolved', () => {
+    const market: Market = {
+      id: 'mkt-2',
+      title: 'Resolved market',
+      description: 'A test market',
+      category: 'politics',
+      endDate: '2026-12-31T00:00:00Z',
+      resolved: true,
+      tokens: [],
+      price: 1.0,
+      volume24h: 0,
+      change24h: 0,
+      liquidity: 0,
+      createdAt: '',
+    };
+    expect(market.description).toBe('A test market');
+    expect(market.endDate).toBe('2026-12-31T00:00:00Z');
+    expect(market.resolved).toBe(true);
+  });
+});
+
+describe('OrderType uses platform values GTC/GTD/FOK/FAK (#36)', () => {
+  it('should accept all 4 platform order types', () => {
+    const types: OrderType[] = ['GTC', 'GTD', 'FOK', 'FAK'];
+    expect(types).toHaveLength(4);
+  });
+
+  it('should not accept exchange-style order types', () => {
+    // Type-level check: these old values should NOT compile.
+    // Runtime check ensures the type is correctly constrained.
+    const validTypes = new Set<OrderType>(['GTC', 'GTD', 'FOK', 'FAK']);
+    expect(validTypes.has('GTC')).toBe(true);
+    expect(validTypes.has('FAK')).toBe(true);
+    // Old values are no longer valid
+    expect(validTypes.has('MARKET' as any)).toBe(false);
+    expect(validTypes.has('LIMIT' as any)).toBe(false);
+    expect(validTypes.has('STOP' as any)).toBe(false);
+    expect(validTypes.has('STOP_LIMIT' as any)).toBe(false);
+  });
+});
+
+describe('RunBacktestParams has all platform fields (#14)', () => {
+  it('should allow all fields to be optional', () => {
+    const params: RunBacktestParams = {};
+    expect(params.strategyId).toBeUndefined();
+    expect(params.dateRangeStart).toBeUndefined();
+    expect(params.dateRangeEnd).toBeUndefined();
+  });
+
+  it('should accept quickMode, strategyBlocks, marketBindings', () => {
+    const params: RunBacktestParams = {
+      strategyId: 'strat-1',
+      dateRangeStart: '2026-01-01',
+      dateRangeEnd: '2026-03-31',
+      quickMode: true,
+      strategyBlocks: { condition: { type: 'price_above' } },
+      marketBindings: { 'mkt-slot-1': 'mkt-real-1' },
+    };
+    expect(params.quickMode).toBe(true);
+    expect(params.strategyBlocks).toBeDefined();
+    expect(params.marketBindings).toBeDefined();
+    // Old fields should not exist
+    expect((params as any).startDate).toBeUndefined();
+    expect((params as any).endDate).toBeUndefined();
+    expect((params as any).initialBalance).toBeUndefined();
   });
 });
