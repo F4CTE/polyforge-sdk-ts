@@ -45,6 +45,8 @@ import type {
   WhaleTrade,
   Backtest,
   ConditionalOrder,
+  ConditionalOrderStatus,
+  ConditionalOrderType,
   CreateAlertParams,
   CreateConditionalOrderParams,
   PortfolioPnl,
@@ -345,6 +347,8 @@ export class PolyforgeClient {
   async listMarkets(params?: {
     search?: string;
     category?: string;
+    sort?: 'volume' | 'endDate' | 'firstSeenAt' | 'newest' | 'closing_soon' | 'liquidity';
+    closed?: boolean;
     limit?: number;
     page?: number;
   }): Promise<PaginatedResponse<Market>> {
@@ -363,7 +367,12 @@ export class PolyforgeClient {
   /**
    * List strategies owned by the authenticated user.
    */
-  async listStrategies(params?: { status?: StrategyStatus }): Promise<PaginatedResponse<Strategy>> {
+  async listStrategies(params?: {
+    status?: StrategyStatus;
+    sort?: 'newest' | 'oldest' | 'name' | 'pnl';
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<Strategy>> {
     return this.request('GET', '/api/v1/strategies', { query: params as Record<string, unknown> });
   }
 
@@ -484,8 +493,10 @@ export class PolyforgeClient {
    */
   async getOrders(params?: {
     limit?: number;
+    page?: number;
     status?: string;
     strategyId?: string;
+    marketId?: string;
     from?: string;
     to?: string;
   }): Promise<PaginatedResponse<Order>> {
@@ -504,9 +515,14 @@ export class PolyforgeClient {
 
   // -- Backtests --
 
-  /** List backtests. */
-  async listBacktests(): Promise<PaginatedResponse<Backtest>> {
-    return this.request('GET', '/api/v1/backtests');
+  /** List backtests with optional filtering and pagination. */
+  async listBacktests(params?: {
+    strategyId?: string;
+    status?: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<Backtest>> {
+    return this.request('GET', '/api/v1/backtests', { query: params as Record<string, unknown> });
   }
 
   /** Get a single backtest by ID. */
@@ -521,9 +537,14 @@ export class PolyforgeClient {
 
   // -- Conditional Orders --
 
-  /** List conditional orders. */
-  async listConditionalOrders(): Promise<PaginatedResponse<ConditionalOrder>> {
-    return this.request('GET', '/api/v1/orders/conditional');
+  /** List conditional orders with optional filtering and pagination. */
+  async listConditionalOrders(params?: {
+    status?: ConditionalOrderStatus;
+    type?: ConditionalOrderType;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<ConditionalOrder>> {
+    return this.request('GET', '/api/v1/orders/conditional', { query: params as Record<string, unknown> });
   }
 
   /** Create a conditional order. */

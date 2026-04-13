@@ -1286,3 +1286,72 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
     expect((pos as any).marketName).toBeUndefined();
   });
 });
+
+// --- Missing query parameters (#72, #73, #74, #75, #79) ---
+
+describe('Missing query parameters on list methods', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response(JSON.stringify({ data: [], total: 0, page: 1, limit: 10, totalPages: 0, hasNext: false }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('listMarkets sends sort and closed params (#74)', async () => {
+    await client.listMarkets({ sort: 'volume', closed: true, limit: 5 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('sort')).toBe('volume');
+    expect(url.searchParams.get('closed')).toBe('true');
+    expect(url.searchParams.get('limit')).toBe('5');
+  });
+
+  it('listStrategies sends sort, page, and limit params (#79)', async () => {
+    await client.listStrategies({ status: 'RUNNING', sort: 'pnl', page: 2, limit: 20 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('status')).toBe('RUNNING');
+    expect(url.searchParams.get('sort')).toBe('pnl');
+    expect(url.searchParams.get('page')).toBe('2');
+    expect(url.searchParams.get('limit')).toBe('20');
+  });
+
+  it('getOrders sends marketId and page params (#75)', async () => {
+    await client.getOrders({ marketId: 'mkt-1', page: 3, limit: 50 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('marketId')).toBe('mkt-1');
+    expect(url.searchParams.get('page')).toBe('3');
+  });
+
+  it('listBacktests sends strategyId, status, page, limit params (#72)', async () => {
+    await client.listBacktests({ strategyId: 's-1', status: 'COMPLETED', page: 1, limit: 10 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('strategyId')).toBe('s-1');
+    expect(url.searchParams.get('status')).toBe('COMPLETED');
+    expect(url.searchParams.get('page')).toBe('1');
+    expect(url.searchParams.get('limit')).toBe('10');
+  });
+
+  it('listConditionalOrders sends status, type, page, limit params (#73)', async () => {
+    await client.listConditionalOrders({ status: 'PENDING', type: 'STOP_LOSS', page: 1, limit: 25 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('status')).toBe('PENDING');
+    expect(url.searchParams.get('type')).toBe('STOP_LOSS');
+    expect(url.searchParams.get('page')).toBe('1');
+    expect(url.searchParams.get('limit')).toBe('25');
+  });
+
+  it('all list methods still work with no params', async () => {
+    await client.listMarkets();
+    await client.listStrategies();
+    await client.getOrders();
+    await client.listBacktests();
+    await client.listConditionalOrders();
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
+  });
+});

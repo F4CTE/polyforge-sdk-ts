@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.12.0] — 2026-04-13
+
+### Added
+- `listMarkets()`: add `sort` and `closed` query parameters matching platform `MarketQueryDto` (closes #74)
+- `listStrategies()`: add `sort`, `page`, and `limit` query parameters matching platform `StrategyQueryDto` (closes #79)
+- `getOrders()`: add `marketId` and `page` query parameters matching platform `OrderQueryDto` (closes #75)
+- `listBacktests()`: add `strategyId`, `status`, `page`, `limit` query parameters matching platform `BacktestQueryDto` (closes #72)
+- `listConditionalOrders()`: add `status`, `type`, `page`, `limit` query parameters matching platform `ConditionalOrderQueryDto` (closes #73)
+
 ## [1.11.0] — 2026-04-13
 
 ### Fixed
