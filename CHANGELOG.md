@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.11.0] — 2026-04-13
+
+### Fixed
+- **BREAKING** `TraderScore`: replace `overall` with `score`, remove `profitability`/`riskManagement`/`volume`/`percentile`, add `totalTrades`/`winRate`/`sharpeRatio`/`profitFactor`/`maxDrawdown` to match platform scoring entity (closes #18)
+- **BREAKING** `WhaleTrade`: rename `wallet` → `walletAddress`, `usdValue` → `notional`, remove `marketName` (not returned), add `tokenId`/`outcome`/`price` (closes #18)
+- **BREAKING** `NewsSignal`: replace `sentiment` (BULLISH/BEARISH/NEUTRAL) with `direction` (BUY/SELL), replace `relatedMarkets: string[]` with `marketId: string`, rename `publishedAt` → `createdAt`, add optional `outcome`/`articleId` (closes #18)
+- **BREAKING** `AiQueryResponse`: replace `{ answer, confidence, sources, suggestedActions }` with `{ query, intent, filters, data, summary }` to match platform AI query response shape (closes #18)
+- **BREAKING** `Order`: rename `type` → `orderType`, remove `marketName` (not returned), add `tokenId`/`outcome`/`intentId` (closes #18)
+- **BREAKING** `Position`: remove `marketName` (not returned), add `tokenId`/`outcome` (closes #18)
+- **BREAKING** `SplitPositionParams`: replace `{ tokenId, size, price }` with `{ tokenId, amount }` (string decimal) to match platform `SplitPositionDto` (closes #24)
+- **BREAKING** `MergePositionParams`: replace `{ tokenIds: string[] }` with `{ tokenId, amount }` (string decimal) to match platform `MergePositionDto` (closes #24)
+- **BREAKING** `Strategy`: replace flat `blocks: StrategyBlock[]` with categorized `triggers`/`conditions`/`actions`/`safety`/`logicBlocks`/`calcBlocks` arrays; add `visibility`/`execMode`/`tickMs`/`tags`/`variables`/`canvas` fields (closes #31)
+- **BREAKING** `createStrategy()`: expand params from `{ name, description?, marketId? }` to full `CreateStrategyParams` with all 15+ fields matching platform `CreateStrategyDto` (closes #32)
+- `UpdateStrategyParams`: expand to include categorized block arrays, visibility, execMode, tickMs, tags, variables, canvas, marketSlots
+- `ImportStrategyPayload`: replace flat `blocks` with categorized block arrays
+
+### Added
+- `CreateStrategyParams` type for full strategy creation matching platform DTO
+- `StrategyVisibility` type: `'PRIVATE' | 'PUBLIC' | 'UNLISTED'`
+- `StrategyExecMode` type: `'TICK' | 'EVENT' | 'HYBRID'`
+- `StrategyVariable` interface for strategy variable definitions
+- `MarketSlot` interface for market slot bindings
+
 ## [1.10.0] — 2026-04-13
 
 ### Security

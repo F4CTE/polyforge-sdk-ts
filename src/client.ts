@@ -10,6 +10,7 @@ import type {
   CancelOrderResponse,
   ClosePositionParams,
   CopyConfig,
+  CreateStrategyParams,
   ImportStrategyParams,
   LpPosition,
   Market,
@@ -374,9 +375,9 @@ export class PolyforgeClient {
   }
 
   /**
-   * Create a new strategy.
+   * Create a new strategy with optional block configuration, execution settings, and visibility.
    */
-  async createStrategy(params: { name: string; description?: string; marketId?: string }): Promise<Strategy> {
+  async createStrategy(params: CreateStrategyParams): Promise<Strategy> {
     return this.request('POST', '/api/v1/strategies', { body: params });
   }
 
