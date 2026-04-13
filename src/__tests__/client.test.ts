@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -710,5 +710,193 @@ describe('Order/Position monetary fields are string (#33)', () => {
     expect(typeof position.realizedPnl).toBe('string');
     // Ensure old field name does not exist
     expect((position as any).entryPrice).toBeUndefined();
+  });
+});
+
+// --- Breaking compat fixes (#37, #48, #49, #50) ---
+
+describe('ConditionalOrderStatus includes FAILED (#37)', () => {
+  it('should accept all 5 platform conditional order statuses', () => {
+    const statuses: ConditionalOrderStatus[] = [
+      'PENDING', 'TRIGGERED', 'CANCELLED', 'EXPIRED', 'FAILED',
+    ];
+    expect(statuses).toHaveLength(5);
+  });
+
+  it('should allow filtering orders by FAILED status', () => {
+    const orders: ConditionalOrder[] = [
+      { id: 'co-1', marketId: 'mkt-1', tokenId: 'tok-1', type: 'STOP_LOSS', side: 'BUY', outcome: 'YES', size: 100, triggerPrice: 0.5, status: 'FAILED', createdAt: '', triggeredAt: null },
+    ];
+    const failed = orders.filter(o => o.status === 'FAILED');
+    expect(failed).toHaveLength(1);
+  });
+});
+
+describe('CreateAlertParams matches platform DTO (#48)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('sends { tokenId, direction, price } not { name, condition, marketId }', async () => {
+    const params: CreateAlertParams = { tokenId: 'tok-1', direction: 'above', price: '0.75' };
+    await client.createAlert(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ tokenId: 'tok-1', direction: 'above', price: '0.75' });
+    expect(body).not.toHaveProperty('name');
+    expect(body).not.toHaveProperty('condition');
+    expect(body).not.toHaveProperty('marketId');
+  });
+
+  it('sends persistent field when provided', async () => {
+    const params: CreateAlertParams = { tokenId: 'tok-1', direction: 'below', price: '0.25', persistent: true };
+    await client.createAlert(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('persistent', true);
+  });
+
+  it('Alert response type has correct platform fields', () => {
+    const alert: Alert = {
+      id: 'a-1',
+      tokenId: 'tok-1',
+      direction: 'above',
+      price: '0.75',
+      persistent: false,
+      enabled: true,
+      createdAt: '2026-04-13T00:00:00Z',
+    };
+    expect(alert.tokenId).toBe('tok-1');
+    expect(alert.direction).toBe('above');
+    expect(alert.price).toBe('0.75');
+    expect((alert as any).name).toBeUndefined();
+    expect((alert as any).condition).toBeUndefined();
+  });
+});
+
+describe('CreateConditionalOrderParams matches platform DTO (#49)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('sends all required fields including tokenId, type, outcome', async () => {
+    const params: CreateConditionalOrderParams = {
+      marketId: 'mkt-1',
+      tokenId: 'tok-1',
+      type: 'STOP_LOSS',
+      side: 'SELL',
+      outcome: 'YES',
+      size: 50,
+      triggerPrice: 0.3,
+    };
+    await client.createConditionalOrder(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('tokenId', 'tok-1');
+    expect(body).toHaveProperty('type', 'STOP_LOSS');
+    expect(body).toHaveProperty('outcome', 'YES');
+    expect(body).toHaveProperty('marketId', 'mkt-1');
+    expect(body).toHaveProperty('side', 'SELL');
+    expect(body).toHaveProperty('size', 50);
+    expect(body).toHaveProperty('triggerPrice', 0.3);
+  });
+
+  it('sends optional fields limitPrice, trailingPct, expiresAt as strings', async () => {
+    const params: CreateConditionalOrderParams = {
+      marketId: 'mkt-1',
+      tokenId: 'tok-1',
+      type: 'TRAILING_STOP',
+      side: 'SELL',
+      outcome: 'NO',
+      size: 25,
+      triggerPrice: 0.6,
+      limitPrice: '0.55',
+      trailingPct: '5.0',
+      expiresAt: '2026-05-01T00:00:00Z',
+    };
+    await client.createConditionalOrder(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('limitPrice', '0.55');
+    expect(body).toHaveProperty('trailingPct', '5.0');
+    expect(body).toHaveProperty('expiresAt', '2026-05-01T00:00:00Z');
+  });
+
+  it('ConditionalOrderType accepts all 5 platform values', () => {
+    const types: ConditionalOrderType[] = [
+      'TAKE_PROFIT', 'STOP_LOSS', 'TRAILING_STOP', 'LIMIT', 'PEGGED',
+    ];
+    expect(types).toHaveLength(5);
+  });
+});
+
+describe('CopyConfig matches platform fields (#50)', () => {
+  it('uses targetWallet not sourceWallet', () => {
+    const config: CopyConfig = {
+      id: 'cc-1',
+      targetWallet: '0xabc123',
+      mode: 'PERCENTAGE',
+      sizeValue: '50',
+      maxExposure: '1000',
+      maxDailyLoss: '100',
+      priceOffset: '0.01',
+      enabled: true,
+      createdAt: '2026-04-13T00:00:00Z',
+    };
+    expect(config.targetWallet).toBe('0xabc123');
+    expect((config as any).sourceWallet).toBeUndefined();
+    expect((config as any).label).toBeUndefined();
+    expect((config as any).maxPositionSize).toBeUndefined();
+    expect((config as any).totalCopiedTrades).toBeUndefined();
+  });
+
+  it('has mode, sizeValue, maxExposure, maxDailyLoss, priceOffset fields', () => {
+    const config: CopyConfig = {
+      id: 'cc-2',
+      targetWallet: '0xdef456',
+      mode: 'FIXED',
+      sizeValue: '100',
+      maxExposure: '5000',
+      enabled: false,
+      createdAt: '',
+    };
+    expect(config.mode).toBe('FIXED');
+    expect(config.sizeValue).toBe('100');
+    expect(config.maxExposure).toBe('5000');
+  });
+
+  it('CopyMode accepts all 3 platform values', () => {
+    const modes: CopyMode[] = ['PERCENTAGE', 'FIXED', 'MIRROR'];
+    expect(modes).toHaveLength(3);
+  });
+
+  it('allows optional fields to be omitted', () => {
+    const config: CopyConfig = {
+      id: 'cc-3',
+      targetWallet: '0x789',
+      enabled: true,
+      createdAt: '',
+    };
+    expect(config.mode).toBeUndefined();
+    expect(config.sizeValue).toBeUndefined();
+    expect(config.maxExposure).toBeUndefined();
+    expect(config.maxDailyLoss).toBeUndefined();
+    expect(config.priceOffset).toBeUndefined();
   });
 });
