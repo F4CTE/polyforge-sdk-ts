@@ -386,7 +386,7 @@ export class PolyforgeClient {
     marketId?: string;
   }): Promise<Strategy> {
     return this.request('POST', '/api/v1/strategies/from-description', {
-      body: { query: params.description, ...(params.marketId !== undefined && { marketId: params.marketId }) },
+      body: { description: params.description, ...(params.marketId !== undefined && { marketId: params.marketId }) },
     });
   }
 
@@ -395,7 +395,7 @@ export class PolyforgeClient {
    */
   async startStrategy(id: string, mode: 'live' | 'paper' = 'paper'): Promise<Strategy> {
     return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/start`, {
-      body: { mode: mode.toUpperCase() },
+      body: { mode },
     });
   }
 
@@ -591,7 +591,7 @@ export class PolyforgeClient {
    * Ask the Polyforge AI assistant a natural-language question.
    */
   async aiQuery(query: string): Promise<AiQueryResponse> {
-    return this.request('POST', '/api/v1/ai/query', { body: { question: query } });
+    return this.request('POST', '/api/v1/ai/query', { body: { query } });
   }
 
   // ── Direct Trading ────────────────────────────────────────────────────────

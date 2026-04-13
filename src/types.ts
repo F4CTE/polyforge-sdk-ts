@@ -3,14 +3,14 @@
 export type StrategyStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'PAPER';
 
 export type WebhookEvent =
-  | 'order.filled'
-  | 'strategy.error'
-  | 'whale.trade'
-  | 'news.signal'
-  | 'backtest.complete'
-  | 'daily.loss.limit'
-  | 'market.resolved'
-  | 'price.alert';
+  | 'ORDER_FILLED'
+  | 'STRATEGY_ERROR'
+  | 'WHALE_TRADE'
+  | 'NEWS_SIGNAL'
+  | 'BACKTEST_COMPLETE'
+  | 'DAILY_LOSS_LIMIT'
+  | 'MARKET_RESOLVED'
+  | 'PRICE_ALERT';
 
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
