@@ -1,6 +1,6 @@
 // ── Enums & Unions ──────────────────────────────────────────────────────────
 
-export type StrategyStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'PAPER';
+export type StrategyStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'ERROR' | 'PAPER' | 'ARCHIVED';
 
 export type WebhookEvent =
   | 'ORDER_FILLED'
@@ -14,7 +14,7 @@ export type WebhookEvent =
 
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
-export type OrderStatus = 'OPEN' | 'FILLED' | 'PARTIALLY_FILLED' | 'CANCELLED' | 'FAILED';
+export type OrderStatus = 'PENDING' | 'SUBMITTED' | 'LIVE' | 'MATCHED' | 'DELAYED' | 'MINED' | 'CONFIRMED' | 'PARTIAL' | 'CANCELLED' | 'UNMATCHED' | 'FAILED' | 'ERROR';
 
 // ── Pagination ──────────────────────────────────────────────────────────────
 
@@ -104,11 +104,11 @@ export interface Position {
   marketId: string;
   marketName: string;
   side: OrderSide;
-  size: number;
-  entryPrice: number;
-  currentPrice: number;
-  unrealizedPnl: number;
-  realizedPnl: number;
+  size: string;
+  avgPrice: string;
+  currentPrice: string;
+  unrealizedPnl: string;
+  realizedPnl: string;
   openedAt: string;
 }
 
@@ -129,10 +129,11 @@ export interface Order {
   side: OrderSide;
   type: OrderType;
   status: OrderStatus;
-  price: number;
-  size: number;
-  filledSize: number;
-  filledPrice?: number;
+  price: string;
+  size: string;
+  fillSize: string;
+  fillPrice?: string;
+  fee?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -223,8 +224,17 @@ export interface UpdateStrategyParams {
   marketId?: string;
 }
 
+export interface ImportStrategyPayload {
+  name: string;
+  description?: string;
+  blocks: StrategyBlock[];
+  marketId?: string;
+}
+
 export interface ImportStrategyParams {
-  data: StrategyExport;
+  polyforge: string;
+  exportedAt?: string;
+  strategy: ImportStrategyPayload;
 }
 
 // ── Direct Trading ──────────────────────────────────────────────────────────
@@ -251,12 +261,12 @@ export interface CancelOrderResponse {
 
 export interface ClosePositionParams {
   tokenId: string;
-  size?: number;
+  size?: string;
 }
 
 export interface RedeemPositionParams {
-  tokenId: string;
-  conditionId?: string;
+  positionId?: string;
+  marketId?: string;
 }
 
 export interface SplitPositionParams {
@@ -451,8 +461,7 @@ export interface MarketSentiment {
 }
 
 export interface ProvideLiquidityParams {
-  tokenId: string;
-  spread: number;
+  marketId: string;
   size: number;
 }
 

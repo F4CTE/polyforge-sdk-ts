@@ -731,7 +731,6 @@ export class PolyforgeClient {
    * Provide liquidity by placing two-sided quotes on a market token.
    */
   async provideLiquidity(params: ProvideLiquidityParams): Promise<LpPosition> {
-    this.validateFinancialParam('spread', params.spread);
     this.validateFinancialParam('size', params.size);
     return this.request('POST', '/api/v1/lp/provide', { body: params });
   }

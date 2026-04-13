@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -531,7 +531,7 @@ describe('PaginatedResponse type (#78)', () => {
   it('should correctly type a paginated strategy response', () => {
     const resp: PaginatedResponse<Strategy> = {
       data: [
-        { id: 's1', name: 'Alpha', status: 'IDLE', blocks: [], pnl: 0, tradeCount: 0, winRate: 0, createdAt: '', updatedAt: '' },
+        { id: 's1', name: 'Alpha', status: 'IDLE' as StrategyStatus, blocks: [], pnl: 0, tradeCount: 0, winRate: 0, createdAt: '', updatedAt: '' },
       ],
       total: 1,
       page: 1,
@@ -556,5 +556,159 @@ describe('PaginatedResponse type (#78)', () => {
     };
     expect(resp.data).toHaveLength(0);
     expect(resp.total).toBe(0);
+  });
+});
+
+// --- Breaking compat fixes (#25, #26, #27, #28, #29, #30, #33) ---
+
+describe('ProvideLiquidityParams uses marketId, not tokenId/spread (#25)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('sends { marketId, size } not { tokenId, spread, size }', async () => {
+    const params: ProvideLiquidityParams = { marketId: 'mkt-1', size: 100 };
+    await client.provideLiquidity(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ marketId: 'mkt-1', size: 100 });
+    expect(body).not.toHaveProperty('tokenId');
+    expect(body).not.toHaveProperty('spread');
+  });
+});
+
+describe('RedeemPositionParams uses positionId/marketId, not tokenId/conditionId (#26)', () => {
+  it('should accept positionId and marketId fields', () => {
+    const params: RedeemPositionParams = { positionId: 'pos-1', marketId: 'mkt-1' };
+    expect(params.positionId).toBe('pos-1');
+    expect(params.marketId).toBe('mkt-1');
+    expect((params as any).tokenId).toBeUndefined();
+    expect((params as any).conditionId).toBeUndefined();
+  });
+
+  it('should allow both fields optional', () => {
+    const params: RedeemPositionParams = {};
+    expect(params.positionId).toBeUndefined();
+    expect(params.marketId).toBeUndefined();
+  });
+});
+
+describe('ImportStrategyParams matches platform DTO (#27)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('sends { polyforge, strategy } not { data: StrategyExport }', async () => {
+    const params: ImportStrategyParams = {
+      polyforge: '1.7.1',
+      exportedAt: '2026-04-13T00:00:00Z',
+      strategy: { name: 'Test', blocks: [] },
+    };
+    await client.importStrategy(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('polyforge', '1.7.1');
+    expect(body).toHaveProperty('strategy');
+    expect(body.strategy).toHaveProperty('name', 'Test');
+    expect(body).not.toHaveProperty('data');
+  });
+});
+
+describe('ClosePositionParams.size is string (#28)', () => {
+  it('should accept string size', () => {
+    const params: ClosePositionParams = { tokenId: 'tok-1', size: '50.5' };
+    expect(params.size).toBe('50.5');
+  });
+
+  it('should allow size to be omitted', () => {
+    const params: ClosePositionParams = { tokenId: 'tok-1' };
+    expect(params.size).toBeUndefined();
+  });
+});
+
+describe('OrderStatus has 12 platform values (#29)', () => {
+  it('should accept all 12 platform order statuses', () => {
+    const statuses: OrderStatus[] = [
+      'PENDING', 'SUBMITTED', 'LIVE', 'MATCHED', 'DELAYED', 'MINED',
+      'CONFIRMED', 'PARTIAL', 'CANCELLED', 'UNMATCHED', 'FAILED', 'ERROR',
+    ];
+    expect(statuses).toHaveLength(12);
+  });
+});
+
+describe('StrategyStatus includes ERROR and ARCHIVED (#30)', () => {
+  it('should accept all 6 platform strategy statuses', () => {
+    const statuses: StrategyStatus[] = [
+      'IDLE', 'RUNNING', 'PAUSED', 'ERROR', 'PAPER', 'ARCHIVED',
+    ];
+    expect(statuses).toHaveLength(6);
+  });
+});
+
+describe('Order/Position monetary fields are string (#33)', () => {
+  it('Order fields price/size/fillSize/fillPrice/fee should be string', () => {
+    const order: Order = {
+      id: 'o-1',
+      marketId: 'mkt-1',
+      marketName: 'Test Market',
+      side: 'BUY',
+      type: 'LIMIT',
+      status: 'LIVE',
+      price: '0.65',
+      size: '100',
+      fillSize: '50',
+      fillPrice: '0.64',
+      fee: '0.01',
+      createdAt: '',
+      updatedAt: '',
+    };
+    expect(typeof order.price).toBe('string');
+    expect(typeof order.size).toBe('string');
+    expect(typeof order.fillSize).toBe('string');
+    expect(typeof order.fillPrice).toBe('string');
+    expect(typeof order.fee).toBe('string');
+    // Ensure old field names do not exist
+    expect((order as any).filledSize).toBeUndefined();
+    expect((order as any).filledPrice).toBeUndefined();
+  });
+
+  it('Position fields size/avgPrice/currentPrice/unrealizedPnl/realizedPnl should be string', () => {
+    const position: Position = {
+      id: 'p-1',
+      marketId: 'mkt-1',
+      marketName: 'Test Market',
+      side: 'BUY',
+      size: '200',
+      avgPrice: '0.55',
+      currentPrice: '0.60',
+      unrealizedPnl: '10.00',
+      realizedPnl: '5.00',
+      openedAt: '',
+    };
+    expect(typeof position.size).toBe('string');
+    expect(typeof position.avgPrice).toBe('string');
+    expect(typeof position.currentPrice).toBe('string');
+    expect(typeof position.unrealizedPnl).toBe('string');
+    expect(typeof position.realizedPnl).toBe('string');
+    // Ensure old field name does not exist
+    expect((position as any).entryPrice).toBeUndefined();
   });
 });

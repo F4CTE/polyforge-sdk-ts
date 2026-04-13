@@ -13,6 +13,7 @@ export type {
   CreateAlertParams,
   CreateConditionalOrderParams,
   ImportStrategyParams,
+  ImportStrategyPayload,
   Market,
   MergePositionParams,
   NewsSignal,
