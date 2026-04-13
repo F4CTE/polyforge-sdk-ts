@@ -9,6 +9,9 @@
 ## [Unreleased]
 
 ### Security
+- **SSRF DNS rebinding prevention**: `createWebhook()` now resolves hostnames to IP addresses via DNS (A + AAAA) before checking the SSRF blocklist — prevents attackers from pointing a domain at an internal IP to bypass hostname-only validation; literal IPs skip DNS; unresolvable domains are rejected; documents that server must validate independently (closes #45, closes #39)
+
+### Security
 - Extend HTTPS enforcement to cover all loopback representations (`[::1]`, `0.0.0.0`, `127.0.0.x`, `localhost.localdomain`) — previously only `localhost` and `127.0.0.1` were exempted, allowing credential leakage over HTTP on non-standard local addresses (closes #71)
 
 ### Security
