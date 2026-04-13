@@ -626,6 +626,11 @@ export interface CreateConditionalOrderParams {
 
 // ── Portfolio PnL ──────────────────────────────────────────────────────────
 
+export interface PortfolioPnlParams {
+  period?: '7d' | '30d' | '90d' | 'allTime';
+  strategyId?: string;
+}
+
 export interface PortfolioPnl {
   totalPnl: number;
   realizedPnl: number;

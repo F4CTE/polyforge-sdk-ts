@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.0] — 2026-04-13
+
+### Added
+- `getConditionalOrder(id)`: GET a single conditional order by ID (closes #65)
+- `cancelConditionalOrder(id)`: DELETE/cancel a conditional order by ID (closes #65)
+- `getPortfolioPnl()`: add optional `period` (`'7d' | '30d' | '90d' | 'allTime'`) and `strategyId` query parameters (closes #19)
+- `PortfolioPnlParams` type for PnL query filtering
+
 ## [1.12.0] — 2026-04-13
 
 ### Added

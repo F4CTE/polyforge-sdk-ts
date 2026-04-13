@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -1353,5 +1353,57 @@ describe('Missing query parameters on list methods', () => {
     await client.listBacktests();
     await client.listConditionalOrders();
     expect(fetchSpy).toHaveBeenCalledTimes(5);
+  });
+
+  it('getPortfolioPnl sends period and strategyId query params (#19)', async () => {
+    await client.getPortfolioPnl({ period: '30d', strategyId: 's-42' });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('period')).toBe('30d');
+    expect(url.searchParams.get('strategyId')).toBe('s-42');
+  });
+
+  it('getPortfolioPnl works with no params (#19)', async () => {
+    await client.getPortfolioPnl();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.toString()).toBe('');
+  });
+});
+
+// --- Conditional order get/cancel (#65) ---
+
+describe('getConditionalOrder and cancelConditionalOrder (#65)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response(JSON.stringify({ id: 'co-1', status: 'PENDING' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('getConditionalOrder sends GET to /api/v1/orders/conditional/:id', async () => {
+    await client.getConditionalOrder('co-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/orders/conditional/co-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('cancelConditionalOrder sends DELETE to /api/v1/orders/conditional/:id', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.cancelConditionalOrder('co-2');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/orders/conditional/co-2');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('DELETE');
+  });
+
+  it('getConditionalOrder encodes special characters in ID', async () => {
+    await client.getConditionalOrder('co/special&id');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toContain('co%2Fspecial%26id');
   });
 });

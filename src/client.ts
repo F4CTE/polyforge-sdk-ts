@@ -50,6 +50,7 @@ import type {
   CreateAlertParams,
   CreateConditionalOrderParams,
   PortfolioPnl,
+  PortfolioPnlParams,
   RunBacktestParams,
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
@@ -484,8 +485,8 @@ export class PolyforgeClient {
   }
 
   /** Get portfolio profit-and-loss breakdown with history. */
-  async getPortfolioPnl(): Promise<PortfolioPnl> {
-    return this.request('GET', '/api/v1/portfolio/pnl');
+  async getPortfolioPnl(params?: PortfolioPnlParams): Promise<PortfolioPnl> {
+    return this.request('GET', '/api/v1/portfolio/pnl', { query: params as Record<string, unknown> });
   }
 
   /**
@@ -550,6 +551,16 @@ export class PolyforgeClient {
   /** Create a conditional order. */
   async createConditionalOrder(params: CreateConditionalOrderParams): Promise<ConditionalOrder> {
     return this.request('POST', '/api/v1/orders/conditional', { body: params });
+  }
+
+  /** Get a single conditional order by ID. */
+  async getConditionalOrder(id: string): Promise<ConditionalOrder> {
+    return this.request('GET', `/api/v1/orders/conditional/${encodeURIComponent(id)}`);
+  }
+
+  /** Cancel a conditional order by ID. */
+  async cancelConditionalOrder(id: string): Promise<void> {
+    return this.request('DELETE', `/api/v1/orders/conditional/${encodeURIComponent(id)}`);
   }
 
   /**

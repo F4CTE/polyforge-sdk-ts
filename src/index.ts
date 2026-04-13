@@ -31,6 +31,7 @@ export type {
   Portfolio,
   PolyforgeClientOptions,
   PortfolioPnl,
+  PortfolioPnlParams,
   Position,
   RedeemPositionParams,
   RunBacktestParams,
