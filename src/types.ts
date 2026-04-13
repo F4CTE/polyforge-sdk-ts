@@ -338,7 +338,7 @@ export interface PlaceSmartOrderParams {
   totalSize: number;
   // TWAP / DCA
   slices?: number;
-  intervalSeconds?: number;
+  intervalMinutes?: number;
   limitPrice?: number;
   // BRACKET
   entryPrice?: number;

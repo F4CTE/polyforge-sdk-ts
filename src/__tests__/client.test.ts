@@ -138,6 +138,21 @@ describe('Platform contract compliance', () => {
     expect(body).toEqual({ mode: 'paper' });
   });
 
+  it('placeSmartOrder sends intervalMinutes not intervalSeconds (#88)', async () => {
+    await client.placeSmartOrder({
+      type: 'TWAP',
+      tokenId: 'tok-1',
+      side: 'BUY',
+      outcome: 'YES',
+      totalSize: 100,
+      slices: 5,
+      intervalMinutes: 15,
+    });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('intervalMinutes', 15);
+    expect(body).not.toHaveProperty('intervalSeconds');
+  });
+
   it('WebhookEvent values use SCREAMING_SNAKE_CASE (#86)', async () => {
     // Type-level test: these should compile without error
     const events: import('../types').WebhookEvent[] = [

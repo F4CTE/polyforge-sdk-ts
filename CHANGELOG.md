@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.9] — 2026-04-13
+
+### Fixed
+- **BREAKING** `PlaceSmartOrderParams`: rename `intervalSeconds` back to `intervalMinutes` to match platform `PlaceSmartOrderDto` — TWAP/DCA orders had `intervalSeconds` silently stripped, falling back to default interval (closes #88, regression of #62)
+
 ## [1.6.8] — 2026-04-13
 
 ### Fixed
