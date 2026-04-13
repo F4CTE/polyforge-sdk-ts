@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PriceHistoryEntry, OrderBook } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -1525,5 +1525,69 @@ describe('Webhook mutations (issue #57)', () => {
     await client.testWebhook('wh/special&id');
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toContain('wh%2Fspecial%26id');
+  });
+});
+
+describe('Price history & order book (issue #52)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('getPriceHistory sends GET to /api/v1/markets/:tokenId/price-history', async () => {
+    await client.getPriceHistory('token-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/markets/token-1/price-history');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getPriceHistory passes query params', async () => {
+    await client.getPriceHistory('token-1', { resolution: '1d', from: '2026-01-01T00:00:00Z', to: '2026-01-31T00:00:00Z', limit: 100 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('resolution')).toBe('1d');
+    expect(url.searchParams.get('from')).toBe('2026-01-01T00:00:00Z');
+    expect(url.searchParams.get('to')).toBe('2026-01-31T00:00:00Z');
+    expect(url.searchParams.get('limit')).toBe('100');
+  });
+
+  it('getPriceHistory works without params', async () => {
+    await client.getPriceHistory('token-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.toString()).toBe('');
+  });
+
+  it('getPriceHistory encodes special characters in tokenId', async () => {
+    await client.getPriceHistory('token/special&id');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toContain('token%2Fspecial%26id');
+  });
+
+  it('getOrderBook sends GET to /api/v1/markets/:tokenId/book', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ bids: [], asks: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getOrderBook('token-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/markets/token-1/book');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result).toEqual({ bids: [], asks: [] });
+  });
+
+  it('getOrderBook encodes special characters in tokenId', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ bids: [], asks: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getOrderBook('token/special&id');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toContain('token%2Fspecial%26id');
   });
 });

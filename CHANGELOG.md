@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.0] — 2026-04-13
+
+### Added
+- `getPriceHistory(tokenId, params?)`: GET `/api/v1/markets/:tokenId/price-history` with optional `resolution`, `from`, `to`, `limit` query params (closes #52)
+- `getOrderBook(tokenId)`: GET `/api/v1/markets/:tokenId/book` returning bids and asks (closes #52)
+- Types: `PriceHistoryParams`, `PriceHistoryEntry`, `OrderBookLevel`, `OrderBook`
+
 ## [1.14.0] — 2026-04-13
 
 ### Added

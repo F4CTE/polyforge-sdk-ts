@@ -47,6 +47,9 @@ import type {
   WebhookEvent,
   WebhookTestResult,
   WhaleTrade,
+  OrderBook,
+  PriceHistoryEntry,
+  PriceHistoryParams,
   Backtest,
   ConditionalOrder,
   ConditionalOrderStatus,
@@ -365,6 +368,22 @@ export class PolyforgeClient {
    */
   async getMarket(id: string): Promise<Market> {
     return this.request('GET', `/api/v1/markets/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Get price history for a market token.
+   */
+  async getPriceHistory(tokenId: string, params?: PriceHistoryParams): Promise<PriceHistoryEntry[]> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(tokenId)}/price-history`, {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get the order book for a market token.
+   */
+  async getOrderBook(tokenId: string): Promise<OrderBook> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(tokenId)}/book`);
   }
 
   // ── Strategies ──────────────────────────────────────────────────────────

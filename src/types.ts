@@ -670,6 +670,31 @@ export interface WebhookTestResult {
   statusCode: number;
 }
 
+// ── Price History & Order Book ──────────────────────────────────────────────
+
+export interface PriceHistoryParams {
+  resolution?: '1m' | '1h' | '1d';
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
+export interface PriceHistoryEntry {
+  timestamp: string;
+  price: number;
+  volume?: number;
+}
+
+export interface OrderBookLevel {
+  price: number;
+  size: number;
+}
+
+export interface OrderBook {
+  bids: OrderBookLevel[];
+  asks: OrderBookLevel[];
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {
