@@ -11,17 +11,22 @@ export class PolyforgeError extends Error {
   /** Unique identifier for the failed request, useful for support inquiries. */
   public readonly requestId: string | undefined;
 
+  /** Optional suggestion from the platform to help the user fix the error. */
+  public readonly suggestion: string | undefined;
+
   constructor(params: {
     status: number;
     code: string;
     message: string;
     requestId?: string;
+    suggestion?: string;
   }) {
     super(params.message);
     this.name = 'PolyforgeError';
     this.status = params.status;
     this.code = params.code;
     this.requestId = params.requestId;
+    this.suggestion = params.suggestion;
 
     // Maintain proper stack trace in V8 environments
     if (Error.captureStackTrace) {

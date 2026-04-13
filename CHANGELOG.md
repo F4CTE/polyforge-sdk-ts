@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.7.1] — 2026-04-13
+
+### Fixed
+- `PolyforgeError`: add optional `suggestion` field to capture platform error response hints that help users fix common issues; the field is extracted from the JSON error body `suggestion` property (closes #89)
+
 ## [1.7.0] — 2026-04-13
 
 ### Fixed
