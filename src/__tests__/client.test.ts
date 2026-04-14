@@ -1908,3 +1908,60 @@ describe('Strategy social + versioning endpoints (#54)', () => {
     expect(url.searchParams.has('limit')).toBe(false);
   });
 });
+
+describe('SSE buffer size cap (#43)', () => {
+  it('should throw PolyforgeError when SSE buffer exceeds 1 MB', async () => {
+    const client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+
+    // Create a payload larger than 1 MB with no newlines so the buffer keeps growing
+    const oversizedChunk = 'x'.repeat(1_048_577);
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(oversizedChunk));
+        controller.close();
+      },
+    });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      { ok: true, status: 200, body: stream } as any,
+    );
+
+    const gen = client.watchStrategy('strat-1');
+    try {
+      await gen.next();
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(PolyforgeError);
+      const pErr = err as PolyforgeError;
+      expect(pErr.code).toBe('STREAM_ERROR');
+      expect(pErr.message).toContain('maximum buffer size');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('should not throw for payloads under 1 MB', async () => {
+    const client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+
+    const event = JSON.stringify({ type: 'status', status: 'running' });
+    const ssePayload = `data: ${event}\n\n`;
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(ssePayload));
+        controller.close();
+      },
+    });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      { ok: true, status: 200, body: stream } as any,
+    );
+
+    const gen = client.watchStrategy('strat-1');
+    const result = await gen.next();
+    expect(result.value).toEqual({ type: 'status', status: 'running' });
+
+    fetchSpy.mockRestore();
+  });
+});

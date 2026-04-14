@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.19.1] — 2026-04-14
+
+### Security
+- **SSE buffer cap** — `watchStrategy()` now enforces a `MAX_SSE_BUFFER_SIZE` (1 MB) on the internal SSE read buffer. A malicious or misconfigured server sending a single event larger than 1 MB will cause the stream to throw a `PolyforgeError` (`STREAM_ERROR`) instead of consuming unbounded memory. (closes #43)
+
 ## [1.19.0] — 2026-04-14
 
 ### Added

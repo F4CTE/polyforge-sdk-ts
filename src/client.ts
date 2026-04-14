@@ -76,6 +76,7 @@ import { KNOWN_STRATEGY_EVENTS } from './types.js';
 const DEFAULT_BASE_URL = 'https://api.polyforge.app';
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_STREAM_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours for long-lived SSE streams
+const MAX_SSE_BUFFER_SIZE = 1_048_576; // 1 MB — prevents memory exhaustion from unbounded SSE payloads
 
 /**
  * Expand a compressed IPv6 address into its full 8-group colon-hex form.
@@ -1101,6 +1102,13 @@ export class PolyforgeClient {
         if (done) break;
 
         buf += decoder.decode(value, { stream: true });
+        if (buf.length > MAX_SSE_BUFFER_SIZE) {
+          throw new PolyforgeError({
+            status: 0,
+            code: 'STREAM_ERROR',
+            message: `SSE event exceeded maximum buffer size (${MAX_SSE_BUFFER_SIZE} bytes)`,
+          });
+        }
         const lines = buf.split('\n');
         buf = lines.pop() ?? '';
 
