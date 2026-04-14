@@ -711,6 +711,16 @@ export class PolyforgeClient {
     return this.request('POST', '/api/v1/backtests', { body: params });
   }
 
+  /** Run a quick (synchronous) backtest that returns results immediately. */
+  async runQuickBacktest(params: RunBacktestParams): Promise<Backtest> {
+    return this.request('POST', '/api/v1/backtests/quick', { body: params });
+  }
+
+  /** Get orders generated during a backtest. */
+  async getBacktestOrders(id: string): Promise<Order[]> {
+    return this.request('GET', `/api/v1/backtests/${encodeURIComponent(id)}/orders`);
+  }
+
   // -- Conditional Orders --
 
   /** List conditional orders with optional filtering and pagination. */

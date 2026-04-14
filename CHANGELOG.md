@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.19.0] — 2026-04-14
+
+### Added
+- **Quick backtest** — `runQuickBacktest(params)` covering POST `/api/v1/backtests/quick` for synchronous backtest execution. (closes #58)
+- **Backtest orders** — `getBacktestOrders(id)` covering GET `/api/v1/backtests/:id/orders` to retrieve orders generated during a backtest. (closes #58)
+
 ## [1.18.0] — 2026-04-14
 
 ### Added
