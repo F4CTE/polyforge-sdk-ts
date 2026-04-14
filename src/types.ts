@@ -210,6 +210,29 @@ export interface NewsSignal {
   };
 }
 
+// ── API Keys ───────────────────────────────────────────────────────────────
+
+export type ApiKeyScope = 'READ' | 'TRADE' | 'STRATEGY' | 'WEBHOOK';
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: ApiKeyScope[];
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreateApiKeyParams {
+  name: string;
+  scopes?: ApiKeyScope[];
+}
+
+export interface CreateApiKeyResponse extends Pick<ApiKey, 'id' | 'name' | 'prefix' | 'scopes' | 'createdAt'> {
+  token: string;
+}
+
 // ── Configuration ───────────────────────────────────────────────────────────
 
 export interface Alert {

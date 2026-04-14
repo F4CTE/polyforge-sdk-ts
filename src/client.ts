@@ -5,11 +5,14 @@ import type {
   AccuracyScore,
   AiQueryResponse,
   Alert,
+  ApiKey,
   ArbitrageOpportunity,
   BrowseMarketplaceParams,
   CancelOrderResponse,
   ClosePositionParams,
   CopyConfig,
+  CreateApiKeyParams,
+  CreateApiKeyResponse,
   CreateStrategyParams,
   ImportStrategyParams,
   LpPosition,
@@ -598,6 +601,31 @@ export class PolyforgeClient {
    */
   async getNewsSignals(params?: { minConfidence?: number }): Promise<PaginatedResponse<NewsSignal>> {
     return this.request('GET', '/api/v1/news/signals', { query: params as Record<string, unknown> });
+  }
+
+  // ── API Keys ────────────────────────────────────────────────────────────
+
+  /**
+   * List all API keys for the authenticated user.
+   * The raw token is never returned — only the prefix is available for identification.
+   */
+  async listApiKeys(): Promise<ApiKey[]> {
+    return this.request('GET', '/api/v1/api-keys');
+  }
+
+  /**
+   * Create a new API key. The raw `token` is returned only once in the response
+   * and cannot be retrieved later — store it securely.
+   */
+  async createApiKey(params: CreateApiKeyParams): Promise<CreateApiKeyResponse> {
+    return this.request('POST', '/api/v1/api-keys', { body: params });
+  }
+
+  /**
+   * Revoke an API key by ID. The key is permanently deactivated.
+   */
+  async revokeApiKey(id: string): Promise<void> {
+    return this.request('DELETE', `/api/v1/api-keys/${encodeURIComponent(id)}`);
   }
 
   // ── Configuration ───────────────────────────────────────────────────────

@@ -4,7 +4,11 @@ export { KNOWN_STRATEGY_EVENTS } from './types.js';
 export type {
   AiQueryResponse,
   Alert,
+  ApiKey,
+  ApiKeyScope,
   Backtest,
+  CreateApiKeyParams,
+  CreateApiKeyResponse,
   CancelOrderResponse,
   ClosePositionParams,
   ConditionalOrder,

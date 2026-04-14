@@ -1631,4 +1631,78 @@ describe('Price history & order book (issue #52)', () => {
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toContain('token%2Fspecial%26id');
   });
+
+  // ── API Keys (#53) ──────────────────────────────────────────────────────
+
+  it('listApiKeys calls GET /api/v1/api-keys', async () => {
+    const mockKeys = [{ id: 'k-1', name: 'My Key', prefix: 'pf_abc123', scopes: ['READ'], expiresAt: null, lastUsedAt: null, createdAt: '2026-04-14T00:00:00Z' }];
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockKeys), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.listApiKeys();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/api-keys');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result).toEqual(mockKeys);
+  });
+
+  it('createApiKey sends name and scopes to POST /api/v1/api-keys', async () => {
+    const mockResponse = { id: 'k-1', name: 'Trading', prefix: 'pf_abc123', scopes: ['READ', 'TRADE'], createdAt: '2026-04-14T00:00:00Z', token: 'pf_abc123...' };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockResponse), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.createApiKey({ name: 'Trading', scopes: ['READ', 'TRADE'] });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/api-keys');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ name: 'Trading', scopes: ['READ', 'TRADE'] });
+    expect(result.token).toBe('pf_abc123...');
+  });
+
+  it('createApiKey sends only name when scopes omitted', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'k-1', name: 'Default', prefix: 'pf_x', scopes: ['READ'], createdAt: '2026-04-14T00:00:00Z', token: 'pf_x...' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.createApiKey({ name: 'Default' });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ name: 'Default' });
+    expect(body).not.toHaveProperty('scopes');
+  });
+
+  it('revokeApiKey calls DELETE /api/v1/api-keys/:id', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, { status: 204 }),
+    );
+    await client.revokeApiKey('key-uuid-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/api-keys/key-uuid-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('DELETE');
+  });
+
+  it('revokeApiKey encodes special characters in id', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, { status: 204 }),
+    );
+    await client.revokeApiKey('key/special&id');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toContain('key%2Fspecial%26id');
+  });
+
+  it('ApiKey type has correct platform fields', () => {
+    const key: import('../types').ApiKey = {
+      id: 'k-1',
+      name: 'My Key',
+      prefix: 'pf_abc123',
+      scopes: ['READ'],
+      expiresAt: null,
+      lastUsedAt: '2026-04-14T00:00:00Z',
+      createdAt: '2026-04-14T00:00:00Z',
+    };
+    expect(key.prefix).toBe('pf_abc123');
+    expect(key.scopes).toEqual(['READ']);
+    expect(key.expiresAt).toBeNull();
+    expect((key as any).token).toBeUndefined();
+    expect((key as any).tokenHash).toBeUndefined();
+  });
 });

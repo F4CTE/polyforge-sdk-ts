@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.17.0] — 2026-04-14
+
+### Added
+- **API key management** — `listApiKeys()`, `createApiKey()`, `revokeApiKey()` methods covering GET/POST/DELETE `/api/v1/api-keys`. New exported types: `ApiKey`, `ApiKeyScope`, `CreateApiKeyParams`, `CreateApiKeyResponse`. The `token` field is only available in the `createApiKey` response (shown once, never retrievable again). (closes #53)
+
 ## [1.16.0] — 2026-04-14
 
 ### Breaking Changes
