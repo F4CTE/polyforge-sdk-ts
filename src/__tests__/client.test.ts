@@ -1705,4 +1705,47 @@ describe('Price history & order book (issue #52)', () => {
     expect((key as any).token).toBeUndefined();
     expect((key as any).tokenHash).toBeUndefined();
   });
+
+  // ── CSV Exports (#55) ────────────────────────────────────────────────────
+
+  it('exportOrdersCsv calls GET /api/v1/orders/export/csv and returns string', async () => {
+    const csvData = 'id,marketId,side,size,price\norder-1,mkt-1,BUY,10,0.65';
+    fetchSpy.mockResolvedValueOnce(
+      new Response(csvData, { status: 200, headers: { 'Content-Type': 'text/csv' } }),
+    );
+    const result = await client.exportOrdersCsv();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/orders/export/csv');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result).toBe(csvData);
+  });
+
+  it('exportPortfolioCsv calls GET /api/v1/portfolio/export/csv and returns string', async () => {
+    const csvData = 'tokenId,outcome,size,avgPrice\ntok-1,YES,100,0.55';
+    fetchSpy.mockResolvedValueOnce(
+      new Response(csvData, { status: 200, headers: { 'Content-Type': 'text/csv' } }),
+    );
+    const result = await client.exportPortfolioCsv();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/portfolio/export/csv');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result).toBe(csvData);
+  });
+
+  it('exportOrdersCsv throws PolyforgeError on failure', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: 'UNAUTHORIZED', message: 'Invalid token' }), { status: 401, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await expect(client.exportOrdersCsv()).rejects.toThrow('Invalid token');
+  });
+
+  it('requestText does not send Content-Type header', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response('csv-data', { status: 200, headers: { 'Content-Type': 'text/csv' } }),
+    );
+    await client.exportOrdersCsv();
+    const headers = fetchSpy.mock.calls[0][1]!.headers as Record<string, string>;
+    expect(headers).not.toHaveProperty('Content-Type');
+    expect(headers['Authorization']).toBe('Bearer test-key');
+  });
 });
