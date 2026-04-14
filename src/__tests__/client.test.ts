@@ -1350,6 +1350,24 @@ describe('Missing query parameters on list methods', () => {
     expect(url.searchParams.get('limit')).toBe('10');
   });
 
+  it('runQuickBacktest posts to /backtests/quick (#58)', async () => {
+    await client.runQuickBacktest({ strategyId: 's-1', dateRangeStart: '2026-01-01', dateRangeEnd: '2026-03-01' });
+    const [url, opts] = fetchSpy.mock.calls[0];
+    expect(url).toContain('/api/v1/backtests/quick');
+    expect(opts.method).toBe('POST');
+    const body = JSON.parse(opts.body);
+    expect(body.strategyId).toBe('s-1');
+    expect(body.dateRangeStart).toBe('2026-01-01');
+    expect(body.dateRangeEnd).toBe('2026-03-01');
+  });
+
+  it('getBacktestOrders fetches orders for a backtest (#58)', async () => {
+    await client.getBacktestOrders('bt-99');
+    const [url, opts] = fetchSpy.mock.calls[0];
+    expect(url).toContain('/api/v1/backtests/bt-99/orders');
+    expect(opts.method).toBe('GET');
+  });
+
   it('listConditionalOrders sends status, type, page, limit params (#73)', async () => {
     await client.listConditionalOrders({ status: 'PENDING', type: 'STOP_LOSS', page: 1, limit: 25 });
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
