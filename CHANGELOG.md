@@ -4,6 +4,7 @@
 
 ### Added
 - **API key management** — `listApiKeys()`, `createApiKey()`, `revokeApiKey()` methods covering GET/POST/DELETE `/api/v1/api-keys`. New exported types: `ApiKey`, `ApiKeyScope`, `CreateApiKeyParams`, `CreateApiKeyResponse`. The `token` field is only available in the `createApiKey` response (shown once, never retrievable again). (closes #53)
+- **CSV export methods** — `exportOrdersCsv()` and `exportPortfolioCsv()` for GET `/api/v1/orders/export/csv` and GET `/api/v1/portfolio/export/csv`. Returns raw CSV string. Adds internal `requestText()` helper for non-JSON responses. (closes #55)
 
 ## [1.16.0] — 2026-04-14
 

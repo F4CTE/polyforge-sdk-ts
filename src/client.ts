@@ -350,6 +350,53 @@ export class PolyforgeClient {
     return (await response.json()) as T;
   }
 
+  /**
+   * Internal helper for endpoints that return non-JSON (e.g. CSV) responses.
+   * Returns the raw response body as a string.
+   */
+  private async requestText(
+    method: string,
+    path: string,
+    options?: { query?: Record<string, unknown> },
+  ): Promise<string> {
+    const url = new URL(`${this.baseUrl}${path}`);
+
+    if (options?.query) {
+      for (const [key, value] of Object.entries(options.query)) {
+        if (value !== undefined && value !== null) {
+          url.searchParams.set(key, String(value));
+        }
+      }
+    }
+
+    const response = await fetch(url.toString(), {
+      method,
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      signal: AbortSignal.timeout(this.timeout),
+    });
+
+    if (!response.ok) {
+      let errorBody: { code?: string; message?: string; requestId?: string; suggestion?: string } = {};
+      try {
+        errorBody = (await response.json()) as typeof errorBody;
+      } catch {
+        // Body may not be JSON
+      }
+
+      throw new PolyforgeError({
+        status: response.status,
+        code: errorBody.code ?? 'UNKNOWN_ERROR',
+        message: errorBody.message ?? `Request failed with status ${response.status}`,
+        requestId: errorBody.requestId ?? response.headers.get('x-request-id') ?? undefined,
+        suggestion: errorBody.suggestion,
+      });
+    }
+
+    return response.text();
+  }
+
   // ── Markets ─────────────────────────────────────────────────────────────
 
   /**
@@ -535,6 +582,22 @@ export class PolyforgeClient {
    */
   async getScore(): Promise<TraderScore> {
     return this.request('GET', '/api/v1/scores/me');
+  }
+
+  // ── CSV Exports ─────────────────────────────────────────────────────────
+
+  /**
+   * Export all orders as a CSV file. Returns the raw CSV string.
+   */
+  async exportOrdersCsv(): Promise<string> {
+    return this.requestText('GET', '/api/v1/orders/export/csv');
+  }
+
+  /**
+   * Export portfolio positions as a CSV file. Returns the raw CSV string.
+   */
+  async exportPortfolioCsv(): Promise<string> {
+    return this.requestText('GET', '/api/v1/portfolio/export/csv');
   }
 
   // ── Social & Signals ────────────────────────────────────────────────────
