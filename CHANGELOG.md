@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.16.0] — 2026-04-14
+
+### Breaking Changes
+- **`TraderScore`**: Now wraps the response as `{ score: TraderScoreData | null, breakdown: TraderScoreBreakdown | null }` to match GET `/api/v1/scores/me`. Access score fields via `result.score.score`, `result.score.winRate`, etc. New exported types: `TraderScoreData`, `TraderScoreBreakdown`, `TraderScoreComponent`. Removed phantom `rank` field, added `avgReturn`. Decimal fields (`winRate`, `sharpeRatio`, etc.) are now typed as `string` matching Prisma serialization. (closes #102)
+- **`WhaleTrade`**: `timestamp` renamed to `detectedAt` (matches Prisma `WhaleAlert` model). `size`, `price`, `notional` changed from `number` to `string` (Prisma Decimal serialization). Added `txHash: string | null` and nested `market` object. (closes #104)
+- **`NewsSignal`**: Removed top-level `headline` and `source` (these live on the nested `article` object). Added `reasoning`, nested `article` and `market` objects. `outcome` is now required, not optional. (closes #105)
+- **`PortfolioPnl`**: Replaced `dailyPnl`/`weeklyPnl`/`monthlyPnl`/`realizedPnl`/`unrealizedPnl`/`history` with `snapshots: Array<{time, pnl}>`, `totalPnl: string`, `winRate: string` to match GET `/api/v1/portfolio/pnl`. (closes #106)
+
+### Unchanged
+- **`AiQueryResponse`**: Verified correct — already matches POST `/api/v1/ai/query` response (`query`, `intent`, `filters`, `data`, `summary`). Issue #103 was a false positive from cross-SDK comparison. (closes #103)
+
 ## [1.15.0] — 2026-04-13
 
 ### Added

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PriceHistoryEntry, OrderBook } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, TraderScoreData, TraderScoreBreakdown, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -1035,53 +1035,55 @@ describe('RunBacktestParams has all platform fields (#14)', () => {
 
 // --- Breaking compat fixes (#18, #24, #31, #32) ---
 
-describe('TraderScore fields match platform (#18)', () => {
-  it('should use score instead of overall', () => {
-    const ts: TraderScore = {
+describe('TraderScore fields match platform (#102)', () => {
+  it('should return wrapped { score, breakdown } matching GET /api/v1/scores/me', () => {
+    const scoreData: TraderScoreData = {
+      id: 'ts-1',
+      userId: 'u-1',
       score: 85,
+      winRate: '0.62',
+      sharpeRatio: '1.5000',
+      avgReturn: '0.0800',
       totalTrades: 120,
-      winRate: 0.62,
-      sharpeRatio: 1.5,
-      profitFactor: 2.1,
-      maxDrawdown: -0.15,
-      consistency: 0.78,
-      rank: 5,
+      profitFactor: '2.1000',
+      maxDrawdown: '-0.1500',
+      consistency: '0.78',
       updatedAt: '2026-04-13T00:00:00Z',
     };
-    expect(ts.score).toBe(85);
-    expect(ts.totalTrades).toBe(120);
-    expect(ts.winRate).toBe(0.62);
-    expect(ts.sharpeRatio).toBe(1.5);
-    expect(ts.profitFactor).toBe(2.1);
-    expect(ts.maxDrawdown).toBe(-0.15);
-    // Old fields must not exist
-    expect((ts as any).overall).toBeUndefined();
-    expect((ts as any).profitability).toBeUndefined();
-    expect((ts as any).riskManagement).toBeUndefined();
-    expect((ts as any).volume).toBeUndefined();
-    expect((ts as any).percentile).toBeUndefined();
+    const ts: TraderScore = {
+      score: scoreData,
+      breakdown: {
+        score: 85,
+        components: {
+          winRate: { value: '0.62', weight: 0.25, weighted: 0.155 },
+          sharpe: { value: '1.5000', weight: 0.2, weighted: 0.3 },
+          profitFactor: { value: '2.1000', weight: 0.15, weighted: 0.315 },
+          consistency: { value: '0.78', weight: 0.15, weighted: 0.117 },
+          avgReturn: { value: '0.0800', weight: 0.1, weighted: 0.008 },
+          tradeVolume: { value: 120, weight: 0.1, weighted: 12 },
+          drawdown: { value: '-0.1500', weight: 0.05, weighted: -0.0075 },
+        },
+        totalTrades: 120,
+        updatedAt: '2026-04-13T00:00:00Z',
+      },
+    };
+    expect(ts.score?.score).toBe(85);
+    expect(ts.score?.totalTrades).toBe(120);
+    expect(ts.score?.avgReturn).toBe('0.0800');
+    expect(ts.breakdown?.components.winRate.weight).toBe(0.25);
+    // Phantom fields from old type must not exist
+    expect((ts.score as any)?.rank).toBeUndefined();
   });
 
-  it('should allow nullable sharpeRatio, profitFactor, maxDrawdown', () => {
-    const ts: TraderScore = {
-      score: 0,
-      totalTrades: 0,
-      winRate: 0,
-      sharpeRatio: null,
-      profitFactor: null,
-      maxDrawdown: null,
-      consistency: 0,
-      rank: 999,
-      updatedAt: '',
-    };
-    expect(ts.sharpeRatio).toBeNull();
-    expect(ts.profitFactor).toBeNull();
-    expect(ts.maxDrawdown).toBeNull();
+  it('should allow null score and breakdown for new users', () => {
+    const ts: TraderScore = { score: null, breakdown: null };
+    expect(ts.score).toBeNull();
+    expect(ts.breakdown).toBeNull();
   });
 });
 
-describe('WhaleTrade fields match platform (#18)', () => {
-  it('should use walletAddress and notional instead of wallet and usdValue', () => {
+describe('WhaleTrade fields match platform (#104)', () => {
+  it('should use detectedAt, Decimal strings, and nested market from WhaleAlert model', () => {
     const wt: WhaleTrade = {
       id: 'wt-1',
       walletAddress: '0xabc123',
@@ -1089,47 +1091,58 @@ describe('WhaleTrade fields match platform (#18)', () => {
       tokenId: 'tok-1',
       side: 'BUY',
       outcome: 'YES',
-      size: 5000,
-      price: 0.65,
-      notional: 3250,
-      timestamp: '2026-04-13T00:00:00Z',
+      size: '5000.000000',
+      price: '0.650000',
+      notional: '3250.000000',
+      txHash: '0xdeadbeef',
+      detectedAt: '2026-04-13T00:00:00.000Z',
+      market: { id: 'mkt-1', title: 'Test Market', slug: 'test-market', image: null },
     };
     expect(wt.walletAddress).toBe('0xabc123');
-    expect(wt.notional).toBe(3250);
-    expect(wt.tokenId).toBe('tok-1');
-    expect(wt.outcome).toBe('YES');
-    expect(wt.price).toBe(0.65);
-    // Old fields must not exist
-    expect((wt as any).wallet).toBeUndefined();
-    expect((wt as any).usdValue).toBeUndefined();
-    expect((wt as any).marketName).toBeUndefined();
+    expect(wt.detectedAt).toBeDefined();
+    expect(wt.txHash).toBe('0xdeadbeef');
+    expect(wt.market.title).toBe('Test Market');
+    // Prisma Decimal fields serialize as strings
+    expect(typeof wt.size).toBe('string');
+    expect(typeof wt.notional).toBe('string');
+    // Old phantom field must not exist
+    expect((wt as any).timestamp).toBeUndefined();
   });
 });
 
-describe('NewsSignal fields match platform (#18)', () => {
-  it('should use direction instead of sentiment, marketId instead of relatedMarkets', () => {
+describe('NewsSignal fields match platform (#105)', () => {
+  it('should include nested article and market objects from Prisma include', () => {
     const ns: NewsSignal = {
       id: 'ns-1',
-      headline: 'Breaking news',
-      source: 'reuters',
-      direction: 'BUY',
-      confidence: 0.9,
-      marketId: 'mkt-1',
-      outcome: 'YES',
       articleId: 'art-123',
+      marketId: 'mkt-1',
+      direction: 'BUY',
+      outcome: 'YES',
+      confidence: 90,
+      reasoning: 'Strong buy signal',
       createdAt: '2026-04-13T00:00:00Z',
+      article: {
+        id: 'art-123',
+        title: 'Breaking news',
+        source: 'reuters',
+        url: 'https://example.com/article',
+        imageUrl: null,
+        sentiment: 'POSITIVE',
+        publishedAt: '2026-04-13T00:00:00Z',
+      },
+      market: { id: 'mkt-1', title: 'Test Market', slug: 'test-market', image: null },
     };
     expect(ns.direction).toBe('BUY');
-    expect(ns.marketId).toBe('mkt-1');
-    expect(ns.createdAt).toBeDefined();
-    // Old fields must not exist
-    expect((ns as any).sentiment).toBeUndefined();
-    expect((ns as any).relatedMarkets).toBeUndefined();
-    expect((ns as any).publishedAt).toBeUndefined();
+    expect(ns.article.title).toBe('Breaking news');
+    expect(ns.article.source).toBe('reuters');
+    expect(ns.market.title).toBe('Test Market');
+    // headline/source are on article, not on signal directly
+    expect((ns as any).headline).toBeUndefined();
+    expect((ns as any).source).toBeUndefined();
   });
 });
 
-describe('AiQueryResponse fields match platform (#18)', () => {
+describe('AiQueryResponse fields match platform (#103)', () => {
   it('should use query/intent/filters/data/summary shape', () => {
     const resp: AiQueryResponse = {
       query: 'what is BTC price?',
@@ -1141,7 +1154,7 @@ describe('AiQueryResponse fields match platform (#18)', () => {
     expect(resp.query).toBe('what is BTC price?');
     expect(resp.intent).toBe('market_lookup');
     expect(resp.summary).toBeDefined();
-    // Old fields must not exist
+    // These fields do NOT exist in the platform response
     expect((resp as any).answer).toBeUndefined();
     expect((resp as any).confidence).toBeUndefined();
     expect((resp as any).sources).toBeUndefined();
@@ -1366,6 +1379,34 @@ describe('Missing query parameters on list methods', () => {
     await client.getPortfolioPnl();
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.searchParams.toString()).toBe('');
+  });
+});
+
+describe('PortfolioPnl fields match platform (#106)', () => {
+  it('should use snapshots/totalPnl/winRate matching GET /api/v1/portfolio/pnl', () => {
+    const pnl: PortfolioPnl = {
+      snapshots: [
+        { time: '2026-04-10T00:00:00.000Z', pnl: '125.50' },
+        { time: '2026-04-11T00:00:00.000Z', pnl: '-30.25' },
+      ],
+      totalPnl: '95.25',
+      winRate: '0',
+    };
+    expect(pnl.snapshots).toHaveLength(2);
+    expect(pnl.totalPnl).toBe('95.25');
+    expect(typeof pnl.totalPnl).toBe('string');
+    // Phantom fields from old type must not exist
+    expect((pnl as any).dailyPnl).toBeUndefined();
+    expect((pnl as any).weeklyPnl).toBeUndefined();
+    expect((pnl as any).monthlyPnl).toBeUndefined();
+    expect((pnl as any).realizedPnl).toBeUndefined();
+    expect((pnl as any).unrealizedPnl).toBeUndefined();
+    expect((pnl as any).history).toBeUndefined();
+  });
+
+  it('should handle empty result', () => {
+    const pnl: PortfolioPnl = { snapshots: [], totalPnl: '0.00', winRate: '0' };
+    expect(pnl.snapshots).toHaveLength(0);
   });
 });
 

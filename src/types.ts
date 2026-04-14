@@ -171,22 +171,43 @@ export interface WhaleTrade {
   tokenId: string;
   side: OrderSide;
   outcome: 'YES' | 'NO';
-  size: number;
-  price: number;
-  notional: number;
-  timestamp: string;
+  size: string;
+  price: string;
+  notional: string;
+  txHash: string | null;
+  detectedAt: string;
+  market: {
+    id: string;
+    title: string;
+    slug: string;
+    image: string | null;
+  };
 }
 
 export interface NewsSignal {
   id: string;
-  headline: string;
-  source: string;
-  direction: 'BUY' | 'SELL';
-  confidence: number;
+  articleId: string;
   marketId: string;
-  outcome?: string;
-  articleId?: string;
+  direction: 'BUY' | 'SELL';
+  outcome: 'YES' | 'NO';
+  confidence: number;
+  reasoning: string | null;
   createdAt: string;
+  article: {
+    id: string;
+    title: string;
+    source: string;
+    url: string;
+    imageUrl: string | null;
+    sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+    publishedAt: string;
+  };
+  market: {
+    id: string;
+    title: string;
+    slug: string;
+    image: string | null;
+  };
 }
 
 // ── Configuration ───────────────────────────────────────────────────────────
@@ -228,16 +249,48 @@ export interface Webhook {
 
 // ── Scoring ─────────────────────────────────────────────────────────────────
 
-export interface TraderScore {
+/** Individual fields of the trader_scores table. */
+export interface TraderScoreData {
+  id: string;
+  userId: string;
   score: number;
+  winRate: string;
+  sharpeRatio: string;
+  avgReturn: string;
   totalTrades: number;
-  winRate: number;
-  sharpeRatio: number | null;
-  profitFactor: number | null;
-  maxDrawdown: number | null;
-  consistency: number;
-  rank: number;
+  profitFactor: string;
+  maxDrawdown: string;
+  consistency: string;
   updatedAt: string;
+}
+
+/** Weighted component in the score breakdown. */
+export interface TraderScoreComponent {
+  value: string | number;
+  weight: number;
+  weighted: number;
+}
+
+/** Detailed breakdown of how the score was computed. */
+export interface TraderScoreBreakdown {
+  score: number;
+  components: {
+    winRate: TraderScoreComponent;
+    sharpe: TraderScoreComponent;
+    profitFactor: TraderScoreComponent;
+    consistency: TraderScoreComponent;
+    avgReturn: TraderScoreComponent;
+    tradeVolume: TraderScoreComponent;
+    drawdown: TraderScoreComponent;
+  };
+  totalTrades: number;
+  updatedAt: string;
+}
+
+/** Full response from GET /api/v1/scores/me. */
+export interface TraderScore {
+  score: TraderScoreData | null;
+  breakdown: TraderScoreBreakdown | null;
 }
 
 // ── AI ──────────────────────────────────────────────────────────────────────
@@ -632,13 +685,9 @@ export interface PortfolioPnlParams {
 }
 
 export interface PortfolioPnl {
-  totalPnl: number;
-  realizedPnl: number;
-  unrealizedPnl: number;
-  dailyPnl: number;
-  weeklyPnl: number;
-  monthlyPnl: number;
-  history: Array<{ date: string; pnl: number; cumulativePnl: number }>;
+  snapshots: Array<{ time: string | null; pnl: string }>;
+  totalPnl: string;
+  winRate: string;
 }
 
 // ── Watchlist ──────────────────────────────────────────────────────────────
