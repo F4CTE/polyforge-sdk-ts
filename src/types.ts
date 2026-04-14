@@ -627,6 +627,61 @@ export interface LpPosition {
   size: string;
 }
 
+// ── Strategy Social ────────────────────────────────────────────────────────
+
+export type StrategyReportReason = 'SPAM' | 'MISLEADING' | 'HARMFUL' | 'OTHER';
+
+export interface StrategyLikeResult {
+  liked: boolean;
+  likeCount: number;
+}
+
+export interface StrategyComment {
+  id: string;
+  strategyId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  user: { id: string; username: string; displayName: string | null };
+}
+
+export interface StrategyChild {
+  id: string;
+  name: string;
+  status: string;
+}
+
+export interface StrategyReportResult {
+  reportId: string;
+}
+
+// ── Strategy Versioning ────────────────────────────────────────────────────
+
+export interface StrategyVersion {
+  id: string;
+  strategyId: string;
+  version: number;
+  triggers: unknown;
+  conditions: unknown;
+  actions: unknown;
+  safety: unknown;
+  createdAt: string;
+}
+
+export interface StrategyRollbackResult {
+  message: string;
+  version: number;
+}
+
+// ── Strategy Event Log ─────────────────────────────────────────────────────
+
+export interface StrategyEventLogEntry {
+  id: string;
+  eventType: string;
+  payload: unknown;
+  createdAt: string;
+}
+
 // ── Backtests ──────────────────────────────────────────────────────────────
 
 export interface Backtest {

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.18.0] — 2026-04-14
+
+### Added
+- **Strategy social endpoints** — `likeStrategy(id)`, `listStrategyComments(id, params?)`, `addStrategyComment(id, content)`, `deleteStrategyComment(strategyId, commentId)`, `listStrategyChildren(id)`, `reportStrategy(id, reason, description?)` covering POST/GET/DELETE on `/api/v1/strategies/:id/like|comments|children|report`. (closes #54)
+- **Strategy versioning endpoints** — `listStrategyVersions(id)`, `rollbackStrategy(id, versionId)` covering GET `/api/v1/strategies/:id/versions` and POST `/api/v1/strategies/:id/versions/:versionId/rollback`. (closes #54)
+- **Strategy event log** — `getStrategyEventLog(id, params?)` covering GET `/api/v1/strategies/:id/event-log` with optional `limit` query param. (closes #54)
+- New exported types: `StrategyComment`, `StrategyChild`, `StrategyLikeResult`, `StrategyReportReason`, `StrategyReportResult`, `StrategyVersion`, `StrategyRollbackResult`, `StrategyEventLogEntry`.
+
 ## [1.17.0] — 2026-04-14
 
 ### Added

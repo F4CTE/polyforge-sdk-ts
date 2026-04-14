@@ -1706,3 +1706,144 @@ describe('Price history & order book (issue #52)', () => {
     expect((key as any).tokenHash).toBeUndefined();
   });
 });
+
+describe('Strategy social + versioning endpoints (#54)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('likeStrategy sends POST /api/v1/strategies/:id/like', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ liked: true, likeCount: 5 }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.likeStrategy('s-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/like');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect(result).toEqual({ liked: true, likeCount: 5 });
+  });
+
+  it('listStrategyComments sends GET /api/v1/strategies/:id/comments with pagination', async () => {
+    const resp = { data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNext: false };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(resp), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.listStrategyComments('s-1', { page: 2, limit: 10 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/comments');
+    expect(url.searchParams.get('page')).toBe('2');
+    expect(url.searchParams.get('limit')).toBe('10');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('addStrategyComment sends POST /api/v1/strategies/:id/comments with { content }', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'c-1', content: 'Nice!' }), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.addStrategyComment('s-1', 'Nice!');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/comments');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ content: 'Nice!' });
+  });
+
+  it('deleteStrategyComment sends DELETE /api/v1/strategies/:strategyId/comments/:commentId', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(null, { status: 204 }),
+    );
+    await client.deleteStrategyComment('s-1', 'c-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/comments/c-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('DELETE');
+  });
+
+  it('listStrategyChildren sends GET /api/v1/strategies/:id/children', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ children: [{ id: 's-2', name: 'Fork', status: 'IDLE' }] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.listStrategyChildren('s-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/children');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result.children).toHaveLength(1);
+    expect(result.children[0].id).toBe('s-2');
+  });
+
+  it('reportStrategy sends POST /api/v1/strategies/:id/report with { reason }', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ reportId: 'r-1' }), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.reportStrategy('s-1', 'SPAM');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/report');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ reason: 'SPAM' });
+    expect(body).not.toHaveProperty('description');
+  });
+
+  it('reportStrategy includes optional description', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ reportId: 'r-1' }), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.reportStrategy('s-1', 'OTHER', 'Looks suspicious');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ reason: 'OTHER', description: 'Looks suspicious' });
+  });
+
+  it('listStrategyVersions sends GET /api/v1/strategies/:id/versions', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([{ id: 'v-1', version: 1 }]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.listStrategyVersions('s-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/versions');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result).toHaveLength(1);
+  });
+
+  it('rollbackStrategy sends POST /api/v1/strategies/:id/versions/:versionId/rollback', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ message: 'Rolled back successfully', version: 2 }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.rollbackStrategy('s-1', 'v-2');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/versions/v-2/rollback');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect(result.message).toBe('Rolled back successfully');
+    expect(result.version).toBe(2);
+  });
+
+  it('getStrategyEventLog sends GET /api/v1/strategies/:id/event-log with limit param', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([{ id: 'e-1', eventType: 'ORDER_PLACED', payload: {}, createdAt: '2026-01-01' }]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getStrategyEventLog('s-1', { limit: 25 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/event-log');
+    expect(url.searchParams.get('limit')).toBe('25');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result).toHaveLength(1);
+  });
+
+  it('getStrategyEventLog works without params', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getStrategyEventLog('s-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/event-log');
+    expect(url.searchParams.has('limit')).toBe(false);
+  });
+});

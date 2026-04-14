@@ -36,11 +36,19 @@ import type {
   SmartOrder,
   SplitPositionParams,
   Strategy,
+  StrategyChild,
+  StrategyComment,
   StrategyEvent,
+  StrategyEventLogEntry,
   StrategyExport,
+  StrategyLikeResult,
+  StrategyReportReason,
+  StrategyReportResult,
+  StrategyRollbackResult,
   StrategyStatus,
   StrategyStatusResponse,
   StrategyTemplate,
+  StrategyVersion,
   TraderScore,
   UpdateStrategyParams,
   WatchlistAddResult,
@@ -539,6 +547,84 @@ export class PolyforgeClient {
 
   // ── Social & Signals ────────────────────────────────────────────────────
 
+  // ── Strategy Social ─────────────────────────────────────────────────────
+
+  /**
+   * Like or unlike a strategy (toggle). Returns the new like state and count.
+   */
+  async likeStrategy(id: string): Promise<StrategyLikeResult> {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/like`);
+  }
+
+  /**
+   * List comments on a strategy with optional pagination.
+   */
+  async listStrategyComments(id: string, params?: { page?: number; limit?: number }): Promise<PaginatedResponse<StrategyComment>> {
+    return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}/comments`, {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Add a comment to a strategy.
+   */
+  async addStrategyComment(id: string, content: string): Promise<StrategyComment> {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/comments`, {
+      body: { content },
+    });
+  }
+
+  /**
+   * Delete a comment on a strategy (must be the comment author).
+   */
+  async deleteStrategyComment(strategyId: string, commentId: string): Promise<void> {
+    return this.request('DELETE', `/api/v1/strategies/${encodeURIComponent(strategyId)}/comments/${encodeURIComponent(commentId)}`);
+  }
+
+  /**
+   * List child strategies (forks) of a strategy.
+   */
+  async listStrategyChildren(id: string): Promise<{ children: StrategyChild[] }> {
+    return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}/children`);
+  }
+
+  /**
+   * Report a strategy for violating guidelines.
+   */
+  async reportStrategy(id: string, reason: StrategyReportReason, description?: string): Promise<StrategyReportResult> {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/report`, {
+      body: { reason, ...(description !== undefined && { description }) },
+    });
+  }
+
+  // ── Strategy Versioning ────────────────────────────────────────────────
+
+  /**
+   * List all versions of a strategy.
+   */
+  async listStrategyVersions(id: string): Promise<StrategyVersion[]> {
+    return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}/versions`);
+  }
+
+  /**
+   * Rollback a strategy to a previous version.
+   */
+  async rollbackStrategy(id: string, versionId: string): Promise<StrategyRollbackResult> {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/rollback`);
+  }
+
+  // ── Strategy Event Log ─────────────────────────────────────────────────
+
+  /**
+   * Get the event log for a strategy with optional limit.
+   */
+  async getStrategyEventLog(id: string, params?: { limit?: number }): Promise<StrategyEventLogEntry[]> {
+    return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}/event-log`, {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  // ── Social & Signals ──────────────────────────────────────────────────
 
   // -- Backtests --
 
