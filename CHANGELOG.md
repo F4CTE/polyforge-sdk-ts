@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.4] — 2026-04-15
+
+### Fixed
+- **ApiKeyScope enum** — replaced phantom `STRATEGY`/`WEBHOOK` scopes with correct `WRITE` scope matching platform enum. (closes #115)
+- **Alert direction casing** — `CreateAlertParams.direction` and `Alert.direction` now use uppercase `'ABOVE' | 'BELOW'` matching platform validation. (closes #117)
+- **StrategyReportReason** — replaced non-existent `'HARMFUL'` with correct platform value `'INAPPROPRIATE'`. (closes #118)
+
 ## [1.19.3] — 2026-04-15
 
 ### Fixed
