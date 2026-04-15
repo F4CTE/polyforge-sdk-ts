@@ -800,9 +800,7 @@ export interface WebhookTestResult {
 // ── Price History & Order Book ──────────────────────────────────────────────
 
 export interface PriceHistoryParams {
-  resolution?: '1m' | '1h' | '1d';
-  from?: string;
-  to?: string;
+  period?: '1h' | '6h' | '24h';
   limit?: number;
 }
 
