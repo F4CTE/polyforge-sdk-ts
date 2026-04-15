@@ -212,7 +212,7 @@ export interface NewsSignal {
 
 // ── API Keys ───────────────────────────────────────────────────────────────
 
-export type ApiKeyScope = 'READ' | 'TRADE' | 'STRATEGY' | 'WEBHOOK';
+export type ApiKeyScope = 'READ' | 'WRITE' | 'TRADE';
 
 export interface ApiKey {
   id: string;
@@ -238,7 +238,7 @@ export interface CreateApiKeyResponse extends Pick<ApiKey, 'id' | 'name' | 'pref
 export interface Alert {
   id: string;
   tokenId: string;
-  direction: 'above' | 'below';
+  direction: 'ABOVE' | 'BELOW';
   price: string;
   persistent: boolean;
   enabled: boolean;
@@ -629,7 +629,7 @@ export interface LpPosition {
 
 // ── Strategy Social ────────────────────────────────────────────────────────
 
-export type StrategyReportReason = 'SPAM' | 'MISLEADING' | 'HARMFUL' | 'OTHER';
+export type StrategyReportReason = 'SPAM' | 'INAPPROPRIATE' | 'MISLEADING' | 'OTHER';
 
 export interface StrategyLikeResult {
   liked: boolean;
@@ -714,7 +714,7 @@ export interface RunBacktestParams {
 
 export interface CreateAlertParams {
   tokenId: string;
-  direction: 'above' | 'below';
+  direction: 'ABOVE' | 'BELOW';
   price: string;
   persistent?: boolean;
 }

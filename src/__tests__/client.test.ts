@@ -753,17 +753,17 @@ describe('CreateAlertParams matches platform DTO (#48)', () => {
   });
 
   it('sends { tokenId, direction, price } not { name, condition, marketId }', async () => {
-    const params: CreateAlertParams = { tokenId: 'tok-1', direction: 'above', price: '0.75' };
+    const params: CreateAlertParams = { tokenId: 'tok-1', direction: 'ABOVE', price: '0.75' };
     await client.createAlert(params);
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ tokenId: 'tok-1', direction: 'above', price: '0.75' });
+    expect(body).toEqual({ tokenId: 'tok-1', direction: 'ABOVE', price: '0.75' });
     expect(body).not.toHaveProperty('name');
     expect(body).not.toHaveProperty('condition');
     expect(body).not.toHaveProperty('marketId');
   });
 
   it('sends persistent field when provided', async () => {
-    const params: CreateAlertParams = { tokenId: 'tok-1', direction: 'below', price: '0.25', persistent: true };
+    const params: CreateAlertParams = { tokenId: 'tok-1', direction: 'BELOW', price: '0.25', persistent: true };
     await client.createAlert(params);
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('persistent', true);
@@ -773,14 +773,14 @@ describe('CreateAlertParams matches platform DTO (#48)', () => {
     const alert: Alert = {
       id: 'a-1',
       tokenId: 'tok-1',
-      direction: 'above',
+      direction: 'ABOVE',
       price: '0.75',
       persistent: false,
       enabled: true,
       createdAt: '2026-04-13T00:00:00Z',
     };
     expect(alert.tokenId).toBe('tok-1');
-    expect(alert.direction).toBe('above');
+    expect(alert.direction).toBe('ABOVE');
     expect(alert.price).toBe('0.75');
     expect((alert as any).name).toBeUndefined();
     expect((alert as any).condition).toBeUndefined();
