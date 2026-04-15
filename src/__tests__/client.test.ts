@@ -1610,11 +1610,9 @@ describe('Price history & order book (issue #52)', () => {
   });
 
   it('getPriceHistory passes query params', async () => {
-    await client.getPriceHistory('token-1', { resolution: '1d', from: '2026-01-01T00:00:00Z', to: '2026-01-31T00:00:00Z', limit: 100 });
+    await client.getPriceHistory('token-1', { period: '6h', limit: 100 });
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
-    expect(url.searchParams.get('resolution')).toBe('1d');
-    expect(url.searchParams.get('from')).toBe('2026-01-01T00:00:00Z');
-    expect(url.searchParams.get('to')).toBe('2026-01-31T00:00:00Z');
+    expect(url.searchParams.get('period')).toBe('6h');
     expect(url.searchParams.get('limit')).toBe('100');
   });
 
