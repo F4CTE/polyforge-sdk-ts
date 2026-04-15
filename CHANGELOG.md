@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.19.2] — 2026-04-15
+
+### Security
+- Upgrade `vite` to 8.0.8 (from 8.0.3) — fixes CVE-2026-39363 (arbitrary file read via WebSocket), CVE-2026-39364 (`server.fs.deny` bypass), and CVE-2026-39365 (path traversal in optimized deps). Added as direct devDependency + pnpm override to resolve transitive dep from vitest. (closes #113)
+
 ## [1.19.1] — 2026-04-14
 
 ### Security
