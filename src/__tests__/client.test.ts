@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, TraderScoreData, TraderScoreBreakdown, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, TraderScoreData, TraderScoreBreakdown, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, DiscoverStrategiesParams, LeaderboardParams, LeaderboardEntry, CreateCopyParams, BatchRequest, TopWhalesParams, CreateMarketplaceListingParams, UpdateMarketplaceListingParams } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -1961,5 +1961,478 @@ describe('SSE buffer size cap (#43)', () => {
     expect(result.value).toEqual({ type: 'status', status: 'running' });
 
     fetchSpy.mockRestore();
+  });
+});
+
+// ── POLA-94: New endpoint families ───────────────────────────────────────────
+
+describe('Discovery & Ranking (#66)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNext: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('discoverStrategies calls GET /api/v1/discover', async () => {
+    await client.discoverStrategies();
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/discover');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('discoverStrategies passes sort, category, search, limit, offset as query params', async () => {
+    const params: DiscoverStrategiesParams = { sort: 'popular', category: 'defi', search: 'whale', limit: 10, offset: 20 };
+    await client.discoverStrategies(params);
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('sort=popular');
+    expect(url).toContain('category=defi');
+    expect(url).toContain('search=whale');
+    expect(url).toContain('limit=10');
+    expect(url).toContain('offset=20');
+  });
+
+  it('discoverStrategies accepts all sort values', () => {
+    const sorts: DiscoverStrategiesParams['sort'][] = ['popular', 'newest', 'top_pnl', 'most_forked'];
+    expect(sorts).toHaveLength(4);
+  });
+
+  it('discoverStrategies works with no params', async () => {
+    await expect(client.discoverStrategies()).resolves.toBeDefined();
+  });
+
+  it('getLeaderboard calls GET /api/v1/leaderboard', async () => {
+    await client.getLeaderboard();
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/leaderboard');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getLeaderboard passes period, limit, offset as query params', async () => {
+    const params: LeaderboardParams = { period: '30d', limit: 50, offset: 0 };
+    await client.getLeaderboard(params);
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('period=30d');
+    expect(url).toContain('limit=50');
+  });
+
+  it('getLeaderboard accepts all period values', () => {
+    const periods: LeaderboardParams['period'][] = ['7d', '30d', 'allTime'];
+    expect(periods).toHaveLength(3);
+  });
+});
+
+describe('Paper Trading (#66)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('getPaperSummary calls GET /api/v1/paper/summary', async () => {
+    await client.getPaperSummary();
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/paper/summary');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getPaperSummary sends no body', async () => {
+    await client.getPaperSummary();
+    expect(fetchSpy.mock.calls[0][1]!.body).toBeUndefined();
+  });
+
+  it('resetPaperAccount calls POST /api/v1/paper/reset', async () => {
+    await client.resetPaperAccount();
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/paper/reset');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+  });
+
+  it('resetPaperAccount sends no body', async () => {
+    await client.resetPaperAccount();
+    expect(fetchSpy.mock.calls[0][1]!.body).toBeUndefined();
+  });
+});
+
+describe('Batch API (#66)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ results: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('batchRequests calls POST /api/v1/batch', async () => {
+    await client.batchRequests([]);
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/batch');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+  });
+
+  it('batchRequests wraps requests array in { requests } body', async () => {
+    const requests: BatchRequest[] = [
+      { id: 'r1', method: 'GET', path: '/api/v1/portfolio' },
+      { id: 'r2', method: 'POST', path: '/api/v1/orders/place', body: { tokenId: 'tok-1' } },
+    ];
+    await client.batchRequests(requests);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('requests');
+    expect(body.requests).toHaveLength(2);
+    expect(body.requests[0]).toMatchObject({ id: 'r1', method: 'GET', path: '/api/v1/portfolio' });
+    expect(body.requests[1]).toMatchObject({ id: 'r2', method: 'POST', body: { tokenId: 'tok-1' } });
+  });
+
+  it('BatchRequest type includes id, method, path, optional body', () => {
+    const req: BatchRequest = { id: 'req-1', method: 'DELETE', path: '/api/v1/orders/o-1' };
+    expect(req.id).toBe('req-1');
+    expect(req.body).toBeUndefined();
+  });
+});
+
+describe('Extended Whale Intelligence (#66)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNext: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('getTopWhales calls GET /api/v1/whales/top', async () => {
+    await client.getTopWhales();
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/whales/top');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getTopWhales passes sort and period as query params', async () => {
+    const params: TopWhalesParams = { sort: 'pnl', period: '30d', limit: 25 };
+    await client.getTopWhales(params);
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('sort=pnl');
+    expect(url).toContain('period=30d');
+    expect(url).toContain('limit=25');
+  });
+
+  it('getTopWhales accepts all sort values', () => {
+    const sorts: TopWhalesParams['sort'][] = ['volume', 'pnl', 'winRate', 'tradeCount'];
+    expect(sorts).toHaveLength(4);
+  });
+
+  it('getWhaleProfile calls GET /api/v1/whales/:address', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getWhaleProfile('0xabc123');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/whales/0xabc123');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getWhaleProfile URL-encodes the address', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getWhaleProfile('0xabc/special');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('0xabc%2Fspecial');
+  });
+
+  it('followWhale calls POST /api/v1/whales/:address/follow', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ address: '0xabc', followed: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await client.followWhale('0xabc123');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/whales/0xabc123/follow');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+  });
+
+  it('unfollowWhale calls POST /api/v1/whales/:address/unfollow', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ address: '0xabc', followed: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await client.unfollowWhale('0xabc123');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/whales/0xabc123/unfollow');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+  });
+
+  it('getFollowedWhales calls GET /api/v1/whales/following', async () => {
+    await client.getFollowedWhales();
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/whales/following');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+});
+
+describe('Marketplace Seller CRUD (#66)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('createMarketplaceListing calls POST /api/v1/marketplace', async () => {
+    const params: CreateMarketplaceListingParams = { strategyId: 'strat-1', title: 'My Strat', priceUsdc: 9.99 };
+    await client.createMarketplaceListing(params);
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/marketplace');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toMatchObject({ strategyId: 'strat-1', title: 'My Strat', priceUsdc: 9.99 });
+  });
+
+  it('createMarketplaceListing includes optional description and tags', async () => {
+    const params: CreateMarketplaceListingParams = {
+      strategyId: 'strat-1',
+      title: 'My Strat',
+      priceUsdc: 9.99,
+      description: 'A great strategy',
+      tags: ['defi', 'whale'],
+    };
+    await client.createMarketplaceListing(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('description', 'A great strategy');
+    expect(body.tags).toEqual(['defi', 'whale']);
+  });
+
+  it('updateMarketplaceListing calls PATCH /api/v1/marketplace/:id', async () => {
+    const params: UpdateMarketplaceListingParams = { priceUsdc: 14.99, status: 'ACTIVE' };
+    await client.updateMarketplaceListing('listing-1', params);
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/marketplace/listing-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('PATCH');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toMatchObject({ priceUsdc: 14.99, status: 'ACTIVE' });
+  });
+
+  it('updateMarketplaceListing URL-encodes the id', async () => {
+    await client.updateMarketplaceListing('listing/with-slash', { title: 'New' });
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('listing%2Fwith-slash');
+  });
+
+  it('rateMarketplaceListing calls POST /api/v1/marketplace/:id/rate with rating', async () => {
+    await client.rateMarketplaceListing('listing-1', 5);
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/marketplace/listing-1/rate');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('rating', 5);
+    expect(body).not.toHaveProperty('review');
+  });
+
+  it('rateMarketplaceListing includes review when provided', async () => {
+    await client.rateMarketplaceListing('listing-1', 4, 'Great strategy!');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('rating', 4);
+    expect(body).toHaveProperty('review', 'Great strategy!');
+  });
+
+  it('getMyListings calls GET /api/v1/marketplace/my/listings', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNext: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await client.getMyListings();
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/marketplace/my/listings');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getMyPurchases calls GET /api/v1/marketplace/my/purchases', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNext: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await client.getMyPurchases();
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/marketplace/my/purchases');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+});
+
+describe('Copy Trading CRUD (#51)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('createCopyConfig calls POST /api/v1/copy with full params', async () => {
+    const params: CreateCopyParams = {
+      targetWallet: '0xabc123',
+      mode: 'PERCENTAGE',
+      sizeValue: 50,
+      maxExposure: 1000,
+      maxDailyLoss: 100,
+      priceOffset: 0.01,
+    };
+    await client.createCopyConfig(params);
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/copy');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toMatchObject({
+      targetWallet: '0xabc123',
+      mode: 'PERCENTAGE',
+      sizeValue: 50,
+      maxExposure: 1000,
+      maxDailyLoss: 100,
+      priceOffset: 0.01,
+    });
+  });
+
+  it('createCopyConfig requires only targetWallet', async () => {
+    const params: CreateCopyParams = { targetWallet: '0xdef456' };
+    await client.createCopyConfig(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('targetWallet', '0xdef456');
+    expect(body).not.toHaveProperty('mode');
+  });
+
+  it('getCopyConfig calls GET /api/v1/copy/:id', async () => {
+    await client.getCopyConfig('copy-id-1');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/copy/copy-id-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getCopyConfig URL-encodes the id', async () => {
+    await client.getCopyConfig('copy/id-with-slash');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('copy%2Fid-with-slash');
+  });
+
+  it('updateCopyConfig calls PATCH /api/v1/copy/:id with partial params', async () => {
+    await client.updateCopyConfig('copy-id-1', { sizeValue: 75, mode: 'FIXED' });
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/copy/copy-id-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('PATCH');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toMatchObject({ sizeValue: 75, mode: 'FIXED' });
+  });
+
+  it('pauseCopyConfig calls POST /api/v1/copy/:id/pause', async () => {
+    await client.pauseCopyConfig('copy-id-1');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/copy/copy-id-1/pause');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+  });
+
+  it('pauseCopyConfig sends no body', async () => {
+    await client.pauseCopyConfig('copy-id-1');
+    expect(fetchSpy.mock.calls[0][1]!.body).toBeUndefined();
+  });
+
+  it('resumeCopyConfig calls POST /api/v1/copy/:id/resume', async () => {
+    await client.resumeCopyConfig('copy-id-1');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/copy/copy-id-1/resume');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+  });
+
+  it('resumeCopyConfig sends no body', async () => {
+    await client.resumeCopyConfig('copy-id-1');
+    expect(fetchSpy.mock.calls[0][1]!.body).toBeUndefined();
+  });
+
+  it('deleteCopyConfig calls DELETE /api/v1/copy/:id', async () => {
+    fetchSpy.mockResolvedValue(new Response(null, { status: 204 }));
+    await client.deleteCopyConfig('copy-id-1');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/copy/copy-id-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('DELETE');
+  });
+
+  it('getCopyTrades calls GET /api/v1/copy/:id/trades', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNext: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await client.getCopyTrades('copy-id-1');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/copy/copy-id-1/trades');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getCopyTrades URL-encodes the id', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNext: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await client.getCopyTrades('copy/id-1');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('copy%2Fid-1');
+  });
+
+  it('CreateCopyParams mode accepts all 3 CopyMode values', () => {
+    const modes: CreateCopyParams['mode'][] = ['PERCENTAGE', 'FIXED', 'MIRROR'];
+    expect(modes).toHaveLength(3);
   });
 });

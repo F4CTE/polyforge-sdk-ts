@@ -820,6 +820,146 @@ export interface OrderBook {
   asks: OrderBookLevel[];
 }
 
+// ── Discovery & Ranking ────────────────────────────────────────────────────
+
+export interface DiscoverStrategiesParams {
+  sort?: 'popular' | 'newest' | 'top_pnl' | 'most_forked';
+  category?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface LeaderboardParams {
+  period?: '7d' | '30d' | 'allTime';
+  limit?: number;
+  offset?: number;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  pnl: string;
+  winRate: string;
+  tradeCount: number;
+}
+
+// ── Paper Trading ──────────────────────────────────────────────────────────
+
+export interface PaperSummary {
+  balance: string;
+  initialBalance: string;
+  pnl: string;
+  pnlPct: string;
+  tradeCount: number;
+  winRate: string;
+  positions: Position[];
+  updatedAt: string;
+}
+
+export interface PaperResetResult {
+  balance: string;
+  resetAt: string;
+}
+
+// ── Batch API ──────────────────────────────────────────────────────────────
+
+export interface BatchRequest {
+  id: string;
+  method: string;
+  path: string;
+  body?: unknown;
+}
+
+export interface BatchResult {
+  id: string;
+  status: number;
+  body: unknown;
+}
+
+export interface BatchResponse {
+  results: BatchResult[];
+}
+
+// ── Whale Intelligence (extended) ──────────────────────────────────────────
+
+export interface TopWhalesParams {
+  sort?: 'volume' | 'pnl' | 'winRate' | 'tradeCount';
+  period?: '7d' | '30d' | 'allTime';
+  limit?: number;
+  offset?: number;
+}
+
+export interface WhaleProfile {
+  address: string;
+  displayName: string | null;
+  totalVolume: string;
+  pnl: string;
+  winRate: string;
+  tradeCount: number;
+  followersCount: number;
+  isFollowed: boolean;
+  topMarkets: Array<{ marketId: string; title: string; volume: string }>;
+}
+
+export interface WhaleFollowResult {
+  address: string;
+  followed: boolean;
+}
+
+// ── Marketplace Seller CRUD ────────────────────────────────────────────────
+
+export interface CreateMarketplaceListingParams {
+  strategyId: string;
+  title: string;
+  description?: string;
+  priceUsdc: number;
+  tags?: string[];
+}
+
+export interface UpdateMarketplaceListingParams {
+  title?: string;
+  description?: string;
+  priceUsdc?: number;
+  tags?: string[];
+  status?: 'ACTIVE' | 'PAUSED' | 'DELISTED';
+}
+
+export interface RateMarketplaceListingResult {
+  ratingId: string;
+  avgRating: string;
+  ratingCount: number;
+}
+
+export interface MarketplacePurchase {
+  purchaseId: string;
+  listingId: string;
+  forkedStrategyId: string;
+  priceUsdc: string;
+  purchasedAt: string;
+  listing: { id: string; title: string };
+}
+
+// ── Copy Trading CRUD ──────────────────────────────────────────────────────
+
+export interface CreateCopyParams {
+  targetWallet: string;
+  mode?: CopyMode;
+  sizeValue?: number;
+  maxExposure?: number;
+  maxDailyLoss?: number;
+  priceOffset?: number;
+}
+
+export interface CopyConfigStatusResult {
+  id: string;
+  enabled: boolean;
+  updatedAt: string;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {

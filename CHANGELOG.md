@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.20.0] — 2026-04-16
+
+### Added
+
+- **Discovery & Ranking** — `discoverStrategies(params?)` (`GET /api/v1/discover`) and `getLeaderboard(params?)` (`GET /api/v1/leaderboard`) for browsing public strategies by popularity/PnL and viewing trader rankings. New types: `DiscoverStrategiesParams`, `LeaderboardParams`, `LeaderboardEntry`. (closes #66)
+- **Paper Trading** — `getPaperSummary()` (`GET /api/v1/paper/summary`) and `resetPaperAccount()` (`POST /api/v1/paper/reset`) for managing the paper trading simulation account. New types: `PaperSummary`, `PaperResetResult`. (closes #66)
+- **Batch API** — `batchRequests(requests)` (`POST /api/v1/batch`) for executing multiple API calls in a single round-trip. New types: `BatchRequest`, `BatchResult`, `BatchResponse`. (closes #66)
+- **Extended Whale Intelligence** — `getTopWhales(params?)`, `getWhaleProfile(address)`, `followWhale(address)`, `unfollowWhale(address)`, `getFollowedWhales()` covering `GET /api/v1/whales/top`, `GET /api/v1/whales/:address`, `POST /api/v1/whales/:address/follow`, `POST /api/v1/whales/:address/unfollow`, `GET /api/v1/whales/following`. New types: `TopWhalesParams`, `WhaleProfile`, `WhaleFollowResult`. (closes #66)
+- **Marketplace Seller CRUD** — `createMarketplaceListing(params)`, `updateMarketplaceListing(id, params)`, `rateMarketplaceListing(id, rating, review?)`, `getMyListings()`, `getMyPurchases()` covering the seller side of the marketplace. New types: `CreateMarketplaceListingParams`, `UpdateMarketplaceListingParams`, `RateMarketplaceListingResult`, `MarketplacePurchase`. (closes #66)
+- **Copy Trading CRUD** — `createCopyConfig(params)`, `getCopyConfig(id)`, `updateCopyConfig(id, params)`, `pauseCopyConfig(id)`, `resumeCopyConfig(id)`, `deleteCopyConfig(id)`, `getCopyTrades(id)` covering the full lifecycle of copy-trading configurations (`POST/GET/PATCH/DELETE /api/v1/copy/:id` and sub-routes). New types: `CreateCopyParams`, `CopyConfigStatusResult`. (closes #51)
+
 ## [1.19.4] — 2026-04-15
 
 ### Fixed
