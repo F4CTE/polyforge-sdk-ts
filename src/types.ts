@@ -13,7 +13,7 @@ export type WebhookEvent =
   | 'PRICE_ALERT';
 
 export type OrderSide = 'BUY' | 'SELL';
-export type OrderType = 'GTC' | 'GTD' | 'FOK' | 'FAK';
+export type OrderType = 'GTC' | 'GTD' | 'FOK';
 export type OrderStatus = 'PENDING' | 'SUBMITTED' | 'LIVE' | 'MATCHED' | 'DELAYED' | 'MINED' | 'CONFIRMED' | 'PARTIAL' | 'CANCELLED' | 'UNMATCHED' | 'FAILED' | 'ERROR';
 
 // ── Pagination ──────────────────────────────────────────────────────────────
@@ -238,7 +238,7 @@ export interface CreateApiKeyResponse extends Pick<ApiKey, 'id' | 'name' | 'pref
 export interface Alert {
   id: string;
   tokenId: string;
-  direction: 'ABOVE' | 'BELOW';
+  direction: 'above' | 'below';
   price: string;
   persistent: boolean;
   enabled: boolean;
@@ -633,7 +633,9 @@ export interface MarketSentiment {
 
 export interface ProvideLiquidityParams {
   marketId: string;
-  size: number;
+  tokenId: string;
+  amountUsdc: number;
+  targetSpread?: number;
 }
 
 export interface LpPosition {
@@ -732,7 +734,7 @@ export interface RunBacktestParams {
 
 export interface CreateAlertParams {
   tokenId: string;
-  direction: 'ABOVE' | 'BELOW';
+  direction: 'above' | 'below';
   price: string;
   persistent?: boolean;
 }
@@ -818,7 +820,9 @@ export interface WebhookTestResult {
 // ── Price History & Order Book ──────────────────────────────────────────────
 
 export interface PriceHistoryParams {
-  period?: '1h' | '6h' | '24h';
+  resolution?: '1m' | '1h' | '1d';
+  from?: string;
+  to?: string;
   limit?: number;
 }
 

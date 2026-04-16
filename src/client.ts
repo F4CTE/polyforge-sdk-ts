@@ -987,7 +987,7 @@ export class PolyforgeClient {
    * Check whether a specific market is on the watchlist.
    */
   async getWatchlistStatus(marketId: string): Promise<WatchlistStatus> {
-    return this.request('GET', `/api/v1/watchlist/status/${encodeURIComponent(marketId)}`);
+    return this.request('GET', `/api/v1/watchlist/${encodeURIComponent(marketId)}/status`);
   }
 
   // ── AI ──────────────────────────────────────────────────────────────────
@@ -1161,7 +1161,7 @@ export class PolyforgeClient {
    * Provide liquidity by placing two-sided quotes on a market token.
    */
   async provideLiquidity(params: ProvideLiquidityParams): Promise<LpPosition> {
-    this.validateFinancialParam('size', params.size);
+    this.validateFinancialParam('amountUsdc', params.amountUsdc);
     return this.request('POST', '/api/v1/lp/provide', { body: params });
   }
 
