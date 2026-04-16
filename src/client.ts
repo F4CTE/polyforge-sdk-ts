@@ -7,14 +7,20 @@ import type {
   Alert,
   ApiKey,
   ArbitrageOpportunity,
+  BatchRequestItem,
+  BatchResponse,
   BrowseMarketplaceParams,
   CancelOrderResponse,
   ClosePositionParams,
   CopyConfig,
   CreateApiKeyParams,
   CreateApiKeyResponse,
+  CreateCopyConfigParams,
+  CreateListingParams,
   CreateStrategyParams,
+  DiscoverParams,
   ImportStrategyParams,
+  LeaderboardParams,
   LpPosition,
   Market,
   MarketplaceListing,
@@ -24,6 +30,7 @@ import type {
   NewsSignal,
   Order,
   PaginatedResponse,
+  PaperSummary,
   PlaceOrderParams,
   PlaceOrderResponse,
   PlaceSmartOrderParams,
@@ -32,6 +39,7 @@ import type {
   PolyforgeClientOptions,
   PortfolioReview,
   ProvideLiquidityParams,
+  RateListingParams,
   RedeemPositionParams,
   SmartOrder,
   SplitPositionParams,
@@ -50,6 +58,8 @@ import type {
   StrategyTemplate,
   StrategyVersion,
   TraderScore,
+  UpdateCopyConfigParams,
+  UpdateListingParams,
   UpdateStrategyParams,
   WatchlistAddResult,
   WatchlistItem,
@@ -57,7 +67,9 @@ import type {
   Webhook,
   WebhookEvent,
   WebhookTestResult,
+  WhaleProfile,
   WhaleTrade,
+  WhaleTopParams,
   OrderBook,
   PriceHistoryEntry,
   PriceHistoryParams,
@@ -749,11 +761,36 @@ export class PolyforgeClient {
     return this.request('DELETE', `/api/v1/orders/conditional/${encodeURIComponent(id)}`);
   }
 
-  /**
-   * Get the whale-trade feed.
-   */
+  // ── Whales ────────────────────────────────────────────────────────────────
+
+  /** Get the whale-trade feed. */
   async getWhaleFeed(params?: { minSize?: number }): Promise<PaginatedResponse<WhaleTrade>> {
     return this.request('GET', '/api/v1/whales/feed', { query: params as Record<string, unknown> });
+  }
+
+  /** Get top whale wallets ranked by volume, PnL, win rate, or trade count. */
+  async getTopWhales(params?: WhaleTopParams): Promise<WhaleProfile[]> {
+    return this.request('GET', '/api/v1/whales/top', { query: params as Record<string, unknown> });
+  }
+
+  /** Get the full profile of a specific whale wallet address. */
+  async getWhaleProfile(address: string): Promise<WhaleProfile> {
+    return this.request('GET', `/api/v1/whales/${encodeURIComponent(address)}`);
+  }
+
+  /** Follow a whale wallet. */
+  async followWhale(address: string): Promise<{ following: boolean }> {
+    return this.request('POST', `/api/v1/whales/${encodeURIComponent(address)}/follow`);
+  }
+
+  /** Unfollow a whale wallet. */
+  async unfollowWhale(address: string): Promise<{ following: boolean }> {
+    return this.request('POST', `/api/v1/whales/${encodeURIComponent(address)}/unfollow`);
+  }
+
+  /** List whale wallets you are currently following. */
+  async getFollowingWhales(): Promise<WhaleProfile[]> {
+    return this.request('GET', '/api/v1/whales/following');
   }
 
   /**
@@ -761,6 +798,44 @@ export class PolyforgeClient {
    */
   async getNewsSignals(params?: { minConfidence?: number }): Promise<PaginatedResponse<NewsSignal>> {
     return this.request('GET', '/api/v1/news/signals', { query: params as Record<string, unknown> });
+  }
+
+  // ── Discover & Leaderboard ───────────────────────────────────────────────
+
+  /** Discover public strategies filtered by sort, category, or search term. */
+  async discoverStrategies(
+    params?: DiscoverParams,
+  ): Promise<PaginatedResponse<Strategy>> {
+    return this.request('GET', '/api/v1/discover', { query: params as Record<string, unknown> });
+  }
+
+  /** Get the trader leaderboard ranked by realized P&L over a time period. */
+  async getLeaderboard(
+    params?: LeaderboardParams,
+  ): Promise<PaginatedResponse<{ userId: string; pnl: number; rank: number }>> {
+    return this.request('GET', '/api/v1/leaderboard', { query: params as Record<string, unknown> });
+  }
+
+  // ── Paper trading ─────────────────────────────────────────────────────────
+
+  /** Get a summary of the authenticated user's paper trading account. */
+  async getPaperSummary(): Promise<PaperSummary> {
+    return this.request('GET', '/api/v1/paper/summary');
+  }
+
+  /** Reset the paper trading account to its initial balance. */
+  async resetPaperAccount(): Promise<{ reset: boolean; newBalance: number }> {
+    return this.request('POST', '/api/v1/paper/reset');
+  }
+
+  // ── Batch API ─────────────────────────────────────────────────────────────
+
+  /**
+   * Execute multiple API requests in a single round-trip.
+   * Results are returned in the same order as `items`.
+   */
+  async batchRequests(items: BatchRequestItem[]): Promise<BatchResponse> {
+    return this.request('POST', '/api/v1/batch', { body: { items } });
   }
 
   // ── API Keys ────────────────────────────────────────────────────────────
@@ -807,11 +882,51 @@ export class PolyforgeClient {
     return this.request('DELETE', `/api/v1/alerts/${encodeURIComponent(id)}`);
   }
 
-  /**
-   * List copy-trading configurations.
-   */
+  // ── Copy trading ─────────────────────────────────────────────────────────
+
+  /** List copy-trading configurations. */
   async listCopyConfigs(): Promise<PaginatedResponse<CopyConfig>> {
     return this.request('GET', '/api/v1/copy');
+  }
+
+  /** Create a new copy-trading configuration. */
+  async createCopyConfig(params: CreateCopyConfigParams): Promise<CopyConfig> {
+    return this.request('POST', '/api/v1/copy', { body: params });
+  }
+
+  /** Get a single copy-trading configuration by ID. */
+  async getCopyConfig(id: string): Promise<CopyConfig> {
+    return this.request('GET', `/api/v1/copy/${encodeURIComponent(id)}`);
+  }
+
+  /** Update a copy-trading configuration. */
+  async updateCopyConfig(id: string, params: UpdateCopyConfigParams): Promise<CopyConfig> {
+    return this.request('PATCH', `/api/v1/copy/${encodeURIComponent(id)}`, { body: params });
+  }
+
+  /** Pause a copy-trading configuration (stops mirroring trades). */
+  async pauseCopyConfig(id: string): Promise<CopyConfig> {
+    return this.request('POST', `/api/v1/copy/${encodeURIComponent(id)}/pause`);
+  }
+
+  /** Resume a paused copy-trading configuration. */
+  async resumeCopyConfig(id: string): Promise<CopyConfig> {
+    return this.request('POST', `/api/v1/copy/${encodeURIComponent(id)}/resume`);
+  }
+
+  /** Delete (stop) a copy-trading configuration. */
+  async deleteCopyConfig(id: string): Promise<{ deleted: boolean }> {
+    return this.request('DELETE', `/api/v1/copy/${encodeURIComponent(id)}`);
+  }
+
+  /** Get trades executed by a copy-trading configuration. */
+  async getCopyTrades(
+    id: string,
+    params?: { page?: number; limit?: number },
+  ): Promise<PaginatedResponse<Order>> {
+    return this.request('GET', `/api/v1/copy/${encodeURIComponent(id)}/trades`, {
+      query: params as Record<string, unknown>,
+    });
   }
 
   /**
@@ -990,6 +1105,33 @@ export class PolyforgeClient {
    */
   async purchaseStrategy(listingId: string): Promise<MarketplacePurchaseResult> {
     return this.request('POST', `/api/v1/marketplace/${encodeURIComponent(listingId)}/purchase`);
+  }
+
+  /** Rate a purchased marketplace strategy (1–5 stars). */
+  async rateListing(id: string, params: RateListingParams): Promise<void> {
+    return this.request('POST', `/api/v1/marketplace/${encodeURIComponent(id)}/rate`, { body: params });
+  }
+
+  // ── Marketplace seller ────────────────────────────────────────────────────
+
+  /** List your own marketplace listings (sell-side). */
+  async getMyListings(): Promise<MarketplaceListing[]> {
+    return this.request('GET', '/api/v1/marketplace/my/listings');
+  }
+
+  /** List strategies you have purchased from the marketplace. */
+  async getMyPurchases(): Promise<MarketplacePurchaseResult[]> {
+    return this.request('GET', '/api/v1/marketplace/my/purchases');
+  }
+
+  /** Create a new marketplace listing for one of your strategies. */
+  async createListing(params: CreateListingParams): Promise<MarketplaceListing> {
+    return this.request('POST', '/api/v1/marketplace', { body: params });
+  }
+
+  /** Update an existing marketplace listing (title, description, price, status, tags). */
+  async updateListing(id: string, params: UpdateListingParams): Promise<MarketplaceListing> {
+    return this.request('PATCH', `/api/v1/marketplace/${encodeURIComponent(id)}`, { body: params });
   }
 
   // ── Accuracy & Portfolio Review ──────────────────────────────────────────
