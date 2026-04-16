@@ -576,12 +576,12 @@ describe('ProvideLiquidityParams uses marketId, not tokenId/spread (#25)', () =>
     fetchSpy.mockRestore();
   });
 
-  it('sends { marketId, size } not { tokenId, spread, size }', async () => {
-    const params: ProvideLiquidityParams = { marketId: 'mkt-1', size: 100 };
+  it('sends { marketId, tokenId, amountUsdc } matching platform ProvideLiquidityDto', async () => {
+    const params: ProvideLiquidityParams = { marketId: 'mkt-1', tokenId: 'tok-1', amountUsdc: 100 };
     await client.provideLiquidity(params);
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ marketId: 'mkt-1', size: 100 });
-    expect(body).not.toHaveProperty('tokenId');
+    expect(body).toEqual({ marketId: 'mkt-1', tokenId: 'tok-1', amountUsdc: 100 });
+    expect(body).not.toHaveProperty('size');
     expect(body).not.toHaveProperty('spread');
   });
 });
@@ -753,17 +753,17 @@ describe('CreateAlertParams matches platform DTO (#48)', () => {
   });
 
   it('sends { tokenId, direction, price } not { name, condition, marketId }', async () => {
-    const params: CreateAlertParams = { tokenId: 'tok-1', direction: 'ABOVE', price: '0.75' };
+    const params: CreateAlertParams = { tokenId: 'tok-1', direction: 'above', price: '0.75' };
     await client.createAlert(params);
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ tokenId: 'tok-1', direction: 'ABOVE', price: '0.75' });
+    expect(body).toEqual({ tokenId: 'tok-1', direction: 'above', price: '0.75' });
     expect(body).not.toHaveProperty('name');
     expect(body).not.toHaveProperty('condition');
     expect(body).not.toHaveProperty('marketId');
   });
 
   it('sends persistent field when provided', async () => {
-    const params: CreateAlertParams = { tokenId: 'tok-1', direction: 'BELOW', price: '0.25', persistent: true };
+    const params: CreateAlertParams = { tokenId: 'tok-1', direction: 'below', price: '0.25', persistent: true };
     await client.createAlert(params);
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('persistent', true);
@@ -773,14 +773,14 @@ describe('CreateAlertParams matches platform DTO (#48)', () => {
     const alert: Alert = {
       id: 'a-1',
       tokenId: 'tok-1',
-      direction: 'ABOVE',
+      direction: 'above',
       price: '0.75',
       persistent: false,
       enabled: true,
       createdAt: '2026-04-13T00:00:00Z',
     };
     expect(alert.tokenId).toBe('tok-1');
-    expect(alert.direction).toBe('ABOVE');
+    expect(alert.direction).toBe('above');
     expect(alert.price).toBe('0.75');
     expect((alert as any).name).toBeUndefined();
     expect((alert as any).condition).toBeUndefined();
@@ -986,18 +986,21 @@ describe('Market type uses title and tokens[] (#17)', () => {
   });
 });
 
-describe('OrderType uses platform values GTC/GTD/FOK/FAK (#36)', () => {
-  it('should accept all 4 platform order types', () => {
-    const types: OrderType[] = ['GTC', 'GTD', 'FOK', 'FAK'];
-    expect(types).toHaveLength(4);
+describe('OrderType uses platform values GTC/GTD/FOK (#36, #126)', () => {
+  it('should accept the 3 platform order types', () => {
+    const types: OrderType[] = ['GTC', 'GTD', 'FOK'];
+    expect(types).toHaveLength(3);
   });
 
-  it('should not accept exchange-style order types', () => {
+  it('should not accept FAK or exchange-style order types', () => {
     // Type-level check: these old values should NOT compile.
     // Runtime check ensures the type is correctly constrained.
-    const validTypes = new Set<OrderType>(['GTC', 'GTD', 'FOK', 'FAK']);
+    const validTypes = new Set<OrderType>(['GTC', 'GTD', 'FOK']);
     expect(validTypes.has('GTC')).toBe(true);
-    expect(validTypes.has('FAK')).toBe(true);
+    expect(validTypes.has('GTD')).toBe(true);
+    expect(validTypes.has('FOK')).toBe(true);
+    // FAK is not accepted by the platform
+    expect(validTypes.has('FAK' as any)).toBe(false);
     // Old values are no longer valid
     expect(validTypes.has('MARKET' as any)).toBe(false);
     expect(validTypes.has('LIMIT' as any)).toBe(false);
@@ -1516,13 +1519,13 @@ describe('Watchlist CRUD (issue #56)', () => {
     expect(url.pathname).toContain('mkt%2Fspecial%26id');
   });
 
-  it('getWatchlistStatus sends GET to /api/v1/watchlist/status/:marketId', async () => {
+  it('getWatchlistStatus sends GET to /api/v1/watchlist/:marketId/status', async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ marketId: 'mkt-1', watched: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
     await client.getWatchlistStatus('mkt-1');
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
-    expect(url.pathname).toBe('/api/v1/watchlist/status/mkt-1');
+    expect(url.pathname).toBe('/api/v1/watchlist/mkt-1/status');
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
   });
 
@@ -1609,11 +1612,12 @@ describe('Price history & order book (issue #52)', () => {
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
   });
 
-  it('getPriceHistory passes query params', async () => {
-    await client.getPriceHistory('token-1', { period: '6h', limit: 100 });
+  it('getPriceHistory passes resolution and limit as query params', async () => {
+    await client.getPriceHistory('token-1', { resolution: '1h', limit: 100 });
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
-    expect(url.searchParams.get('period')).toBe('6h');
+    expect(url.searchParams.get('resolution')).toBe('1h');
     expect(url.searchParams.get('limit')).toBe('100');
+    expect(url.searchParams.get('period')).toBeNull();
   });
 
   it('getPriceHistory works without params', async () => {
