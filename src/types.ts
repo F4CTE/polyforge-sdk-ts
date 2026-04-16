@@ -260,6 +260,24 @@ export interface CopyConfig {
   createdAt: string;
 }
 
+export interface CreateCopyConfigParams {
+  /** Ethereum wallet address to copy (0x…). */
+  targetWallet: string;
+  mode?: CopyMode;
+  sizeValue?: string;
+  maxExposure?: string;
+  maxDailyLoss?: string;
+  priceOffset?: string;
+}
+
+export interface UpdateCopyConfigParams {
+  mode?: CopyMode;
+  sizeValue?: string;
+  maxExposure?: string;
+  maxDailyLoss?: string;
+  priceOffset?: string;
+}
+
 export interface Webhook {
   id: string;
   url: string;
@@ -818,6 +836,99 @@ export interface OrderBookLevel {
 export interface OrderBook {
   bids: OrderBookLevel[];
   asks: OrderBookLevel[];
+}
+
+// ── Whale extended ──────────────────────────────────────────────────────────
+
+export interface WhaleProfile {
+  walletAddress: string;
+  stats: {
+    totalVolume: string;
+    totalPnl: string;
+    tradeCount: number;
+    winRate: string;
+  } | null;
+  recentTrades: Array<{
+    id: string;
+    marketName: string;
+    side: string;
+    outcome: string;
+    size: string;
+    price: string;
+    timestamp: string;
+  }>;
+  sparkline: number[];
+  isFollowing: boolean;
+}
+
+export interface WhaleTopParams {
+  sortBy?: 'volume' | 'pnl' | 'winRate' | 'tradeCount';
+  period?: '24h' | '7d' | '30d' | 'all';
+  limit?: number;
+}
+
+// ── Discover & Leaderboard ──────────────────────────────────────────────────
+
+export interface DiscoverParams {
+  sort?: 'popular' | 'newest' | 'top_pnl' | 'most_forked';
+  category?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface LeaderboardParams {
+  period?: '7d' | '30d' | 'allTime';
+  page?: number;
+  limit?: number;
+}
+
+// ── Paper trading ───────────────────────────────────────────────────────────
+
+export interface PaperSummary {
+  balance: number;
+  pnl: number;
+  tradeCount: number;
+  openPositions: number;
+}
+
+// ── Batch API ───────────────────────────────────────────────────────────────
+
+export interface BatchRequestItem {
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
+  path: string;
+  body?: Record<string, unknown>;
+}
+
+export interface BatchResponse {
+  results: Array<{
+    status: number;
+    body: unknown;
+  }>;
+}
+
+// ── Marketplace seller ──────────────────────────────────────────────────────
+
+export interface CreateListingParams {
+  strategyId: string;
+  title: string;
+  description?: string;
+  priceUsdc: number;
+  tags?: string[];
+}
+
+export interface UpdateListingParams {
+  title?: string;
+  description?: string;
+  priceUsdc?: number;
+  tags?: string[];
+  status?: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'DELISTED';
+}
+
+export interface RateListingParams {
+  /** Rating from 1 to 5. */
+  rating: number;
+  review?: string;
 }
 
 // ── Client Options ──────────────────────────────────────────────────────────
