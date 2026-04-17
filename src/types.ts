@@ -935,6 +935,24 @@ export interface RateListingParams {
   review?: string;
 }
 
+// ── Risk Settings ───────────────────────────────────────────────────────────
+
+export interface RiskSettings {
+  drawdownEnabled: boolean;
+  drawdownLookbackHours: number;
+  drawdownThresholdPct: number;
+  circuitBreakerTripped: boolean;
+  circuitBreakerTrippedAt: string | null;
+}
+
+export interface UpdateRiskSettingsParams {
+  drawdownEnabled?: boolean;
+  /** Lookback window in hours (1–168). */
+  drawdownLookbackHours?: number;
+  /** Drawdown threshold as a decimal, e.g. 0.10 = 10% (0.01–0.99). */
+  drawdownThresholdPct?: number;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {
