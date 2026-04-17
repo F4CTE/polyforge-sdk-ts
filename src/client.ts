@@ -82,6 +82,8 @@ import type {
   PortfolioPnl,
   PortfolioPnlParams,
   RunBacktestParams,
+  RiskSettings,
+  UpdateRiskSettingsParams,
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
@@ -1155,6 +1157,30 @@ export class PolyforgeClient {
    */
   async getMarketSentiment(marketId: string): Promise<MarketSentiment> {
     return this.request('GET', `/api/v1/news/sentiment/${encodeURIComponent(marketId)}`);
+  }
+
+  // ── Risk Settings ────────────────────────────────────────────────────────
+
+  /**
+   * Get the current risk / circuit-breaker settings for the authenticated user.
+   */
+  async getRiskSettings(): Promise<RiskSettings> {
+    return this.request('GET', '/api/v1/settings/risk');
+  }
+
+  /**
+   * Update risk settings. Only the supplied fields are changed.
+   */
+  async updateRiskSettings(params: UpdateRiskSettingsParams): Promise<RiskSettings> {
+    return this.request('PATCH', '/api/v1/settings/risk', { body: params });
+  }
+
+  /**
+   * Reset the circuit breaker after it has been tripped. Returns the updated
+   * risk settings with `circuitBreakerTripped: false`.
+   */
+  async resetCircuitBreaker(): Promise<RiskSettings> {
+    return this.request('POST', '/api/v1/settings/risk/reset');
   }
 
   /**

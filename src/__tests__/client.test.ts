@@ -2254,3 +2254,82 @@ describe('Marketplace seller CRUD (#66)', () => {
     expect(body.review).toBe('Great!');
   });
 });
+
+// ── Risk Settings (#124) ─────────────────────────────────────────────────────
+
+describe('Risk Settings', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  const mockRiskSettings = {
+    drawdownEnabled: false,
+    drawdownLookbackHours: 24,
+    drawdownThresholdPct: 0.1,
+    circuitBreakerTripped: false,
+    circuitBreakerTrippedAt: null,
+  };
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(mockRiskSettings), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('getRiskSettings calls GET /api/v1/settings/risk', async () => {
+    const result = await client.getRiskSettings();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe('GET');
+    expect(url).toContain('/api/v1/settings/risk');
+    expect(result.drawdownEnabled).toBe(false);
+    expect(result.drawdownLookbackHours).toBe(24);
+    expect(result.drawdownThresholdPct).toBe(0.1);
+    expect(result.circuitBreakerTripped).toBe(false);
+    expect(result.circuitBreakerTrippedAt).toBeNull();
+  });
+
+  it('updateRiskSettings calls PATCH /api/v1/settings/risk with body', async () => {
+    await client.updateRiskSettings({ drawdownEnabled: true, drawdownThresholdPct: 0.15 });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe('PATCH');
+    expect(url).toContain('/api/v1/settings/risk');
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ drawdownEnabled: true, drawdownThresholdPct: 0.15 });
+  });
+
+  it('updateRiskSettings with only drawdownLookbackHours', async () => {
+    await client.updateRiskSettings({ drawdownLookbackHours: 8 });
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ drawdownLookbackHours: 8 });
+  });
+
+  it('resetCircuitBreaker calls POST /api/v1/settings/risk/reset', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ ...mockRiskSettings, circuitBreakerTripped: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const result = await client.resetCircuitBreaker();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe('POST');
+    expect(url).toContain('/api/v1/settings/risk/reset');
+    expect(result.circuitBreakerTripped).toBe(false);
+  });
+
+  it('getRiskSettings returns RiskSettings with correct shape', async () => {
+    const result = await client.getRiskSettings();
+    expect(typeof result.drawdownEnabled).toBe('boolean');
+    expect(typeof result.drawdownLookbackHours).toBe('number');
+    expect(typeof result.drawdownThresholdPct).toBe('number');
+    expect(typeof result.circuitBreakerTripped).toBe('boolean');
+  });
+});
