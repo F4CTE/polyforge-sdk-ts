@@ -764,7 +764,13 @@ export class PolyforgeClient {
   // ── Whales ────────────────────────────────────────────────────────────────
 
   /** Get the whale-trade feed. */
-  async getWhaleFeed(params?: { minSize?: number }): Promise<PaginatedResponse<WhaleTrade>> {
+  async getWhaleFeed(params?: {
+    minSize?: number;
+    marketId?: string;
+    walletAddress?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<WhaleTrade>> {
     return this.request('GET', '/api/v1/whales/feed', { query: params as Record<string, unknown> });
   }
 
@@ -796,7 +802,13 @@ export class PolyforgeClient {
   /**
    * Get AI-generated news signals.
    */
-  async getNewsSignals(params?: { minConfidence?: number }): Promise<PaginatedResponse<NewsSignal>> {
+  async getNewsSignals(params?: {
+    minConfidence?: number;
+    marketId?: string;
+    direction?: 'BUY' | 'SELL';
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<NewsSignal>> {
     return this.request('GET', '/api/v1/news/signals', { query: params as Record<string, unknown> });
   }
 
