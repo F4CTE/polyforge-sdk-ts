@@ -175,4 +175,4 @@ Runs vitest for unit tests covering client instantiation, URL construction, and 
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](LICENSE) for details.
