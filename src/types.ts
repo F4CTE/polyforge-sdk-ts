@@ -13,7 +13,7 @@ export type WebhookEvent =
   | 'PRICE_ALERT';
 
 export type OrderSide = 'BUY' | 'SELL';
-export type OrderType = 'GTC' | 'GTD' | 'FOK';
+export type OrderType = 'GTC' | 'GTD' | 'FOK' | 'FAK' | 'POST_ONLY';
 export type OrderStatus = 'PENDING' | 'SUBMITTED' | 'LIVE' | 'MATCHED' | 'DELAYED' | 'MINED' | 'CONFIRMED' | 'PARTIAL' | 'CANCELLED' | 'UNMATCHED' | 'FAILED' | 'ERROR';
 
 // ── Pagination ──────────────────────────────────────────────────────────────
@@ -416,7 +416,7 @@ export interface PlaceOrderParams {
   outcome: 'YES' | 'NO';
   size: number;
   price: number;
-  orderType?: 'GTC' | 'FOK' | 'GTD';
+  orderType?: OrderType;
 }
 
 export interface PlaceOrderResponse {
