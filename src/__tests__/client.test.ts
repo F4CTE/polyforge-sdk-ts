@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, TraderScoreData, TraderScoreBreakdown, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, TraderScoreData, TraderScoreBreakdown, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -851,35 +851,48 @@ describe('CreateConditionalOrderParams matches platform DTO (#49)', () => {
   });
 });
 
-describe('CopyConfig matches platform fields (#50)', () => {
+describe('CopyConfig matches platform fields (#50, #163)', () => {
   it('uses targetWallet not sourceWallet', () => {
     const config: CopyConfig = {
       id: 'cc-1',
+      userId: 'user-1',
       targetWallet: '0xabc123',
       mode: 'PERCENTAGE',
       sizeValue: '50',
       maxExposure: '1000',
       maxDailyLoss: '100',
       priceOffset: '0.01',
-      enabled: true,
+      status: 'ACTIVE',
+      totalPnl: '250.50',
+      totalCopied: 12,
       createdAt: '2026-04-13T00:00:00Z',
+      updatedAt: '2026-04-14T00:00:00Z',
+      stoppedAt: null,
     };
     expect(config.targetWallet).toBe('0xabc123');
     expect((config as any).sourceWallet).toBeUndefined();
     expect((config as any).label).toBeUndefined();
     expect((config as any).maxPositionSize).toBeUndefined();
     expect((config as any).totalCopiedTrades).toBeUndefined();
+    expect((config as any).enabled).toBeUndefined();
   });
 
   it('has mode, sizeValue, maxExposure, maxDailyLoss, priceOffset fields', () => {
     const config: CopyConfig = {
       id: 'cc-2',
+      userId: 'user-2',
       targetWallet: '0xdef456',
       mode: 'FIXED',
       sizeValue: '100',
       maxExposure: '5000',
-      enabled: false,
-      createdAt: '',
+      maxDailyLoss: '200',
+      priceOffset: '0',
+      status: 'PAUSED',
+      totalPnl: '-10.00',
+      totalCopied: 3,
+      createdAt: '2026-04-13T00:00:00Z',
+      updatedAt: '2026-04-13T12:00:00Z',
+      stoppedAt: null,
     };
     expect(config.mode).toBe('FIXED');
     expect(config.sizeValue).toBe('100');
@@ -891,18 +904,53 @@ describe('CopyConfig matches platform fields (#50)', () => {
     expect(modes).toHaveLength(3);
   });
 
-  it('allows optional fields to be omitted', () => {
+  it('CopyStatus accepts all 4 platform values', () => {
+    const statuses: CopyStatus[] = ['ACTIVE', 'PAUSED', 'STOPPED', 'ERROR'];
+    expect(statuses).toHaveLength(4);
+  });
+
+  it('has status enum instead of enabled boolean', () => {
     const config: CopyConfig = {
       id: 'cc-3',
+      userId: 'user-3',
       targetWallet: '0x789',
-      enabled: true,
-      createdAt: '',
+      mode: 'MIRROR',
+      sizeValue: '0',
+      maxExposure: '0',
+      maxDailyLoss: '0',
+      priceOffset: '0',
+      status: 'STOPPED',
+      totalPnl: '0',
+      totalCopied: 0,
+      createdAt: '2026-04-13T00:00:00Z',
+      updatedAt: '2026-04-15T00:00:00Z',
+      stoppedAt: '2026-04-15T00:00:00Z',
     };
-    expect(config.mode).toBeUndefined();
-    expect(config.sizeValue).toBeUndefined();
-    expect(config.maxExposure).toBeUndefined();
-    expect(config.maxDailyLoss).toBeUndefined();
-    expect(config.priceOffset).toBeUndefined();
+    expect(config.status).toBe('STOPPED');
+    expect(config.stoppedAt).toBe('2026-04-15T00:00:00Z');
+    expect((config as any).enabled).toBeUndefined();
+  });
+
+  it('includes performance metrics totalPnl and totalCopied', () => {
+    const config: CopyConfig = {
+      id: 'cc-4',
+      userId: 'user-4',
+      targetWallet: '0xperf',
+      mode: 'PERCENTAGE',
+      sizeValue: '25',
+      maxExposure: '2000',
+      maxDailyLoss: '50',
+      priceOffset: '0.01',
+      status: 'ACTIVE',
+      totalPnl: '1500.75',
+      totalCopied: 42,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-04-20T00:00:00Z',
+      stoppedAt: null,
+    };
+    expect(config.totalPnl).toBe('1500.75');
+    expect(config.totalCopied).toBe(42);
+    expect(config.updatedAt).toBe('2026-04-20T00:00:00Z');
   });
 });
 
@@ -1971,7 +2019,7 @@ describe('SSE buffer size cap (#43)', () => {
 describe('Copy trading CRUD (#51)', () => {
   let client: PolyforgeClient;
   let fetchSpy: ReturnType<typeof vi.spyOn>;
-  const stubConfig = { id: 'cfg-1', targetWallet: '0xabc', enabled: true, createdAt: '2025-01-01T00:00:00.000Z' };
+  const stubConfig = { id: 'cfg-1', userId: 'u-1', targetWallet: '0xabc', mode: 'PERCENTAGE', sizeValue: '10', maxExposure: '500', maxDailyLoss: '100', priceOffset: '0', status: 'ACTIVE', totalPnl: '0', totalCopied: 0, createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '2025-01-01T00:00:00.000Z', stoppedAt: null };
 
   beforeEach(() => {
     client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });

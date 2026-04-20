@@ -18,6 +18,7 @@ export type {
   BatchResponse,
   CopyConfig,
   CopyMode,
+  CopyStatus,
   CreateAlertParams,
   CreateCopyConfigParams,
   CreateListingParams,
