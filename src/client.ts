@@ -7,11 +7,15 @@ import type {
   Alert,
   ApiKey,
   ArbitrageOpportunity,
+  BatchPlaceOrdersResult,
   BatchRequestItem,
   BatchResponse,
   BrowseMarketplaceParams,
+  BulkCancelOrdersResult,
   CancelOrderResponse,
   ClosePositionParams,
+  ClobBook,
+  ClobPricesHistoryResult,
   CopyConfig,
   CreateApiKeyParams,
   CreateApiKeyResponse,
@@ -25,8 +29,11 @@ import type {
   Market,
   MarketplaceListing,
   MarketplacePurchaseResult,
+  MarketSearchResult,
   MarketSentiment,
   MergePositionParams,
+  MidpointResult,
+  NewsArticle,
   NewsSignal,
   Order,
   PaginatedResponse,
@@ -35,6 +42,9 @@ import type {
   PlaceOrderResponse,
   PlaceSmartOrderParams,
   PlaceSmartOrderResponse,
+  PolymarketActivity,
+  PolymarketEarningsEntry,
+  PolymarketPortfolioEntry,
   Portfolio,
   PolyforgeClientOptions,
   PortfolioReview,
@@ -42,6 +52,7 @@ import type {
   RateListingParams,
   RedeemPositionParams,
   SmartOrder,
+  SpreadResult,
   SplitPositionParams,
   Strategy,
   StrategyChild,
@@ -57,6 +68,9 @@ import type {
   StrategyStatusResponse,
   StrategyTemplate,
   StrategyVersion,
+  TickSizeResult,
+  TopTraderEntry,
+  TraderBadge,
   TraderScore,
   UpdateCopyConfigParams,
   UpdateListingParams,
@@ -459,6 +473,55 @@ export class PolyforgeClient {
     return this.request('GET', `/api/v1/markets/${encodeURIComponent(tokenId)}/book`);
   }
 
+  /**
+   * Full-text search for markets by keyword.
+   */
+  async searchMarkets(q: string, limit?: number): Promise<MarketSearchResult> {
+    return this.request('GET', '/api/v1/markets/search', {
+      query: { q, ...(limit !== undefined && { limit }) },
+    });
+  }
+
+  /**
+   * Get the minimum price increment (tick size) and fee rate for a market token.
+   */
+  async getTickSize(tokenId: string): Promise<TickSizeResult> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(tokenId)}/tick-size`);
+  }
+
+  /**
+   * Get the bid-ask spread for a market token.
+   */
+  async getSpread(tokenId: string): Promise<SpreadResult> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(tokenId)}/spread`);
+  }
+
+  /**
+   * Get the mid-price for a market token.
+   */
+  async getMidpoint(tokenId: string): Promise<MidpointResult> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(tokenId)}/midpoint`);
+  }
+
+  /**
+   * Get the CLOB order book for a market token (richer than the standard order book).
+   */
+  async getClobBook(tokenId: string): Promise<ClobBook> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(tokenId)}/clob-book`);
+  }
+
+  /**
+   * Get CLOB price history for a market token.
+   */
+  async getClobPricesHistory(
+    tokenId: string,
+    params?: { interval?: '1m' | '5m' | '1h' | '4h' | '1d' | '1w' | 'max'; fidelity?: number },
+  ): Promise<ClobPricesHistoryResult> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(tokenId)}/clob-prices-history`, {
+      query: params as Record<string, unknown>,
+    });
+  }
+
   // ── Strategies ──────────────────────────────────────────────────────────
 
   /**
@@ -586,6 +649,29 @@ export class PolyforgeClient {
   }
 
   /**
+   * Get raw Polymarket portfolio view (requires connected Polymarket wallet).
+   */
+  async getPolymarketPortfolio(): Promise<{ entries: PolymarketPortfolioEntry[] }> {
+    return this.request('GET', '/api/v1/portfolio/polymarket/portfolio');
+  }
+
+  /**
+   * Get raw Polymarket earnings data (requires connected Polymarket wallet).
+   */
+  async getPolymarketEarnings(): Promise<{ entries: PolymarketEarningsEntry[] }> {
+    return this.request('GET', '/api/v1/portfolio/polymarket/earnings');
+  }
+
+  /**
+   * Get Polymarket activity feed, filterable by type (requires connected Polymarket wallet).
+   */
+  async getPolymarketActivity(type?: string): Promise<{ activities: PolymarketActivity[] }> {
+    return this.request('GET', '/api/v1/portfolio/polymarket/activity', {
+      query: type !== undefined ? { type } : undefined,
+    });
+  }
+
+  /**
    * List orders with optional filters.
    */
   async getOrders(params?: {
@@ -605,6 +691,34 @@ export class PolyforgeClient {
    */
   async getScore(): Promise<TraderScore> {
     return this.request('GET', '/api/v1/scores/me');
+  }
+
+  /**
+   * Get the top-trader leaderboard ranked by score.
+   */
+  async getTopScores(): Promise<TopTraderEntry[]> {
+    return this.request('GET', '/api/v1/scores/top');
+  }
+
+  /**
+   * Get the authenticated user's earned badges.
+   */
+  async getMyBadges(): Promise<TraderBadge[]> {
+    return this.request('GET', '/api/v1/scores/me/badges');
+  }
+
+  /**
+   * Get another user's public trader score by user ID.
+   */
+  async getUserScore(userId: string): Promise<TraderScore> {
+    return this.request('GET', `/api/v1/scores/${encodeURIComponent(userId)}`);
+  }
+
+  /**
+   * Get another user's earned badges by user ID.
+   */
+  async getUserBadges(userId: string): Promise<TraderBadge[]> {
+    return this.request('GET', `/api/v1/scores/${encodeURIComponent(userId)}/badges`);
   }
 
   // ── CSV Exports ─────────────────────────────────────────────────────────
@@ -812,6 +926,25 @@ export class PolyforgeClient {
     limit?: number;
   }): Promise<PaginatedResponse<NewsSignal>> {
     return this.request('GET', '/api/v1/news/signals', { query: params as Record<string, unknown> });
+  }
+
+  /**
+   * List news articles with optional source and sentiment filters.
+   */
+  async listNews(params?: {
+    source?: string;
+    sentiment?: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<NewsArticle>> {
+    return this.request('GET', '/api/v1/news', { query: params as Record<string, unknown> });
+  }
+
+  /**
+   * Get a single news article by ID.
+   */
+  async getNewsArticle(id: string): Promise<NewsArticle> {
+    return this.request('GET', `/api/v1/news/${encodeURIComponent(id)}`);
   }
 
   // ── Discover & Leaderboard ───────────────────────────────────────────────
@@ -1029,6 +1162,20 @@ export class PolyforgeClient {
    */
   async cancelOrder(orderId: string): Promise<CancelOrderResponse> {
     return this.request<CancelOrderResponse>('DELETE', `/api/v1/orders/${encodeURIComponent(orderId)}`);
+  }
+
+  /**
+   * Place multiple orders in a single request (1–15 orders).
+   */
+  async placeBatchOrders(orders: PlaceOrderParams[]): Promise<BatchPlaceOrdersResult> {
+    return this.request('POST', '/api/v1/orders/batch', { body: { orders } });
+  }
+
+  /**
+   * Cancel multiple orders by ID in a single request (1–3000 order IDs).
+   */
+  async cancelOrdersBulk(orderIds: string[]): Promise<BulkCancelOrdersResult> {
+    return this.request('DELETE', '/api/v1/orders/bulk', { body: { orderIds } });
   }
 
   /**

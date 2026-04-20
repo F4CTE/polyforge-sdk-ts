@@ -960,6 +960,115 @@ export interface UpdateRiskSettingsParams {
   drawdownThresholdPct?: number;
 }
 
+// ── Markets — extended data ──────────────────────────────────────────────────
+
+export interface MarketSearchResult {
+  results: unknown[];
+}
+
+export interface TickSizeResult {
+  tokenId: string;
+  tickSize: string;
+  feeRate: string;
+}
+
+export interface SpreadResult {
+  tokenId: string;
+  spread: string;
+}
+
+export interface MidpointResult {
+  tokenId: string;
+  midpoint: string;
+}
+
+export interface ClobBook {
+  tokenId: string;
+  bids: unknown[];
+  asks: unknown[];
+  spread: string;
+  midpoint: string;
+  timestamp: number;
+}
+
+export interface ClobPricesHistoryResult {
+  tokenId: string;
+  interval: string;
+  history: unknown[];
+}
+
+// ── Orders — bulk ────────────────────────────────────────────────────────────
+
+export interface BatchPlaceOrdersResult {
+  results: Array<{ orderId: string; intentId: string; status: string }>;
+}
+
+export interface BulkCancelOrdersResult {
+  cancelled: string[];
+  errors: Array<{ orderId: string; reason: string }>;
+}
+
+// ── News — articles ──────────────────────────────────────────────────────────
+
+export type NewsSentiment = 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+
+export interface NewsArticle {
+  id: string;
+  title: string;
+  source: string;
+  url: string;
+  imageUrl: string | null;
+  sentiment: NewsSentiment;
+  publishedAt: string;
+  signals?: NewsSignal[];
+}
+
+// ── Scores — extended ────────────────────────────────────────────────────────
+
+export interface TopTraderEntry {
+  userId: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  score: number;
+  winRate: string;
+  totalTrades: number;
+}
+
+export interface TraderBadge {
+  id: string;
+  userId: string;
+  type: string;
+  name: string;
+  earnedAt: string;
+}
+
+// ── Portfolio — Polymarket ───────────────────────────────────────────────────
+
+export interface PolymarketPortfolioEntry {
+  asset: string;
+  size: string;
+  avgPrice: string;
+  realizedPnl: string;
+  unrealizedPnl: string;
+}
+
+export interface PolymarketEarningsEntry {
+  date: string;
+  earnings: string;
+  volume: string;
+  winRate: string;
+}
+
+export interface PolymarketActivity {
+  id: string;
+  type: string;
+  amount: string;
+  asset: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {
