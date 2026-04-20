@@ -248,16 +248,23 @@ export interface Alert {
 
 export type CopyMode = 'PERCENTAGE' | 'FIXED' | 'MIRROR';
 
+export type CopyStatus = 'ACTIVE' | 'PAUSED' | 'STOPPED' | 'ERROR';
+
 export interface CopyConfig {
   id: string;
+  userId: string;
   targetWallet: string;
-  mode?: CopyMode;
-  sizeValue?: string;
-  maxExposure?: string;
-  maxDailyLoss?: string;
-  priceOffset?: string;
-  enabled: boolean;
+  mode: CopyMode;
+  sizeValue: string;
+  maxExposure: string;
+  maxDailyLoss: string;
+  priceOffset: string;
+  status: CopyStatus;
+  totalPnl: string;
+  totalCopied: number;
   createdAt: string;
+  updatedAt: string;
+  stoppedAt: string | null;
 }
 
 export interface CreateCopyConfigParams {
