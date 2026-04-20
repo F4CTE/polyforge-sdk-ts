@@ -29,7 +29,7 @@ await client.startStrategy(strategy.id, 'paper');
 ```typescript
 const client = new PolyforgeClient({
   apiKey: 'pf_live_...',       // Required -- your Polyforge API key
-  apiUrl: 'https://...',       // Optional -- defaults to http://localhost:3002
+  apiUrl: 'https://...',       // Optional -- defaults to https://api.polyforge.app
   timeout: 30_000,             // Optional -- request timeout in ms (default: 15000)
 });
 ```
