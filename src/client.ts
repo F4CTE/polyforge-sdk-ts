@@ -669,9 +669,9 @@ export class PolyforgeClient {
   /**
    * Report a strategy for violating guidelines.
    */
-  async reportStrategy(id: string, reason: StrategyReportReason, description?: string): Promise<StrategyReportResult> {
+  async reportStrategy(id: string, reason: StrategyReportReason, details?: string): Promise<StrategyReportResult> {
     return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/report`, {
-      body: { reason, ...(description !== undefined && { description }) },
+      body: { reason, ...(details !== undefined && { details }) },
     });
   }
 

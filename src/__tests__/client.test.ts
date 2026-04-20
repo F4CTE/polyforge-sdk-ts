@@ -1853,16 +1853,16 @@ describe('Strategy social + versioning endpoints (#54)', () => {
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toEqual({ reason: 'SPAM' });
-    expect(body).not.toHaveProperty('description');
+    expect(body).not.toHaveProperty('details');
   });
 
-  it('reportStrategy includes optional description', async () => {
+  it('reportStrategy includes optional details', async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ reportId: 'r-1' }), { status: 201, headers: { 'Content-Type': 'application/json' } }),
     );
     await client.reportStrategy('s-1', 'OTHER', 'Looks suspicious');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ reason: 'OTHER', description: 'Looks suspicious' });
+    expect(body).toEqual({ reason: 'OTHER', details: 'Looks suspicious' });
   });
 
   it('listStrategyVersions sends GET /api/v1/strategies/:id/versions', async () => {
