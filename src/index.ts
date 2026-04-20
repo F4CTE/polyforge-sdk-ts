@@ -50,6 +50,7 @@ export type {
   PortfolioPnlParams,
   Position,
   RedeemPositionParams,
+  RedeemPositionResponse,
   RunBacktestParams,
   SplitPositionParams,
   UpdateCopyConfigParams,

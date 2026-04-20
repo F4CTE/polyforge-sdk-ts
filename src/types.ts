@@ -425,6 +425,12 @@ export interface PlaceOrderResponse {
   status: string;
 }
 
+export interface RedeemPositionResponse {
+  positionId: string;
+  intentId: string;
+  status: string;
+}
+
 export interface CancelOrderResponse {
   orderId: string;
   status: string;

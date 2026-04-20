@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, TraderScoreData, TraderScoreBreakdown, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, RedeemPositionResponse, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, TraderScoreData, TraderScoreBreakdown, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -2256,5 +2256,42 @@ describe('Marketplace seller CRUD (#66)', () => {
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body.rating).toBe(5);
     expect(body.review).toBe('Great!');
+  });
+});
+
+describe('redeemPosition returns positionId not orderId (#152)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch');
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('RedeemPositionResponse type has positionId, not orderId', () => {
+    const resp: RedeemPositionResponse = { positionId: 'pos-abc', intentId: 'int-xyz', status: 'REDEEMED' };
+    expect(resp.positionId).toBe('pos-abc');
+    expect(resp.intentId).toBe('int-xyz');
+    expect(resp.status).toBe('REDEEMED');
+    expect((resp as any).orderId).toBeUndefined();
+  });
+
+  it('redeemPosition sends POST to /api/v1/orders/redeem and returns positionId', async () => {
+    const platformResponse = { positionId: 'pos-123', intentId: 'int-456', status: 'REDEEMED' };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(platformResponse), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.redeemPosition({ positionId: 'pos-123' });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/orders/redeem');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect(result.positionId).toBe('pos-123');
+    expect(result.intentId).toBe('int-456');
+    expect(result.status).toBe('REDEEMED');
+    expect((result as any).orderId).toBeUndefined();
   });
 });
