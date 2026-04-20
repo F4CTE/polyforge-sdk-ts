@@ -649,7 +649,7 @@ export interface LpPosition {
 
 // ── Strategy Social ────────────────────────────────────────────────────────
 
-export type StrategyReportReason = 'SPAM' | 'HARMFUL' | 'MISLEADING' | 'OTHER';
+export type StrategyReportReason = 'SPAM' | 'INAPPROPRIATE' | 'MISLEADING' | 'OTHER';
 
 export interface StrategyLikeResult {
   liked: boolean;
