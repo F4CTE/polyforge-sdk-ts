@@ -1069,6 +1069,38 @@ export interface PolymarketActivity {
   metadata?: Record<string, unknown>;
 }
 
+// ── Rewards ────────────────────────────────────────────────────────────────
+
+export interface RewardsMarket {
+  conditionId: string;
+  rewardsDaily: string;
+  rewardsMaxSpread: string;
+  rewardsMinSize: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface UserReward {
+  date: string;
+  amount: string;
+  market: string;
+}
+
+export interface UserRewardsTotal {
+  total: string;
+  byDate: Array<{ date: string; amount: string }>;
+}
+
+export interface UserRewardsPercentages {
+  [conditionId: string]: number;
+}
+
+export interface Rebate {
+  date: string;
+  amount: string;
+  feesPaid: string;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {
