@@ -2485,7 +2485,7 @@ describe('Orders — bulk operations (#156)', () => {
   it('placeBatchOrders sends POST to /api/v1/orders/batch with orders array', async () => {
     const stub = { results: [{ orderId: 'o-1', intentId: 'i-1', status: 'PENDING' }] };
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(stub), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    const orders = [{ tokenId: 'tok-1', side: 'BUY' as const, outcome: 'YES' as const, size: 10, price: 0.5 }];
+    const orders = [{ marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY' as const, outcome: 'YES' as const, size: 10, price: 0.5 }];
     await client.placeBatchOrders(orders);
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toBe('/api/v1/orders/batch');
@@ -2494,6 +2494,18 @@ describe('Orders — bulk operations (#156)', () => {
     expect(body).toHaveProperty('orders');
     expect(Array.isArray(body.orders)).toBe(true);
     expect(body.orders[0].tokenId).toBe('tok-1');
+  });
+
+  it('placeOrder sends POST to /api/v1/orders/place with marketId', async () => {
+    const stub = { orderId: 'o-1', intentId: 'i-1', status: 'PENDING' };
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(stub), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.placeOrder({ marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/orders/place');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.marketId).toBe('mkt-1');
+    expect(body.tokenId).toBe('tok-1');
   });
 
   it('cancelOrdersBulk sends DELETE to /api/v1/orders/bulk with orderIds array', async () => {

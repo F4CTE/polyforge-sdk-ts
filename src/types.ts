@@ -418,12 +418,13 @@ export interface ImportStrategyParams {
 // ── Direct Trading ──────────────────────────────────────────────────────────
 
 export interface PlaceOrderParams {
+  marketId: string;
   tokenId: string;
   side: 'BUY' | 'SELL';
   outcome: 'YES' | 'NO';
   size: number;
   price: number;
-  orderType?: 'GTC' | 'FOK' | 'GTD';
+  orderType?: OrderType;
 }
 
 export interface PlaceOrderResponse {
