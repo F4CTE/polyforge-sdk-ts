@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, TraderScoreData, TraderScoreBreakdown, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -1087,129 +1087,88 @@ describe('RunBacktestParams has all platform fields (#14)', () => {
 // --- Breaking compat fixes (#18, #24, #31, #32) ---
 
 describe('TraderScore fields match platform (#102)', () => {
-  it('should return wrapped { score, breakdown } matching GET /api/v1/scores/me', () => {
-    const scoreData: TraderScoreData = {
-      id: 'ts-1',
-      userId: 'u-1',
-      score: 85,
-      winRate: '0.62',
-      sharpeRatio: '1.5000',
-      avgReturn: '0.0800',
-      totalTrades: 120,
-      profitFactor: '2.1000',
-      maxDrawdown: '-0.1500',
-      consistency: '0.78',
+  it('should use flat structure matching GET /api/v1/scores/me', () => {
+    const ts: TraderScore = {
+      overall: 85,
+      rank: 12,
+      profitability: 0.72,
+      consistency: 0.78,
+      riskManagement: 0.65,
+      volume: 0.9,
+      percentile: 92.5,
       updatedAt: '2026-04-13T00:00:00Z',
     };
-    const ts: TraderScore = {
-      score: scoreData,
-      breakdown: {
-        score: 85,
-        components: {
-          winRate: { value: '0.62', weight: 0.25, weighted: 0.155 },
-          sharpe: { value: '1.5000', weight: 0.2, weighted: 0.3 },
-          profitFactor: { value: '2.1000', weight: 0.15, weighted: 0.315 },
-          consistency: { value: '0.78', weight: 0.15, weighted: 0.117 },
-          avgReturn: { value: '0.0800', weight: 0.1, weighted: 0.008 },
-          tradeVolume: { value: 120, weight: 0.1, weighted: 12 },
-          drawdown: { value: '-0.1500', weight: 0.05, weighted: -0.0075 },
-        },
-        totalTrades: 120,
-        updatedAt: '2026-04-13T00:00:00Z',
-      },
-    };
-    expect(ts.score?.score).toBe(85);
-    expect(ts.score?.totalTrades).toBe(120);
-    expect(ts.score?.avgReturn).toBe('0.0800');
-    expect(ts.breakdown?.components.winRate.weight).toBe(0.25);
-    // Phantom fields from old type must not exist
-    expect((ts.score as any)?.rank).toBeUndefined();
-  });
-
-  it('should allow null score and breakdown for new users', () => {
-    const ts: TraderScore = { score: null, breakdown: null };
-    expect(ts.score).toBeNull();
-    expect(ts.breakdown).toBeNull();
+    expect(ts.overall).toBe(85);
+    expect(ts.rank).toBe(12);
+    expect(ts.profitability).toBe(0.72);
+    expect(ts.riskManagement).toBe(0.65);
+    expect(ts.percentile).toBe(92.5);
+    expect((ts as any).score).toBeUndefined();
+    expect((ts as any).breakdown).toBeUndefined();
   });
 });
 
 describe('WhaleTrade fields match platform (#104)', () => {
-  it('should use detectedAt, Decimal strings, and nested market from WhaleAlert model', () => {
+  it('should use flat structure with wallet, usdValue, timestamp, marketName', () => {
     const wt: WhaleTrade = {
       id: 'wt-1',
-      walletAddress: '0xabc123',
       marketId: 'mkt-1',
-      tokenId: 'tok-1',
+      marketName: 'Test Market',
       side: 'BUY',
-      outcome: 'YES',
-      size: '5000.000000',
-      price: '0.650000',
-      notional: '3250.000000',
-      txHash: '0xdeadbeef',
-      detectedAt: '2026-04-13T00:00:00.000Z',
-      market: { id: 'mkt-1', title: 'Test Market', slug: 'test-market', image: null },
+      size: 5000,
+      usdValue: 3250,
+      wallet: '0xabc123',
+      timestamp: '2026-04-13T00:00:00.000Z',
     };
-    expect(wt.walletAddress).toBe('0xabc123');
-    expect(wt.detectedAt).toBeDefined();
-    expect(wt.txHash).toBe('0xdeadbeef');
-    expect(wt.market.title).toBe('Test Market');
-    // Prisma Decimal fields serialize as strings
-    expect(typeof wt.size).toBe('string');
-    expect(typeof wt.notional).toBe('string');
-    // Old phantom field must not exist
-    expect((wt as any).timestamp).toBeUndefined();
+    expect(wt.wallet).toBe('0xabc123');
+    expect(wt.marketName).toBe('Test Market');
+    expect(wt.usdValue).toBe(3250);
+    expect(wt.timestamp).toBeDefined();
+    expect((wt as any).walletAddress).toBeUndefined();
+    expect((wt as any).notional).toBeUndefined();
+    expect((wt as any).detectedAt).toBeUndefined();
+    expect((wt as any).market).toBeUndefined();
   });
 });
 
 describe('NewsSignal fields match platform (#105)', () => {
-  it('should include nested article and market objects from Prisma include', () => {
+  it('should use flat structure with headline, source, sentiment, relatedMarkets', () => {
     const ns: NewsSignal = {
       id: 'ns-1',
-      articleId: 'art-123',
-      marketId: 'mkt-1',
-      direction: 'BUY',
-      outcome: 'YES',
+      headline: 'Breaking news',
+      source: 'reuters',
+      sentiment: 'POSITIVE',
       confidence: 90,
-      reasoning: 'Strong buy signal',
-      createdAt: '2026-04-13T00:00:00Z',
-      article: {
-        id: 'art-123',
-        title: 'Breaking news',
-        source: 'reuters',
-        url: 'https://example.com/article',
-        imageUrl: null,
-        sentiment: 'POSITIVE',
-        publishedAt: '2026-04-13T00:00:00Z',
-      },
-      market: { id: 'mkt-1', title: 'Test Market', slug: 'test-market', image: null },
+      relatedMarkets: ['mkt-1', 'mkt-2'],
+      signal: 'BUY',
+      publishedAt: '2026-04-13T00:00:00Z',
     };
-    expect(ns.direction).toBe('BUY');
-    expect(ns.article.title).toBe('Breaking news');
-    expect(ns.article.source).toBe('reuters');
-    expect(ns.market.title).toBe('Test Market');
-    // headline/source are on article, not on signal directly
-    expect((ns as any).headline).toBeUndefined();
-    expect((ns as any).source).toBeUndefined();
+    expect(ns.headline).toBe('Breaking news');
+    expect(ns.source).toBe('reuters');
+    expect(ns.sentiment).toBe('POSITIVE');
+    expect(ns.relatedMarkets).toHaveLength(2);
+    expect((ns as any).direction).toBeUndefined();
+    expect((ns as any).article).toBeUndefined();
+    expect((ns as any).market).toBeUndefined();
+    expect((ns as any).articleId).toBeUndefined();
   });
 });
 
 describe('AiQueryResponse fields match platform (#103)', () => {
-  it('should use query/intent/filters/data/summary shape', () => {
+  it('should use answer/confidence/sources/suggestedActions shape', () => {
     const resp: AiQueryResponse = {
-      query: 'what is BTC price?',
-      intent: 'market_lookup',
-      filters: { category: 'crypto' },
-      data: [{ marketId: 'mkt-1', price: 0.65 }],
-      summary: 'BTC market is at 0.65',
+      answer: 'BTC market is at 0.65',
+      confidence: 0.92,
+      sources: ['market-data', 'price-feed'],
+      suggestedActions: ['view_market'],
     };
-    expect(resp.query).toBe('what is BTC price?');
-    expect(resp.intent).toBe('market_lookup');
-    expect(resp.summary).toBeDefined();
-    // These fields do NOT exist in the platform response
-    expect((resp as any).answer).toBeUndefined();
-    expect((resp as any).confidence).toBeUndefined();
-    expect((resp as any).sources).toBeUndefined();
-    expect((resp as any).suggestedActions).toBeUndefined();
+    expect(resp.answer).toBe('BTC market is at 0.65');
+    expect(resp.confidence).toBe(0.92);
+    expect(resp.sources).toHaveLength(2);
+    expect(resp.suggestedActions).toHaveLength(1);
+    expect((resp as any).query).toBeUndefined();
+    expect((resp as any).intent).toBeUndefined();
+    expect((resp as any).summary).toBeUndefined();
   });
 });
 
@@ -1452,30 +1411,42 @@ describe('Missing query parameters on list methods', () => {
 });
 
 describe('PortfolioPnl fields match platform (#106)', () => {
-  it('should use snapshots/totalPnl/winRate matching GET /api/v1/portfolio/pnl', () => {
+  it('should use period/totalPnl/realizedPnl/unrealizedPnl/dataPoints shape', () => {
     const pnl: PortfolioPnl = {
-      snapshots: [
-        { time: '2026-04-10T00:00:00.000Z', pnl: '125.50' },
-        { time: '2026-04-11T00:00:00.000Z', pnl: '-30.25' },
+      period: '30d',
+      totalPnl: 95.25,
+      realizedPnl: 80.0,
+      unrealizedPnl: 15.25,
+      winRate: 0.62,
+      tradeCount: 48,
+      bestTrade: 120.5,
+      worstTrade: -30.25,
+      dataPoints: [
+        { time: '2026-04-10T00:00:00.000Z', pnl: 125.5 },
+        { time: '2026-04-11T00:00:00.000Z', pnl: -30.25 },
       ],
-      totalPnl: '95.25',
-      winRate: '0',
     };
-    expect(pnl.snapshots).toHaveLength(2);
-    expect(pnl.totalPnl).toBe('95.25');
-    expect(typeof pnl.totalPnl).toBe('string');
-    // Phantom fields from old type must not exist
-    expect((pnl as any).dailyPnl).toBeUndefined();
-    expect((pnl as any).weeklyPnl).toBeUndefined();
-    expect((pnl as any).monthlyPnl).toBeUndefined();
-    expect((pnl as any).realizedPnl).toBeUndefined();
-    expect((pnl as any).unrealizedPnl).toBeUndefined();
-    expect((pnl as any).history).toBeUndefined();
+    expect(pnl.period).toBe('30d');
+    expect(pnl.totalPnl).toBe(95.25);
+    expect(pnl.realizedPnl).toBe(80.0);
+    expect(pnl.unrealizedPnl).toBe(15.25);
+    expect(pnl.dataPoints).toHaveLength(2);
+    expect((pnl as any).snapshots).toBeUndefined();
   });
 
   it('should handle empty result', () => {
-    const pnl: PortfolioPnl = { snapshots: [], totalPnl: '0.00', winRate: '0' };
-    expect(pnl.snapshots).toHaveLength(0);
+    const pnl: PortfolioPnl = {
+      period: '7d',
+      totalPnl: 0,
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+      winRate: 0,
+      tradeCount: 0,
+      bestTrade: 0,
+      worstTrade: 0,
+      dataPoints: [],
+    };
+    expect(pnl.dataPoints).toHaveLength(0);
   });
 });
 
