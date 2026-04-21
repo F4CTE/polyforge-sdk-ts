@@ -2220,7 +2220,7 @@ describe('Batch API (#66)', () => {
   beforeEach(() => {
     client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
-      new Response(JSON.stringify({ results: [{ status: 200, body: {} }] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ results: [{ id: 'req-1', status: 200, body: {} }, { id: 'req-2', status: 200, body: {} }] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
   });
 
@@ -2229,17 +2229,20 @@ describe('Batch API (#66)', () => {
   });
 
   it('batchRequests sends POST to /api/v1/batch with items array', async () => {
-    await client.batchRequests([
-      { method: 'GET', path: '/api/v1/portfolio' },
-      { method: 'GET', path: '/api/v1/strategies' },
+    const res = await client.batchRequests([
+      { id: 'req-1', method: 'GET', path: '/api/v1/portfolio' },
+      { id: 'req-2', method: 'GET', path: '/api/v1/strategies' },
     ]);
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toBe('/api/v1/batch');
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body.items).toHaveLength(2);
+    expect(body.items[0].id).toBe('req-1');
     expect(body.items[0].method).toBe('GET');
     expect(body.items[0].path).toBe('/api/v1/portfolio');
+    expect(res.results[0].id).toBe('req-1');
+    expect(res.results[1].id).toBe('req-2');
   });
 });
 

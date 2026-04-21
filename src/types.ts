@@ -906,6 +906,7 @@ export interface PaperSummary {
 // ── Batch API ───────────────────────────────────────────────────────────────
 
 export interface BatchRequestItem {
+  id: string;
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
   path: string;
   body?: Record<string, unknown>;
@@ -913,6 +914,7 @@ export interface BatchRequestItem {
 
 export interface BatchResponse {
   results: Array<{
+    id: string;
     status: number;
     body: unknown;
   }>;
