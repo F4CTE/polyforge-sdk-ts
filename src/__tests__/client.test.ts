@@ -527,35 +527,37 @@ describe('StrategyStatusResponse type (#61)', () => {
   });
 });
 
-describe('PaginatedResponse type (#78)', () => {
-  it('should correctly type a paginated strategy response', () => {
+describe('PaginatedResponse type (#78, #141)', () => {
+  it('should correctly type a paginated strategy response with nested pagination', () => {
     const resp: PaginatedResponse<Strategy> = {
       data: [
         { id: 's1', name: 'Alpha', status: 'IDLE' as StrategyStatus, visibility: 'PRIVATE', execMode: 'TICK', tickMs: 1000, triggers: [], conditions: [], actions: [], safety: [], logicBlocks: [], calcBlocks: [], tags: [], variables: [], pnl: 0, tradeCount: 0, winRate: 0, createdAt: '', updatedAt: '' },
       ],
-      total: 1,
-      page: 1,
-      limit: 10,
-      totalPages: 1,
-      hasNext: false,
+      pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
     };
     expect(resp.data).toHaveLength(1);
     expect(resp.data[0].id).toBe('s1');
-    expect(resp.total).toBe(1);
-    expect(resp.hasNext).toBe(false);
+    expect(resp.pagination.total).toBe(1);
+    expect(resp.pagination.page).toBe(1);
+    expect(resp.pagination.limit).toBe(10);
+    expect(resp.pagination.totalPages).toBe(1);
   });
 
   it('should have correct shape for empty response', () => {
     const resp: PaginatedResponse<Strategy> = {
       data: [],
-      total: 0,
-      page: 1,
-      limit: 10,
-      totalPages: 0,
-      hasNext: false,
+      pagination: { total: 0, page: 1, limit: 10, totalPages: 0 },
     };
     expect(resp.data).toHaveLength(0);
-    expect(resp.total).toBe(0);
+    expect(resp.pagination.total).toBe(0);
+  });
+
+  it('should not have hasNext field (not part of platform contract)', () => {
+    const resp: PaginatedResponse<Strategy> = {
+      data: [],
+      pagination: { total: 0, page: 1, limit: 10, totalPages: 0 },
+    };
+    expect((resp as any).hasNext).toBeUndefined();
   });
 });
 
@@ -1312,7 +1314,7 @@ describe('Missing query parameters on list methods', () => {
   beforeEach(() => {
     client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
-      new Response(JSON.stringify({ data: [], total: 0, page: 1, limit: 10, totalPages: 0, hasNext: false }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ data: [], pagination: { total: 0, page: 1, limit: 10, totalPages: 0 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
   });
 
@@ -1797,7 +1799,7 @@ describe('Strategy social + versioning endpoints (#54)', () => {
   });
 
   it('listStrategyComments sends GET /api/v1/strategies/:id/comments with pagination', async () => {
-    const resp = { data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNext: false };
+    const resp = { data: [], pagination: { total: 0, page: 1, limit: 20, totalPages: 0 } };
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify(resp), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
