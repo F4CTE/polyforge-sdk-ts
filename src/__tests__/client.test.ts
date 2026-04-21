@@ -1680,6 +1680,33 @@ describe('Price history & order book (issue #52)', () => {
     expect(url.pathname).toContain('token%2Fspecial%26id');
   });
 
+  it('getPriceHistory returns OHLCV candles with bucket field', async () => {
+    const candle = { bucket: '2026-04-19T12:00:00.000Z', open: '0.65', high: '0.72', low: '0.63', close: '0.70', volume: 1500 };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([candle]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getPriceHistory('token-1');
+    expect(result).toEqual([candle]);
+    expect(result[0].bucket).toBe('2026-04-19T12:00:00.000Z');
+    expect(result[0].open).toBe('0.65');
+    expect(result[0].close).toBe('0.70');
+    expect(result[0].volume).toBe(1500);
+  });
+
+  it('getPriceHistory accepts 5m and 15m resolutions', async () => {
+    await client.getPriceHistory('token-1', { resolution: '5m' });
+    let url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('resolution')).toBe('5m');
+
+    fetchSpy.mockClear();
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getPriceHistory('token-1', { resolution: '15m' });
+    url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('resolution')).toBe('15m');
+  });
+
   it('getOrderBook sends GET to /api/v1/markets/:tokenId/book', async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ bids: [], asks: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
