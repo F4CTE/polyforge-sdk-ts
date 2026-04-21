@@ -96,8 +96,13 @@ import type {
   PortfolioPnl,
   PortfolioPnlParams,
   RunBacktestParams,
+  Rebate,
+  RewardsMarket,
   RiskSettings,
   UpdateRiskSettingsParams,
+  UserReward,
+  UserRewardsPercentages,
+  UserRewardsTotal,
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
@@ -1348,6 +1353,43 @@ export class PolyforgeClient {
   async provideLiquidity(params: ProvideLiquidityParams): Promise<LpPosition> {
     this.validateFinancialParam('amountUsdc', params.amountUsdc);
     return this.request('POST', '/api/v1/lp/provide', { body: params });
+  }
+
+  // ── Rewards ─────────────────────────────────────────────────────────────
+
+  /** List markets that currently distribute liquidity rewards. */
+  async getRewardsMarkets(): Promise<RewardsMarket[]> {
+    return this.request('GET', '/api/v1/rewards/markets');
+  }
+
+  /** Get reward configuration for a specific market by condition ID. */
+  async getRewardsForMarket(conditionId: string): Promise<RewardsMarket> {
+    return this.request('GET', `/api/v1/rewards/markets/${encodeURIComponent(conditionId)}`);
+  }
+
+  /** Get the authenticated user's reward history. */
+  async getUserRewards(): Promise<{ rewards: UserReward[] }> {
+    return this.request('GET', '/api/v1/rewards/user');
+  }
+
+  /** Get the authenticated user's total rewards with daily breakdown. */
+  async getUserRewardsTotal(): Promise<UserRewardsTotal> {
+    return this.request('GET', '/api/v1/rewards/user/total');
+  }
+
+  /** Get the authenticated user's reward distribution percentages per market. */
+  async getUserRewardsPercentages(): Promise<UserRewardsPercentages> {
+    return this.request('GET', '/api/v1/rewards/user/percentages');
+  }
+
+  /** Get the authenticated user's rewards broken down by market. */
+  async getUserRewardsPerMarket(): Promise<{ markets: UserReward[] }> {
+    return this.request('GET', '/api/v1/rewards/user/markets');
+  }
+
+  /** Get the authenticated user's fee rebate history. */
+  async getRebates(): Promise<{ rebates: Rebate[] }> {
+    return this.request('GET', '/api/v1/rewards/rebates');
   }
 
   // ── Strategy Execution Watching (SSE) ────────────────────────────────────

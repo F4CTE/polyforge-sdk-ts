@@ -2657,3 +2657,84 @@ describe('Portfolio — Polymarket-specific (#156)', () => {
     expect(url.searchParams.has('type')).toBe(false);
   });
 });
+
+// --- Rewards API family (POLA-316 / #155) ---
+
+describe('Rewards API', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('getRewardsMarkets sends GET to /api/v1/rewards/markets', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getRewardsMarkets();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/markets');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getRewardsForMarket sends GET to /api/v1/rewards/markets/:conditionId', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getRewardsForMarket('0xabc123');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/markets/0xabc123');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getRewardsForMarket encodes conditionId', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getRewardsForMarket('id/with spaces');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/markets/id%2Fwith%20spaces');
+  });
+
+  it('getUserRewards sends GET to /api/v1/rewards/user', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ rewards: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getUserRewards();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/user');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getUserRewardsTotal sends GET to /api/v1/rewards/user/total', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ total: '0', byDate: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getUserRewardsTotal();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/user/total');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getUserRewardsPercentages sends GET to /api/v1/rewards/user/percentages', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getUserRewardsPercentages();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/user/percentages');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getUserRewardsPerMarket sends GET to /api/v1/rewards/user/markets', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ markets: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getUserRewardsPerMarket();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/user/markets');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getRebates sends GET to /api/v1/rewards/rebates', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ rebates: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getRebates();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/rebates');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+});
