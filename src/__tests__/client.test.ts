@@ -2772,3 +2772,16 @@ describe('Rewards API', () => {
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
   });
 });
+
+describe('redeemPosition return type (#152)', () => {
+  it('redeemPosition returns positionId not orderId', async () => {
+    const redeemResponse = { positionId: 'pos-1', intentId: 'int-1', status: 'confirmed' };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(redeemResponse), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.redeemPosition({ positionId: 'pos-1' });
+    expect(result).toHaveProperty('positionId', 'pos-1');
+    expect(result).toHaveProperty('intentId', 'int-1');
+    expect(result).not.toHaveProperty('orderId');
+  });
+});
