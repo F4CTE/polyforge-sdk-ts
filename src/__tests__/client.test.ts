@@ -1923,13 +1923,13 @@ describe('Strategy social + versioning endpoints (#54)', () => {
     expect(body).toEqual({ reason: 'OTHER', description: 'Looks suspicious' });
   });
 
-  it('reportStrategy accepts INAPPROPRIATE reason', async () => {
+  it('reportStrategy accepts MISLEADING reason', async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ reportId: 'r-2' }), { status: 201, headers: { 'Content-Type': 'application/json' } }),
     );
-    await client.reportStrategy('s-1', 'INAPPROPRIATE');
+    await client.reportStrategy('s-1', 'MISLEADING');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ reason: 'INAPPROPRIATE' });
+    expect(body).toEqual({ reason: 'MISLEADING' });
   });
 
   it('listStrategyVersions sends GET /api/v1/strategies/:id/versions', async () => {
@@ -2774,6 +2774,20 @@ describe('Rewards API', () => {
 });
 
 describe('redeemPosition return type (#152)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
   it('redeemPosition returns positionId not orderId', async () => {
     const redeemResponse = { positionId: 'pos-1', intentId: 'int-1', status: 'confirmed' };
     fetchSpy.mockResolvedValueOnce(
