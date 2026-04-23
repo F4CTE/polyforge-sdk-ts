@@ -85,7 +85,7 @@ import type {
   WhaleTrade,
   WhaleTopParams,
   OrderBook,
-  PriceHistoryEntry,
+  PriceCandle,
   PriceHistoryParams,
   Backtest,
   ConditionalOrder,
@@ -465,7 +465,7 @@ export class PolyforgeClient {
   /**
    * Get price history for a market token.
    */
-  async getPriceHistory(tokenId: string, params?: PriceHistoryParams): Promise<PriceHistoryEntry[]> {
+  async getPriceHistory(tokenId: string, params?: PriceHistoryParams): Promise<PriceCandle[]> {
     return this.request('GET', `/api/v1/markets/${encodeURIComponent(tokenId)}/price-history`, {
       query: params as Record<string, unknown>,
     });

@@ -57,6 +57,7 @@ export type {
   Portfolio,
   PolyforgeClientOptions,
   PortfolioPnl,
+  PriceCandle,
   PriceHistoryEntry,
   PriceHistoryParams,
   PortfolioPnlParams,

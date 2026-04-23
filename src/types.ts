@@ -828,17 +828,23 @@ export interface WebhookTestResult {
 // ── Price History & Order Book ──────────────────────────────────────────────
 
 export interface PriceHistoryParams {
-  resolution?: '1m' | '1h' | '1d';
+  resolution?: '1m' | '5m' | '15m' | '1h' | '1d';
   from?: string;
   to?: string;
   limit?: number;
 }
 
-export interface PriceHistoryEntry {
-  timestamp: string;
-  price: number;
-  volume?: number;
+export interface PriceCandle {
+  bucket: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: number;
 }
+
+/** @deprecated Use {@link PriceCandle} instead. */
+export type PriceHistoryEntry = PriceCandle;
 
 export interface OrderBookLevel {
   price: number;
