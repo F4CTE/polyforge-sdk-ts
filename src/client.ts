@@ -568,11 +568,14 @@ export class PolyforgeClient {
   }
 
   /**
-   * Start a strategy in live or paper mode.
+   * Start a strategy. Defaults to paper mode (paperMode: true) for safety.
    */
-  async startStrategy(id: string, mode: 'live' | 'paper' = 'paper'): Promise<StrategyStatusResponse> {
+  async startStrategy(
+    id: string,
+    options: { paperMode?: boolean; deploymentMode?: 'LIVE' | 'SIMULATION' } = { paperMode: true },
+  ): Promise<StrategyStatusResponse> {
     return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/start`, {
-      body: { mode },
+      body: options,
     });
   }
 

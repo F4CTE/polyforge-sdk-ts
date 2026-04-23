@@ -127,16 +127,28 @@ describe('Platform contract compliance', () => {
     expect(body).not.toHaveProperty('query');
   });
 
-  it('startStrategy sends lowercase mode (#87)', async () => {
-    await client.startStrategy('strat-id', 'live');
+  it('startStrategy sends paperMode:false for live (#145)', async () => {
+    await client.startStrategy('strat-id', { paperMode: false });
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ mode: 'live' });
+    expect(body).toEqual({ paperMode: false });
   });
 
-  it('startStrategy does not uppercase paper mode (#87)', async () => {
-    await client.startStrategy('strat-id', 'paper');
+  it('startStrategy sends paperMode:true for paper (#145)', async () => {
+    await client.startStrategy('strat-id', { paperMode: true });
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ mode: 'paper' });
+    expect(body).toEqual({ paperMode: true });
+  });
+
+  it('startStrategy sends deploymentMode when provided (#145)', async () => {
+    await client.startStrategy('strat-id', { paperMode: false, deploymentMode: 'LIVE' });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ paperMode: false, deploymentMode: 'LIVE' });
+  });
+
+  it('startStrategy defaults to paperMode:true (#145)', async () => {
+    await client.startStrategy('strat-id');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ paperMode: true });
   });
 
   it('placeSmartOrder sends intervalMinutes not intervalSeconds (#88)', async () => {
