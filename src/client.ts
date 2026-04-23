@@ -51,6 +51,7 @@ import type {
   ProvideLiquidityParams,
   RateListingParams,
   RedeemPositionParams,
+  RedeemPositionResponse,
   SmartOrder,
   SpreadResult,
   SplitPositionParams,
@@ -1196,8 +1197,8 @@ export class PolyforgeClient {
   /**
    * Redeem winning shares after a market resolves.
    */
-  async redeemPosition(params: RedeemPositionParams): Promise<PlaceOrderResponse> {
-    return this.request('POST', '/api/v1/orders/redeem', { body: params });
+  async redeemPosition(params: RedeemPositionParams): Promise<RedeemPositionResponse> {
+    return this.request<RedeemPositionResponse>('POST', '/api/v1/orders/redeem', { body: params });
   }
 
   /**

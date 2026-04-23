@@ -64,6 +64,7 @@ export type {
   Position,
   Rebate,
   RedeemPositionParams,
+  RedeemPositionResponse,
   RewardsMarket,
   RiskSettings,
   RunBacktestParams,

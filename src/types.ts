@@ -391,6 +391,12 @@ export interface RedeemPositionParams {
   marketId?: string;
 }
 
+export interface RedeemPositionResponse {
+  positionId: string;
+  intentId: string;
+  status: string;
+}
+
 export interface SplitPositionParams {
   tokenId: string;
   amount: string;
