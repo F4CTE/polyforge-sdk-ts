@@ -1046,22 +1046,20 @@ describe('Market type uses title and tokens[] (#17)', () => {
   });
 });
 
-describe('OrderType uses platform values GTC/GTD/FOK (#36, #126)', () => {
-  it('should accept the 3 platform order types', () => {
-    const types: OrderType[] = ['GTC', 'GTD', 'FOK'];
-    expect(types).toHaveLength(3);
+describe('OrderType uses all 5 platform values (#36, #126, #153)', () => {
+  it('should accept all 5 platform order types', () => {
+    const types: OrderType[] = ['GTC', 'GTD', 'FOK', 'FAK', 'POST_ONLY'];
+    expect(types).toHaveLength(5);
   });
 
-  it('should not accept FAK or exchange-style order types', () => {
-    // Type-level check: these old values should NOT compile.
-    // Runtime check ensures the type is correctly constrained.
-    const validTypes = new Set<OrderType>(['GTC', 'GTD', 'FOK']);
+  it('should not accept exchange-style order types', () => {
+    const validTypes = new Set<OrderType>(['GTC', 'GTD', 'FOK', 'FAK', 'POST_ONLY']);
     expect(validTypes.has('GTC')).toBe(true);
     expect(validTypes.has('GTD')).toBe(true);
     expect(validTypes.has('FOK')).toBe(true);
-    // FAK is not accepted by the platform
-    expect(validTypes.has('FAK' as any)).toBe(false);
-    // Old values are no longer valid
+    expect(validTypes.has('FAK')).toBe(true);
+    expect(validTypes.has('POST_ONLY')).toBe(true);
+    // Old exchange-style values are not valid
     expect(validTypes.has('MARKET' as any)).toBe(false);
     expect(validTypes.has('LIMIT' as any)).toBe(false);
     expect(validTypes.has('STOP' as any)).toBe(false);
