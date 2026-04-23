@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.19.5] — 2026-04-21
+
+### Fixed
+- **PaginatedResponse shape** — `PaginatedResponse<T>` now nests pagination metadata under a `pagination` sub-object (`{ page, limit, total, totalPages }`) to match the platform contract. The flat top-level fields (`total`, `page`, `limit`, `totalPages`) and the non-existent `hasNext` field have been removed. Any code accessing `response.total` or `response.hasNext` must be updated to use `response.pagination.total`, etc. (closes #141)
+
 ## [1.19.4] — 2026-04-15
 
 ### Fixed
