@@ -1065,6 +1065,218 @@ export interface Rebate {
   feesPaid: string;
 }
 
+// ── Cross-Venue Arbitrage ──────────────────────────────────────────────────
+
+export interface CrossVenueOpportunity {
+  matchId: string;
+  polymarketId: string;
+  kalshiId: string;
+  polymarketTitle: string;
+  kalshiTitle: string;
+  polymarketYesPrice: number;
+  kalshiYesPrice: number;
+  spread: number;
+  recommendedAction: string;
+  estimatedProfit: number;
+}
+
+export interface CrossVenueComparison {
+  matchId: string;
+  polymarket: {
+    id: string;
+    title: string;
+    yesPrice: number;
+    noPrice: number;
+    liquidity: number;
+  };
+  kalshi: {
+    id: string;
+    title: string;
+    yesPrice: number;
+    noPrice: number;
+    liquidity: number;
+  };
+  spread: number;
+  updatedAt: string;
+}
+
+export interface MarketMatch {
+  id: string;
+  polymarketId: string;
+  kalshiId: string;
+  verified: boolean;
+  similarity: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMarketMatchParams {
+  polymarketId: string;
+  kalshiId: string;
+}
+
+export interface SyncMatchesResult {
+  matched: number;
+}
+
+// ── Whale Alert Filter ──────────────────────────────────────────────────────
+
+export interface WhaleAlertFilter {
+  id: string;
+  userId: string;
+  minSize?: string;
+  marketIds?: string[];
+  walletAddresses?: string[];
+  sides?: string[];
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertWhaleAlertFilterParams {
+  minSize?: string;
+  marketIds?: string[];
+  walletAddresses?: string[];
+  sides?: ('BUY' | 'SELL')[];
+  active?: boolean;
+}
+
+// ── Public Profile ──────────────────────────────────────────────────────────
+
+export interface PublicProfile {
+  id: string;
+  username: string;
+  displayName?: string;
+  bio?: string;
+  avatarUrl?: string;
+  followersCount: number;
+  followingCount: number;
+  isFollowing: boolean;
+  createdAt: string;
+}
+
+export interface UpdateProfileParams {
+  displayName?: string;
+  bio?: string;
+  avatarUrl?: string;
+}
+
+export interface ChangePasswordParams {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface FollowResult {
+  following: boolean;
+  followersCount: number;
+}
+
+// ── Settings ────────────────────────────────────────────────────────────────
+
+export interface UpdateSettingsProfileParams {
+  displayName?: string;
+  username?: string;
+  bio?: string;
+  avatarUrl?: string;
+}
+
+export interface NotificationSettings {
+  emailOnOrderFilled: boolean;
+  emailOnStrategyError: boolean;
+  emailOnDailyLossLimit: boolean;
+  emailOnMarketResolved: boolean;
+  pushOnOrderFilled: boolean;
+  pushOnStrategyError: boolean;
+  pushOnWhaleAlert: boolean;
+  pushOnPriceAlert: boolean;
+}
+
+export interface UpdateNotificationSettingsParams {
+  emailOnOrderFilled?: boolean;
+  emailOnStrategyError?: boolean;
+  emailOnDailyLossLimit?: boolean;
+  emailOnMarketResolved?: boolean;
+  pushOnOrderFilled?: boolean;
+  pushOnStrategyError?: boolean;
+  pushOnWhaleAlert?: boolean;
+  pushOnPriceAlert?: boolean;
+}
+
+export interface ChangePasswordSettingsParams {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface BetaUsage {
+  requestsToday: number;
+  requestsThisMonth: number;
+  dailyLimit: number;
+  monthlyLimit: number;
+  rateLimitPerMinute: number;
+  tier: string;
+}
+
+export interface GasUsage {
+  totalSpent: string;
+  transactionCount: number;
+  averageGasPrice: string;
+  breakdown: Array<{ type: string; amount: string; count: number }>;
+}
+
+// ── Support Tickets ─────────────────────────────────────────────────────────
+
+export type TicketCategory = 'GENERAL' | 'BILLING' | 'TECHNICAL' | 'ACCOUNT' | 'BUG' | 'FEATURE_REQUEST';
+export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+
+export interface CreateTicketParams {
+  subject: string;
+  body: string;
+  category?: TicketCategory;
+  priority?: TicketPriority;
+}
+
+export interface TicketMessage {
+  id: string;
+  ticketId: string;
+  body: string;
+  authorUsername: string;
+  isStaff: boolean;
+  createdAt: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  category: TicketCategory;
+  priority: TicketPriority;
+  status: TicketStatus;
+  body: string;
+  messages: TicketMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AddTicketMessageParams {
+  body: string;
+}
+
+// ── Notification Preferences ────────────────────────────────────────────────
+
+export type NotificationChannel = 'inApp' | 'email' | 'push';
+
+export interface EventNotificationPreferences {
+  [eventType: string]: {
+    inApp: boolean;
+    email: boolean;
+    push: boolean;
+  };
+}
+
+export interface UpdateEventNotificationsParams {
+  preferences: EventNotificationPreferences;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {
