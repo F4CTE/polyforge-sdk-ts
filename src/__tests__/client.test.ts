@@ -2799,3 +2799,500 @@ describe('redeemPosition return type (#152)', () => {
     expect(result).not.toHaveProperty('orderId');
   });
 });
+
+// ── Cross-Venue Arbitrage (POLA-780) ────────────────────────────────────────
+
+describe('Cross-venue arbitrage endpoints (POLA-780)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  const mockOpportunity = {
+    matchId: 'match-1', polymarketId: 'pm-1', kalshiId: 'k-1',
+    polymarketTitle: 'BTC above 100k', kalshiTitle: 'BTC > 100k',
+    polymarketYesPrice: 0.55, kalshiYesPrice: 0.48, spread: 0.07,
+    recommendedAction: 'BUY Kalshi YES, SELL Polymarket YES',
+    estimatedProfit: 0.07,
+  };
+
+  const mockMatch = {
+    id: 'match-1', polymarketId: 'pm-1', kalshiId: 'k-1',
+    verified: false, similarity: 0.92, createdAt: '2026-04-24T00:00:00Z', updatedAt: '2026-04-24T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => { fetchSpy.mockRestore(); });
+
+  it('getCrossVenueOpportunities calls GET /api/v1/arbitrage/cross-venue', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([mockOpportunity]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getCrossVenueOpportunities();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/cross-venue');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result[0]!.matchId).toBe('match-1');
+  });
+
+  it('getCrossVenueOpportunities passes minSpread as query param', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getCrossVenueOpportunities(5);
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('minSpread')).toBe('5');
+  });
+
+  it('getCrossVenueComparison calls GET /api/v1/arbitrage/cross-venue/:matchId/comparison', async () => {
+    const mockComparison = {
+      matchId: 'match-1',
+      polymarket: { id: 'pm-1', title: 'BTC', yesPrice: 0.55, noPrice: 0.45, liquidity: 10000 },
+      kalshi: { id: 'k-1', title: 'BTC', yesPrice: 0.48, noPrice: 0.52, liquidity: 5000 },
+      spread: 0.07, updatedAt: '2026-04-24T00:00:00Z',
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockComparison), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getCrossVenueComparison('match-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/cross-venue/match-1/comparison');
+    expect(result.spread).toBe(0.07);
+  });
+
+  it('listMarketMatches calls GET /api/v1/arbitrage/matches', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([mockMatch]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.listMarketMatches({ verified: true, limit: 10 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/matches');
+    expect(url.searchParams.get('verified')).toBe('true');
+    expect(url.searchParams.get('limit')).toBe('10');
+    expect(result[0]!.id).toBe('match-1');
+  });
+
+  it('getMatchesByMarket calls GET /api/v1/arbitrage/matches/market/:marketId', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([mockMatch]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getMatchesByMarket('pm-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/matches/market/pm-1');
+  });
+
+  it('createMarketMatch sends POST /api/v1/arbitrage/matches with polymarketId and kalshiId', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockMatch), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.createMarketMatch({ polymarketId: 'pm-1', kalshiId: 'k-1' });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/arbitrage/matches');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ polymarketId: 'pm-1', kalshiId: 'k-1' });
+  });
+
+  it('verifyMarketMatch sends POST /api/v1/arbitrage/matches/:matchId/verify', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ...mockMatch, verified: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.verifyMarketMatch('match-1');
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/arbitrage/matches/match-1/verify');
+    expect(init.method).toBe('POST');
+    expect(result.verified).toBe(true);
+  });
+
+  it('deleteMarketMatch sends DELETE /api/v1/arbitrage/matches/:matchId', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.deleteMarketMatch('match-1');
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/arbitrage/matches/match-1');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('syncMarketMatches sends POST /api/v1/arbitrage/matches/sync', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ matched: 12 }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.syncMarketMatches();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/arbitrage/matches/sync');
+    expect(init.method).toBe('POST');
+    expect(result.matched).toBe(12);
+  });
+});
+
+// ── Whale Leaderboard & Alert Filter (POLA-780) ─────────────────────────────
+
+describe('Whale leaderboard and alert filter (POLA-780)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  const mockFilter = {
+    id: 'filter-1', userId: 'user-1', minSize: '1000',
+    marketIds: ['m-1'], walletAddresses: ['0xabc'], sides: ['BUY'],
+    active: true, createdAt: '2026-04-24T00:00:00Z', updatedAt: '2026-04-24T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => { fetchSpy.mockRestore(); });
+
+  it('getWhaleLeaderboard calls GET /api/v1/whales/leaderboard', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getWhaleLeaderboard({ period: '7d', limit: 20 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/whales/leaderboard');
+    expect(url.searchParams.get('period')).toBe('7d');
+    expect(url.searchParams.get('limit')).toBe('20');
+  });
+
+  it('getWhaleAlertFilter calls GET /api/v1/whales/alerts/filter', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockFilter), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getWhaleAlertFilter();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/whales/alerts/filter');
+    expect(init.method).toBe('GET');
+    expect(result.minSize).toBe('1000');
+  });
+
+  it('upsertWhaleAlertFilter sends PUT /api/v1/whales/alerts/filter with body', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockFilter), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.upsertWhaleAlertFilter({ minSize: '1000', sides: ['BUY'], active: true });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/whales/alerts/filter');
+    expect(init.method).toBe('PUT');
+    const body = JSON.parse(init.body as string);
+    expect(body.minSize).toBe('1000');
+    expect(body.active).toBe(true);
+  });
+
+  it('deleteWhaleAlertFilter sends DELETE /api/v1/whales/alerts/filter', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.deleteWhaleAlertFilter();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/whales/alerts/filter');
+    expect(init.method).toBe('DELETE');
+  });
+});
+
+// ── Profile Endpoints (POLA-780) ────────────────────────────────────────────
+
+describe('Profile endpoints (POLA-780)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  const mockProfile = {
+    id: 'user-1', username: 'trader42', displayName: 'Top Trader',
+    bio: 'DeFi enthusiast', followersCount: 100, followingCount: 50,
+    isFollowing: false, createdAt: '2026-01-01T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => { fetchSpy.mockRestore(); });
+
+  it('updateMyProfile sends PATCH /api/v1/profile/me with body', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockProfile), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.updateMyProfile({ displayName: 'Top Trader', bio: 'DeFi enthusiast' });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/profile/me');
+    expect(init.method).toBe('PATCH');
+    const body = JSON.parse(init.body as string);
+    expect(body.displayName).toBe('Top Trader');
+  });
+
+  it('changeMyPassword sends POST /api/v1/profile/password with body', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.changeMyPassword({ currentPassword: 'old123', newPassword: 'new456' });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/profile/password');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body.currentPassword).toBe('old123');
+    expect(body.newPassword).toBe('new456');
+  });
+
+  it('updateProfileNotifications sends PATCH /api/v1/profile/notifications', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.updateProfileNotifications({ emailOnOrderFilled: true });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/profile/notifications');
+    expect(init.method).toBe('PATCH');
+    const body = JSON.parse(init.body as string);
+    expect(body.emailOnOrderFilled).toBe(true);
+  });
+
+  it('getPublicProfile calls GET /api/v1/profile/:username', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockProfile), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getPublicProfile('trader42');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/profile/trader42');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result.username).toBe('trader42');
+  });
+
+  it('getPublicProfile encodes special characters in username', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockProfile), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getPublicProfile('user/name');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toContain('user%2Fname');
+  });
+
+  it('followUser sends POST /api/v1/profile/:username/follow', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ following: true, followersCount: 101 }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.followUser('trader42');
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/profile/trader42/follow');
+    expect(init.method).toBe('POST');
+    expect(result.following).toBe(true);
+    expect(result.followersCount).toBe(101);
+  });
+});
+
+// ── Settings Endpoints (POLA-780) ────────────────────────────────────────────
+
+describe('Settings endpoints (POLA-780)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => { fetchSpy.mockRestore(); });
+
+  it('updateSettingsProfile sends PATCH /api/v1/settings/profile', async () => {
+    await client.updateSettingsProfile({ username: 'newname', displayName: 'New Name' });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/settings/profile');
+    expect(init.method).toBe('PATCH');
+    const body = JSON.parse(init.body as string);
+    expect(body.username).toBe('newname');
+  });
+
+  it('getNotificationSettings calls GET /api/v1/settings/notifications', async () => {
+    const mockSettings = {
+      emailOnOrderFilled: true, emailOnStrategyError: false,
+      emailOnDailyLossLimit: true, emailOnMarketResolved: false,
+      pushOnOrderFilled: true, pushOnStrategyError: true,
+      pushOnWhaleAlert: false, pushOnPriceAlert: false,
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockSettings), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getNotificationSettings();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/settings/notifications');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result.emailOnOrderFilled).toBe(true);
+  });
+
+  it('updateNotificationSettings sends PATCH /api/v1/settings/notifications', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.updateNotificationSettings({ pushOnWhaleAlert: true });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/settings/notifications');
+    expect(init.method).toBe('PATCH');
+    const body = JSON.parse(init.body as string);
+    expect(body.pushOnWhaleAlert).toBe(true);
+  });
+
+  it('changePassword sends PATCH /api/v1/settings/password', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.changePassword({ currentPassword: 'old', newPassword: 'new' });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/settings/password');
+    expect(init.method).toBe('PATCH');
+  });
+
+  it('getBetaUsage calls GET /api/v1/settings/beta-usage', async () => {
+    const mockUsage = {
+      requestsToday: 42, requestsThisMonth: 1500, dailyLimit: 1000,
+      monthlyLimit: 30000, rateLimitPerMinute: 100, tier: 'BETA',
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockUsage), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getBetaUsage();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/settings/beta-usage');
+    expect(result.tier).toBe('BETA');
+  });
+
+  it('getGasUsage calls GET /api/v1/settings/gas', async () => {
+    const mockGas = {
+      totalSpent: '0.025', transactionCount: 12,
+      averageGasPrice: '2.1', breakdown: [],
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockGas), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getGasUsage();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/settings/gas');
+    expect(result.transactionCount).toBe(12);
+  });
+});
+
+// ── Support Tickets (POLA-780) ───────────────────────────────────────────────
+
+describe('Support ticket endpoints (POLA-780)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  const mockTicket = {
+    id: 'ticket-1', subject: 'Cannot withdraw funds', category: 'TECHNICAL',
+    priority: 'HIGH', status: 'OPEN',
+    body: 'I have been trying to withdraw for 3 days.',
+    messages: [], createdAt: '2026-04-24T00:00:00Z', updatedAt: '2026-04-24T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => { fetchSpy.mockRestore(); });
+
+  it('createTicket sends POST /api/v1/tickets with subject, body, category', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockTicket), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.createTicket({
+      subject: 'Cannot withdraw funds', body: 'I have been trying to withdraw for 3 days.',
+      category: 'TECHNICAL', priority: 'HIGH',
+    });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/tickets');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body.subject).toBe('Cannot withdraw funds');
+    expect(body.category).toBe('TECHNICAL');
+    expect(result.id).toBe('ticket-1');
+  });
+
+  it('listTickets calls GET /api/v1/tickets with pagination', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: [mockTicket], total: 1, page: 1, limit: 20, totalPages: 1, hasNext: false }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const result = await client.listTickets({ page: 1, limit: 20 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/tickets');
+    expect(url.searchParams.get('page')).toBe('1');
+    expect(url.searchParams.get('limit')).toBe('20');
+    expect(result.data[0]!.subject).toBe('Cannot withdraw funds');
+  });
+
+  it('getTicket calls GET /api/v1/tickets/:id', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockTicket), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getTicket('ticket-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/tickets/ticket-1');
+    expect(result.status).toBe('OPEN');
+  });
+
+  it('addTicketMessage sends POST /api/v1/tickets/:id/messages', async () => {
+    const mockMessage = {
+      id: 'msg-1', ticketId: 'ticket-1', body: 'Any updates?',
+      authorUsername: 'trader42', isStaff: false, createdAt: '2026-04-24T01:00:00Z',
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockMessage), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.addTicketMessage('ticket-1', { body: 'Any updates?' });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/tickets/ticket-1/messages');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body.body).toBe('Any updates?');
+    expect(result.isStaff).toBe(false);
+  });
+});
+
+// ── Notification Preferences (POLA-780) ─────────────────────────────────────
+
+describe('Notification preference endpoints (POLA-780)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  const mockPreferences = {
+    ORDER_FILLED: { inApp: true, email: true, push: false },
+    STRATEGY_ERROR: { inApp: true, email: false, push: true },
+  };
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => { fetchSpy.mockRestore(); });
+
+  it('getNotificationPreferences calls GET /api/v1/users/me/notification-preferences', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockPreferences), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getNotificationPreferences();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/users/me/notification-preferences');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result['ORDER_FILLED']!.email).toBe(true);
+  });
+
+  it('updateNotificationPreferences sends PUT /api/v1/users/me/notification-preferences', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockPreferences), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.updateNotificationPreferences({
+      preferences: { ORDER_FILLED: { inApp: true, email: false, push: true } },
+    });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/users/me/notification-preferences');
+    expect(init.method).toBe('PUT');
+    const body = JSON.parse(init.body as string);
+    expect(body.preferences['ORDER_FILLED']!.push).toBe(true);
+  });
+});

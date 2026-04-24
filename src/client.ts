@@ -104,6 +104,29 @@ import type {
   UserReward,
   UserRewardsPercentages,
   UserRewardsTotal,
+  CrossVenueOpportunity,
+  CrossVenueComparison,
+  MarketMatch,
+  CreateMarketMatchParams,
+  SyncMatchesResult,
+  WhaleAlertFilter,
+  UpsertWhaleAlertFilterParams,
+  PublicProfile,
+  UpdateProfileParams,
+  ChangePasswordParams,
+  FollowResult,
+  UpdateSettingsProfileParams,
+  NotificationSettings,
+  UpdateNotificationSettingsParams,
+  ChangePasswordSettingsParams,
+  BetaUsage,
+  GasUsage,
+  CreateTicketParams,
+  SupportTicket,
+  AddTicketMessageParams,
+  TicketMessage,
+  EventNotificationPreferences,
+  UpdateEventNotificationsParams,
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
@@ -924,6 +947,26 @@ export class PolyforgeClient {
     return this.request('GET', '/api/v1/whales/following');
   }
 
+  /** Get the smart-money leaderboard ranked by realized P&L. */
+  async getWhaleLeaderboard(params?: { period?: '24h' | '7d' | '30d' | 'all'; limit?: number }): Promise<WhaleProfile[]> {
+    return this.request('GET', '/api/v1/whales/leaderboard', { query: params as Record<string, unknown> });
+  }
+
+  /** Get your current whale alert filter settings. */
+  async getWhaleAlertFilter(): Promise<WhaleAlertFilter> {
+    return this.request('GET', '/api/v1/whales/alerts/filter');
+  }
+
+  /** Create or update your whale alert filter. */
+  async upsertWhaleAlertFilter(params: UpsertWhaleAlertFilterParams): Promise<WhaleAlertFilter> {
+    return this.request('PUT', '/api/v1/whales/alerts/filter', { body: params });
+  }
+
+  /** Delete your whale alert filter. */
+  async deleteWhaleAlertFilter(): Promise<void> {
+    return this.request('DELETE', '/api/v1/whales/alerts/filter');
+  }
+
   /**
    * Get AI-generated news signals.
    */
@@ -1226,6 +1269,48 @@ export class PolyforgeClient {
     });
   }
 
+  /** List cross-venue arbitrage opportunities between Polymarket and Kalshi. */
+  async getCrossVenueOpportunities(minSpread?: number): Promise<CrossVenueOpportunity[]> {
+    return this.request('GET', '/api/v1/arbitrage/cross-venue', {
+      query: minSpread !== undefined ? { minSpread } : undefined,
+    });
+  }
+
+  /** Get detailed price comparison for a matched market pair. */
+  async getCrossVenueComparison(matchId: string): Promise<CrossVenueComparison> {
+    return this.request('GET', `/api/v1/arbitrage/cross-venue/${encodeURIComponent(matchId)}/comparison`);
+  }
+
+  /** List matched markets across venues. */
+  async listMarketMatches(params?: { verified?: boolean; limit?: number; offset?: number }): Promise<MarketMatch[]> {
+    return this.request('GET', '/api/v1/arbitrage/matches', { query: params as Record<string, unknown> });
+  }
+
+  /** Get all matches for a specific market (either venue). */
+  async getMatchesByMarket(marketId: string): Promise<MarketMatch[]> {
+    return this.request('GET', `/api/v1/arbitrage/matches/market/${encodeURIComponent(marketId)}`);
+  }
+
+  /** Manually match two markets across venues. */
+  async createMarketMatch(params: CreateMarketMatchParams): Promise<MarketMatch> {
+    return this.request('POST', '/api/v1/arbitrage/matches', { body: params });
+  }
+
+  /** Verify/confirm an auto-matched market pair. */
+  async verifyMarketMatch(matchId: string): Promise<MarketMatch> {
+    return this.request('POST', `/api/v1/arbitrage/matches/${encodeURIComponent(matchId)}/verify`);
+  }
+
+  /** Remove a market match (unmatch). */
+  async deleteMarketMatch(matchId: string): Promise<void> {
+    return this.request('DELETE', `/api/v1/arbitrage/matches/${encodeURIComponent(matchId)}`);
+  }
+
+  /** Trigger a manual cross-venue matching pass. */
+  async syncMarketMatches(): Promise<SyncMatchesResult> {
+    return this.request('POST', '/api/v1/arbitrage/matches/sync');
+  }
+
   // ── Smart Orders ─────────────────────────────────────────────────────────
 
   /**
@@ -1394,6 +1479,99 @@ export class PolyforgeClient {
   /** Get the authenticated user's fee rebate history. */
   async getRebates(): Promise<{ rebates: Rebate[] }> {
     return this.request('GET', '/api/v1/rewards/rebates');
+  }
+
+  // ── Profile ──────────────────────────────────────────────────────────────
+
+  /** Update the authenticated user's own profile. */
+  async updateMyProfile(params: UpdateProfileParams): Promise<PublicProfile> {
+    return this.request('PATCH', '/api/v1/profile/me', { body: params });
+  }
+
+  /** Change the authenticated user's password. */
+  async changeMyPassword(params: ChangePasswordParams): Promise<void> {
+    return this.request('POST', '/api/v1/profile/password', { body: params });
+  }
+
+  /** Update the authenticated user's notification preferences (profile-level). */
+  async updateProfileNotifications(preferences: Record<string, boolean>): Promise<void> {
+    return this.request('PATCH', '/api/v1/profile/notifications', { body: preferences });
+  }
+
+  /** Get a public user profile by username. */
+  async getPublicProfile(username: string): Promise<PublicProfile> {
+    return this.request('GET', `/api/v1/profile/${encodeURIComponent(username)}`);
+  }
+
+  /** Follow or unfollow a user by username. Returns the new follow state. */
+  async followUser(username: string): Promise<FollowResult> {
+    return this.request('POST', `/api/v1/profile/${encodeURIComponent(username)}/follow`);
+  }
+
+  // ── Settings ─────────────────────────────────────────────────────────────
+
+  /** Update the authenticated user's settings profile (username, display name, etc.). */
+  async updateSettingsProfile(params: UpdateSettingsProfileParams): Promise<void> {
+    return this.request('PATCH', '/api/v1/settings/profile', { body: params });
+  }
+
+  /** Get the authenticated user's notification channel settings. */
+  async getNotificationSettings(): Promise<NotificationSettings> {
+    return this.request('GET', '/api/v1/settings/notifications');
+  }
+
+  /** Update the authenticated user's notification channel settings. */
+  async updateNotificationSettings(params: UpdateNotificationSettingsParams): Promise<NotificationSettings> {
+    return this.request('PATCH', '/api/v1/settings/notifications', { body: params });
+  }
+
+  /** Change the authenticated user's password (settings route). */
+  async changePassword(params: ChangePasswordSettingsParams): Promise<void> {
+    return this.request('PATCH', '/api/v1/settings/password', { body: params });
+  }
+
+  /** Get the authenticated user's beta API usage stats. */
+  async getBetaUsage(): Promise<BetaUsage> {
+    return this.request('GET', '/api/v1/settings/beta-usage');
+  }
+
+  /** Get the authenticated user's gas/transaction fee usage summary. */
+  async getGasUsage(): Promise<GasUsage> {
+    return this.request('GET', '/api/v1/settings/gas');
+  }
+
+  // ── Support Tickets ───────────────────────────────────────────────────────
+
+  /** Create a new support ticket. */
+  async createTicket(params: CreateTicketParams): Promise<SupportTicket> {
+    return this.request('POST', '/api/v1/tickets', { body: params });
+  }
+
+  /** List all support tickets for the authenticated user. */
+  async listTickets(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<SupportTicket>> {
+    return this.request('GET', '/api/v1/tickets', { query: params as Record<string, unknown> });
+  }
+
+  /** Get a specific support ticket by ID. */
+  async getTicket(id: string): Promise<SupportTicket> {
+    return this.request('GET', `/api/v1/tickets/${encodeURIComponent(id)}`);
+  }
+
+  /** Add a message to an existing support ticket. */
+  async addTicketMessage(ticketId: string, params: AddTicketMessageParams): Promise<TicketMessage> {
+    return this.request('POST', `/api/v1/tickets/${encodeURIComponent(ticketId)}/messages`, { body: params });
+  }
+
+  // ── Notification Preferences ──────────────────────────────────────────────
+
+  /** Get per-event notification preferences (inApp / email / push per event type). */
+  async getNotificationPreferences(): Promise<EventNotificationPreferences> {
+    return this.request('GET', '/api/v1/users/me/notification-preferences');
+  }
+
+  /** Update per-event notification preferences. */
+  async updateNotificationPreferences(params: UpdateEventNotificationsParams): Promise<EventNotificationPreferences> {
+    return this.request('PUT', '/api/v1/users/me/notification-preferences', { body: params });
   }
 
   // ── Strategy Execution Watching (SSE) ────────────────────────────────────
