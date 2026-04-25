@@ -1117,6 +1117,39 @@ export interface CreateMarketMatchParams {
 
 export interface SyncMatchesResult {
   matched: number;
+  created?: number;
+  updated?: number;
+}
+
+export interface VenuePriceInfo {
+  marketId?: string;
+  title?: string;
+  yesBid?: number;
+  noAsk?: number;
+}
+
+export interface SpreadSummary {
+  matchId: string;
+  polymarket?: VenuePriceInfo;
+  kalshi?: VenuePriceInfo;
+  yesSpreadPct: number;
+  noSpreadPct?: number;
+  confidence: number;
+  verified: boolean;
+}
+
+export interface ArbitrageAlertSubscription {
+  id: string;
+  minSpreadPct: number;
+  marketId?: string;
+  active: boolean;
+  triggeredAt?: string;
+  createdAt: string;
+}
+
+export interface CreateArbitrageAlertParams {
+  minSpreadPct: string;
+  marketId?: string;
 }
 
 // ── Whale Alert Filter ──────────────────────────────────────────────────────

@@ -127,6 +127,10 @@ import type {
   TicketMessage,
   EventNotificationPreferences,
   UpdateEventNotificationsParams,
+  VenuePriceInfo,
+  SpreadSummary,
+  ArbitrageAlertSubscription,
+  CreateArbitrageAlertParams,
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
@@ -1309,6 +1313,43 @@ export class PolyforgeClient {
   /** Trigger a manual cross-venue matching pass. */
   async syncMarketMatches(): Promise<SyncMatchesResult> {
     return this.request('POST', '/api/v1/arbitrage/matches/sync');
+  }
+
+  /** Get a single market match by ID. */
+  async getMarketMatch(matchId: string): Promise<MarketMatch> {
+    return this.request('GET', `/api/v1/arbitrage/matches/${encodeURIComponent(matchId)}`);
+  }
+
+  /** Cross-venue arbitrage opportunities for a specific market. */
+  async getCrossVenueOpportunitiesForMarket(marketId: string, minSpread?: number): Promise<CrossVenueOpportunity[]> {
+    return this.request('GET', `/api/v1/arbitrage/cross-venue/${encodeURIComponent(marketId)}`, {
+      query: minSpread !== undefined ? { minSpread } : undefined,
+    });
+  }
+
+  /** Get bid/ask spread comparison across all matched venues. */
+  async getSpreadComparison(): Promise<SpreadSummary[]> {
+    return this.request('GET', '/api/v1/arbitrage/spread');
+  }
+
+  /** Get historical arbitrage opportunity snapshots. */
+  async getArbitrageHistory(params?: { matchId?: string; limit?: number; offset?: number }): Promise<unknown> {
+    return this.request('GET', '/api/v1/arbitrage/history', { query: params as Record<string, unknown> });
+  }
+
+  /** List user's active arbitrage alert subscriptions. */
+  async getArbitrageAlerts(): Promise<ArbitrageAlertSubscription[]> {
+    return this.request('GET', '/api/v1/arbitrage/alerts');
+  }
+
+  /** Create an arbitrage alert subscription. */
+  async createArbitrageAlert(params: CreateArbitrageAlertParams): Promise<ArbitrageAlertSubscription> {
+    return this.request('POST', '/api/v1/arbitrage/alerts', { body: params });
+  }
+
+  /** Deactivate an arbitrage alert subscription. */
+  async deleteArbitrageAlert(alertId: string): Promise<void> {
+    return this.request('DELETE', `/api/v1/arbitrage/alerts/${encodeURIComponent(alertId)}`);
   }
 
   // ── Smart Orders ─────────────────────────────────────────────────────────
