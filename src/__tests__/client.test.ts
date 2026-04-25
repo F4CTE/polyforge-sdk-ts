@@ -2926,6 +2926,94 @@ describe('Cross-venue arbitrage endpoints (POLA-780)', () => {
     expect(init.method).toBe('POST');
     expect(result.matched).toBe(12);
   });
+
+  it('getMarketMatch calls GET /api/v1/arbitrage/matches/:matchId', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockMatch), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getMarketMatch('match-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/matches/match-1');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result.id).toBe('match-1');
+  });
+
+  it('getCrossVenueOpportunitiesForMarket calls GET /api/v1/arbitrage/cross-venue/:marketId', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([mockOpportunity]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getCrossVenueOpportunitiesForMarket('pm-42');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/cross-venue/pm-42');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result).toHaveLength(1);
+  });
+
+  it('getCrossVenueOpportunitiesForMarket passes minSpread query param', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getCrossVenueOpportunitiesForMarket('pm-42', 3);
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('minSpread')).toBe('3');
+  });
+
+  it('getSpreadComparison calls GET /api/v1/arbitrage/spread', async () => {
+    const mockSpread = { matchId: 'match-1', yesSpreadPct: 5.2, confidence: 0.95, verified: true };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([mockSpread]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getSpreadComparison();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/spread');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result[0]!.yesSpreadPct).toBe(5.2);
+  });
+
+  it('getArbitrageHistory calls GET /api/v1/arbitrage/history with query params', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getArbitrageHistory({ matchId: 'match-1', limit: 20, offset: 5 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/history');
+    expect(url.searchParams.get('matchId')).toBe('match-1');
+    expect(url.searchParams.get('limit')).toBe('20');
+    expect(url.searchParams.get('offset')).toBe('5');
+  });
+
+  it('getArbitrageAlerts calls GET /api/v1/arbitrage/alerts', async () => {
+    const mockAlert = { id: 'alert-1', minSpreadPct: 3, active: true, createdAt: '2026-04-25T00:00:00Z' };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([mockAlert]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getArbitrageAlerts();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/alerts');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result[0]!.id).toBe('alert-1');
+  });
+
+  it('createArbitrageAlert sends POST /api/v1/arbitrage/alerts', async () => {
+    const mockAlert = { id: 'alert-2', minSpreadPct: 5, active: true, createdAt: '2026-04-25T00:00:00Z' };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockAlert), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.createArbitrageAlert({ minSpreadPct: '5', marketId: 'pm-1' });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/arbitrage/alerts');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ minSpreadPct: '5', marketId: 'pm-1' });
+  });
+
+  it('deleteArbitrageAlert sends DELETE /api/v1/arbitrage/alerts/:alertId', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.deleteArbitrageAlert('alert-1');
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url).pathname).toBe('/api/v1/arbitrage/alerts/alert-1');
+    expect(init.method).toBe('DELETE');
+  });
 });
 
 // ── Whale Leaderboard & Alert Filter (POLA-780) ─────────────────────────────
