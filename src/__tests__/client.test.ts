@@ -3384,3 +3384,108 @@ describe('Notification preference endpoints (POLA-780)', () => {
     expect(body.preferences['ORDER_FILLED']!.push).toBe(true);
   });
 });
+
+describe('response body size limit (#184)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+  });
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+
+  it('rejects responses with Content-Length exceeding 10 MB', async () => {
+    const tenMbPlusOne = 10 * 1024 * 1024 + 1;
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': String(tenMbPlusOne),
+        },
+      }),
+    );
+
+    await expect(client.listMarkets()).rejects.toThrow('Response body too large');
+  });
+
+  it('rejects responses with Content-Length exactly at 10 MB + 1 byte with PolyforgeError code', async () => {
+    const tenMbPlusOne = 10 * 1024 * 1024 + 1;
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': String(tenMbPlusOne),
+        },
+      }),
+    );
+
+    try {
+      await client.listMarkets();
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(PolyforgeError);
+      const pErr = err as PolyforgeError;
+      expect(pErr.code).toBe('RESPONSE_BODY_TOO_LARGE');
+      expect(pErr.message).toContain(String(tenMbPlusOne));
+    }
+  });
+
+  it('allows responses with Content-Length at exactly 10 MB', async () => {
+    const tenMb = 10 * 1024 * 1024;
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: [], count: 0 }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': String(tenMb),
+        },
+      }),
+    );
+
+    // Should not throw — Content-Length equal to limit is allowed
+    await expect(client.listMarkets()).resolves.toBeDefined();
+  });
+
+  it('allows responses without Content-Length header', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: [], count: 0 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    // No Content-Length — should fall through to response.json() normally
+    await expect(client.listMarkets()).resolves.toBeDefined();
+  });
+
+  it('also guards error response bodies with Content-Length > 10 MB', async () => {
+    const tenMbPlusOne = 10 * 1024 * 1024 + 1;
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ code: 'SERVER_ERROR', message: 'something went wrong' }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': String(tenMbPlusOne),
+          },
+        },
+      ),
+    );
+
+    try {
+      await client.listMarkets();
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(PolyforgeError);
+      const pErr = err as PolyforgeError;
+      // The safeJson guard fires inside the catch block, re-throwing RESPONSE_BODY_TOO_LARGE
+      expect(pErr.code).toBe('RESPONSE_BODY_TOO_LARGE');
+    }
+  });
+});
