@@ -138,6 +138,7 @@ const DEFAULT_BASE_URL = 'https://api.polyforge.app';
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_STREAM_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours for long-lived SSE streams
 const MAX_SSE_BUFFER_SIZE = 1_048_576; // 1 MB — prevents memory exhaustion from unbounded SSE payloads
+const MAX_RESPONSE_BODY_SIZE = 10 * 1024 * 1024; // 10 MB — prevents OOM from oversized API responses
 
 /**
  * Expand a compressed IPv6 address into its full 8-group colon-hex form.
@@ -364,6 +365,26 @@ export class PolyforgeClient {
 
   // ── Internal request helper ─────────────────────────────────────────────
 
+  /**
+   * Read response body as JSON with size guard.
+   * Checks Content-Length header; if present and exceeds MAX_RESPONSE_BODY_SIZE, throws.
+   * Falls back to streaming byte count when Content-Length is absent.
+   */
+  private async safeJson<R>(response: Response): Promise<R> {
+    const cl = response.headers.get('content-length');
+    if (cl) {
+      const size = parseInt(cl, 10);
+      if (!Number.isNaN(size) && size > MAX_RESPONSE_BODY_SIZE) {
+        throw new PolyforgeError({
+          status: response.status,
+          code: 'RESPONSE_BODY_TOO_LARGE',
+          message: `Response body too large (${size} bytes, limit ${MAX_RESPONSE_BODY_SIZE})`,
+        });
+      }
+    }
+    return (await response.json()) as R;
+  }
+
   private async request<T>(
     method: string,
     path: string,
@@ -398,8 +419,9 @@ export class PolyforgeClient {
     if (!response.ok) {
       let errorBody: { code?: string; message?: string; requestId?: string; suggestion?: string } = {};
       try {
-        errorBody = (await response.json()) as typeof errorBody;
-      } catch {
+        errorBody = await this.safeJson<typeof errorBody>(response);
+      } catch (e) {
+        if (e instanceof PolyforgeError) throw e; // re-throw size guard errors
         // Body may not be JSON
       }
 
@@ -417,7 +439,7 @@ export class PolyforgeClient {
       return undefined as T;
     }
 
-    return (await response.json()) as T;
+    return this.safeJson<T>(response);
   }
 
   /**
@@ -450,8 +472,9 @@ export class PolyforgeClient {
     if (!response.ok) {
       let errorBody: { code?: string; message?: string; requestId?: string; suggestion?: string } = {};
       try {
-        errorBody = (await response.json()) as typeof errorBody;
-      } catch {
+        errorBody = await this.safeJson<typeof errorBody>(response);
+      } catch (e) {
+        if (e instanceof PolyforgeError) throw e; // re-throw size guard errors
         // Body may not be JSON
       }
 
@@ -1663,7 +1686,7 @@ export class PolyforgeClient {
 
     if (!response.ok) {
       let errorBody: { code?: string; message?: string } = {};
-      try { errorBody = await response.json() as typeof errorBody; } catch { /* ignore */ }
+      try { errorBody = await this.safeJson<typeof errorBody>(response); } catch (e) { if (e instanceof PolyforgeError) throw e; /* ignore non-JSON bodies */ }
       throw new PolyforgeError({
         status: response.status,
         code: errorBody.code ?? 'STREAM_ERROR',
