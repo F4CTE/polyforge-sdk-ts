@@ -3397,6 +3397,31 @@ describe('response body size limit (#184)', () => {
     fetchSpy?.mockRestore();
   });
 
+  function oversizedStream(prefix = '', suffix = ''): ReadableStream<Uint8Array> {
+    const encoder = new TextEncoder();
+    let emitted = 0;
+    const chunk = encoder.encode('x'.repeat(1024 * 1024));
+
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        if (prefix) {
+          controller.enqueue(encoder.encode(prefix));
+        }
+      },
+      pull(controller) {
+        if (emitted <= 10) {
+          controller.enqueue(chunk);
+          emitted += 1;
+          return;
+        }
+        if (suffix) {
+          controller.enqueue(encoder.encode(suffix));
+        }
+        controller.close();
+      },
+    });
+  }
+
   it('rejects responses with Content-Length exceeding 10 MB', async () => {
     const tenMbPlusOne = 10 * 1024 * 1024 + 1;
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -3461,6 +3486,49 @@ describe('response body size limit (#184)', () => {
 
     // No Content-Length — should fall through to response.json() normally
     await expect(client.listMarkets()).resolves.toBeDefined();
+  });
+
+  it('rejects oversized JSON responses without Content-Length', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(oversizedStream('{"data":"', '"}'), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await expect(client.listMarkets()).rejects.toMatchObject({
+      code: 'RESPONSE_BODY_TOO_LARGE',
+    });
+  });
+
+  it('rejects CSV responses with Content-Length exceeding 10 MB', async () => {
+    const tenMbPlusOne = 10 * 1024 * 1024 + 1;
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('id,marketId\norder-1,mkt-1', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Length': String(tenMbPlusOne),
+        },
+      }),
+    );
+
+    await expect(client.exportOrdersCsv()).rejects.toMatchObject({
+      code: 'RESPONSE_BODY_TOO_LARGE',
+    });
+  });
+
+  it('rejects oversized CSV responses without Content-Length', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(oversizedStream('id,marketId\n'), {
+        status: 200,
+        headers: { 'Content-Type': 'text/csv' },
+      }),
+    );
+
+    await expect(client.exportOrdersCsv()).rejects.toMatchObject({
+      code: 'RESPONSE_BODY_TOO_LARGE',
+    });
   });
 
   it('also guards error response bodies with Content-Length > 10 MB', async () => {

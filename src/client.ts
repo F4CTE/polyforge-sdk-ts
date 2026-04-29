@@ -367,22 +367,58 @@ export class PolyforgeClient {
 
   /**
    * Read response body as JSON with size guard.
-   * Checks Content-Length header; if present and exceeds MAX_RESPONSE_BODY_SIZE, throws.
-   * Falls back to streaming byte count when Content-Length is absent.
+   * Checks Content-Length first, then enforces the same limit while reading.
    */
   private async safeJson<R>(response: Response): Promise<R> {
+    return JSON.parse(await this.readResponseText(response)) as R;
+  }
+
+  private throwResponseBodyTooLarge(status: number, size: number): never {
+    throw new PolyforgeError({
+      status,
+      code: 'RESPONSE_BODY_TOO_LARGE',
+      message: `Response body too large (${size} bytes, limit ${MAX_RESPONSE_BODY_SIZE})`,
+    });
+  }
+
+  private async readResponseText(response: Response): Promise<string> {
     const cl = response.headers.get('content-length');
     if (cl) {
       const size = parseInt(cl, 10);
       if (!Number.isNaN(size) && size > MAX_RESPONSE_BODY_SIZE) {
-        throw new PolyforgeError({
-          status: response.status,
-          code: 'RESPONSE_BODY_TOO_LARGE',
-          message: `Response body too large (${size} bytes, limit ${MAX_RESPONSE_BODY_SIZE})`,
-        });
+        this.throwResponseBodyTooLarge(response.status, size);
       }
     }
-    return (await response.json()) as R;
+
+    if (!response.body) {
+      return '';
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let size = 0;
+    let body = '';
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        size += value.byteLength;
+        if (size > MAX_RESPONSE_BODY_SIZE) {
+          await reader.cancel().catch(() => undefined);
+          this.throwResponseBodyTooLarge(response.status, size);
+        }
+
+        body += decoder.decode(value, { stream: true });
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return body + decoder.decode();
   }
 
   private async request<T>(
@@ -487,7 +523,7 @@ export class PolyforgeClient {
       });
     }
 
-    return response.text();
+    return this.readResponseText(response);
   }
 
   // ── Markets ─────────────────────────────────────────────────────────────
