@@ -79,6 +79,7 @@
   names. **Breaking change** for anyone who was reading or sending the old
   field names (which never worked against the live platform anyway).
   (closes #191)
+- **`startStrategy` wire format** — `startStrategy` now sends `{ mode: 'live' | 'paper' }` to match the platform `StartStrategyDto` (`@IsIn(["live", "paper"])`). Previously the SDK sent `{ paperMode, deploymentMode }`, which the platform rejected with a validation error. The legacy `paperMode` boolean is still accepted as input for backward compatibility (translated to `mode` before dispatch) but is now `@deprecated`; prefer `mode`. The legacy `deploymentMode` field has never been accepted by the platform and is silently dropped. (closes polyforge-sdk-ts#190, regression of #179)
 
 ## [1.19.5] — 2026-04-21
 
