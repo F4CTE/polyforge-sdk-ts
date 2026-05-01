@@ -126,6 +126,10 @@ import type {
   FollowedUser,
   FollowResult,
   GetMyFollowingParams,
+  UserPerformancePoint,
+  UserStrategySummary,
+  UserActivityEntry,
+  UserProfileBadge,
   UpdateSettingsProfileParams,
   NotificationSettings,
   UpdateNotificationSettingsParams,
@@ -1915,9 +1919,82 @@ export class PolyforgeClient {
     return this.request('POST', `/api/v1/profile/${encodeURIComponent(username)}/follow`);
   }
 
-  /** List users followed by the authenticated user. */
-  async getMyFollowing(params?: GetMyFollowingParams): Promise<PaginatedResponse<FollowedUser>> {
-    return this.request('GET', '/api/v1/users/me/following', { query: params as Record<string, unknown> });
+  // ── Public User Profile Lookups ──────────────────────────────────────────
+
+  /**
+   * Fetch a public user's PnL curve over `period` (defaults to `"30d"`).
+   * Each entry has `date` (`YYYY-MM-DD`), daily `pnl`, and running `cumPnl`.
+   */
+  async getUserPerformance(
+    username: string,
+    period: string = '30d',
+  ): Promise<UserPerformancePoint[]> {
+    const res = await this.request<{ data: UserPerformancePoint[] }>(
+      'GET',
+      `/api/v1/users/${encodeURIComponent(username)}/performance`,
+      { query: { period } },
+    );
+    return res.data;
+  }
+
+  /**
+   * List a public user's strategies. Server caps `limit` at 50; default is 6.
+   * `visibility` defaults to `"PUBLIC"`.
+   */
+  async getUserStrategies(
+    username: string,
+    options: { visibility?: string; limit?: number } = {},
+  ): Promise<UserStrategySummary[]> {
+    const query: Record<string, string | number> = {};
+    if (options.visibility !== undefined) query.visibility = options.visibility;
+    if (options.limit !== undefined) query.limit = options.limit;
+    const res = await this.request<{ data: UserStrategySummary[] }>(
+      'GET',
+      `/api/v1/users/${encodeURIComponent(username)}/strategies`,
+      Object.keys(query).length ? { query } : undefined,
+    );
+    return res.data;
+  }
+
+  /**
+   * Recent resolved-position activity for a public user. Server caps `limit` at
+   * 50; default is 5.
+   */
+  async getUserActivity(
+    username: string,
+    options: { limit?: number } = {},
+  ): Promise<UserActivityEntry[]> {
+    const query: Record<string, number> = {};
+    if (options.limit !== undefined) query.limit = options.limit;
+    const res = await this.request<{ data: UserActivityEntry[] }>(
+      'GET',
+      `/api/v1/users/${encodeURIComponent(username)}/activity`,
+      Object.keys(query).length ? { query } : undefined,
+    );
+    return res.data;
+  }
+
+  /** Badges earned by a public user. */
+  async getUserBadgesByUsername(username: string): Promise<UserProfileBadge[]> {
+    const res = await this.request<{ data: UserProfileBadge[] }>(
+      'GET',
+      `/api/v1/users/${encodeURIComponent(username)}/badges`,
+    );
+    return res.data;
+  }
+
+  /** Paginated list of users the authenticated user follows. */
+  async getMyFollowing(
+    options: { page?: number; limit?: number } = {},
+  ): Promise<PaginatedResponse<FollowedUser>> {
+    const query: Record<string, number> = {};
+    if (options.page !== undefined) query.page = options.page;
+    if (options.limit !== undefined) query.limit = options.limit;
+    return this.request<PaginatedResponse<FollowedUser>>(
+      'GET',
+      '/api/v1/users/me/following',
+      Object.keys(query).length ? { query } : undefined,
+    );
   }
 
   // ── Settings ─────────────────────────────────────────────────────────────
