@@ -3261,13 +3261,27 @@ describe('Settings endpoints (POLA-780)', () => {
 
   afterEach(() => { fetchSpy.mockRestore(); });
 
-  it('updateSettingsProfile sends PATCH /api/v1/settings/profile', async () => {
-    await client.updateSettingsProfile({ username: 'newname', displayName: 'New Name' });
+  it('updateSettingsProfile sends PATCH /api/v1/settings/profile with platform-whitelisted fields only', async () => {
+    await client.updateSettingsProfile({
+      displayName: 'New Name',
+      bio: 'New bio',
+      avatarUrl: 'https://cdn.example.com/me.png',
+      twitterHandle: 'newhandle',
+    });
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(new URL(url).pathname).toBe('/api/v1/settings/profile');
     expect(init.method).toBe('PATCH');
     const body = JSON.parse(init.body as string);
-    expect(body.username).toBe('newname');
+    expect(body).toEqual({
+      displayName: 'New Name',
+      bio: 'New bio',
+      avatarUrl: 'https://cdn.example.com/me.png',
+      twitterHandle: 'newhandle',
+    });
+    // Regression guard for the phantom `username` field (POLA-1991 / sdk-ts#192):
+    // the platform DTO does not whitelist `username`, and `forbidNonWhitelisted`
+    // makes any payload containing it return HTTP 400.
+    expect(body).not.toHaveProperty('username');
   });
 
   it('getNotificationSettings calls GET /api/v1/settings/notifications', async () => {

@@ -1703,7 +1703,14 @@ export class PolyforgeClient {
 
   // ── Settings ─────────────────────────────────────────────────────────────
 
-  /** Update the authenticated user's settings profile (username, display name, etc.). */
+  /**
+   * Update the authenticated user's settings profile.
+   *
+   * Mirrors the platform's `PATCH /api/v1/settings/profile` whitelist
+   * (`UpdateProfileDto`): `displayName`, `bio`, `avatarUrl`, `twitterHandle`.
+   * `username` is intentionally not on this endpoint — the platform rejects
+   * unknown fields with HTTP 400 (`forbidNonWhitelisted`).
+   */
   async updateSettingsProfile(params: UpdateSettingsProfileParams): Promise<void> {
     return this.request('PATCH', '/api/v1/settings/profile', { body: params });
   }
