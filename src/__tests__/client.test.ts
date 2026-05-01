@@ -173,28 +173,48 @@ describe('Platform contract compliance', () => {
     expect(body).not.toHaveProperty('query');
   });
 
-  it('startStrategy sends paperMode:false for live (#145)', async () => {
-    await client.startStrategy('strat-id', { paperMode: false });
+  it('startStrategy sends { mode: "live" } when mode:"live" (#190)', async () => {
+    await client.startStrategy('strat-id', { mode: 'live' });
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ paperMode: false });
+    expect(body).toEqual({ mode: 'live' });
   });
 
-  it('startStrategy sends paperMode:true for paper (#145)', async () => {
-    await client.startStrategy('strat-id', { paperMode: true });
+  it('startStrategy sends { mode: "paper" } when mode:"paper" (#190)', async () => {
+    await client.startStrategy('strat-id', { mode: 'paper' });
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ paperMode: true });
+    expect(body).toEqual({ mode: 'paper' });
   });
 
-  it('startStrategy sends deploymentMode when provided (#145)', async () => {
-    await client.startStrategy('strat-id', { paperMode: false, deploymentMode: 'LIVE' });
-    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ paperMode: false, deploymentMode: 'LIVE' });
-  });
-
-  it('startStrategy defaults to paperMode:true (#145)', async () => {
+  it('startStrategy defaults to { mode: "paper" } (#190)', async () => {
     await client.startStrategy('strat-id');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body).toEqual({ paperMode: true });
+    expect(body).toEqual({ mode: 'paper' });
+  });
+
+  it('startStrategy translates legacy paperMode:false to { mode: "live" } (#190)', async () => {
+    await client.startStrategy('strat-id', { paperMode: false });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ mode: 'live' });
+  });
+
+  it('startStrategy translates legacy paperMode:true to { mode: "paper" } (#190)', async () => {
+    await client.startStrategy('strat-id', { paperMode: true });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ mode: 'paper' });
+  });
+
+  it('startStrategy drops legacy deploymentMode and never sends paperMode/deploymentMode (#190)', async () => {
+    await client.startStrategy('strat-id', { paperMode: false, deploymentMode: 'LIVE' });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ mode: 'live' });
+    expect(body).not.toHaveProperty('paperMode');
+    expect(body).not.toHaveProperty('deploymentMode');
+  });
+
+  it('startStrategy prefers mode over legacy paperMode when both are passed (#190)', async () => {
+    await client.startStrategy('strat-id', { mode: 'live', paperMode: true });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ mode: 'live' });
   });
 
   it('placeSmartOrder sends intervalMinutes not intervalSeconds (#88)', async () => {

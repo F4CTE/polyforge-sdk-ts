@@ -729,14 +729,35 @@ export class PolyforgeClient {
   }
 
   /**
-   * Start a strategy. Defaults to paper mode (paperMode: true) for safety.
+   * Start a strategy. Defaults to paper mode (`mode: 'paper'`) for safety.
+   *
+   * The platform expects `{ mode: 'live' | 'paper' }` on the wire. This method
+   * accepts the canonical `mode` option, and also keeps backward compatibility
+   * for callers that still pass the legacy `paperMode` boolean (translated to
+   * `mode` before being sent). The legacy `deploymentMode` field has never been
+   * accepted by the platform and is silently dropped.
    */
   async startStrategy(
     id: string,
-    options: { paperMode?: boolean; deploymentMode?: 'LIVE' | 'SIMULATION' } = { paperMode: true },
+    options: {
+      /** Execution mode. Defaults to `'paper'` when omitted. */
+      mode?: 'live' | 'paper';
+      /** @deprecated Use `mode` instead. `true` maps to `'paper'`, `false` to `'live'`. */
+      paperMode?: boolean;
+      /** @deprecated Not accepted by the platform; ignored. */
+      deploymentMode?: 'LIVE' | 'SIMULATION';
+    } = {},
   ): Promise<StrategyStatusResponse> {
+    let mode: 'live' | 'paper';
+    if (options.mode !== undefined) {
+      mode = options.mode;
+    } else if (options.paperMode !== undefined) {
+      mode = options.paperMode ? 'paper' : 'live';
+    } else {
+      mode = 'paper';
+    }
     return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/start`, {
-      body: options,
+      body: { mode },
     });
   }
 
