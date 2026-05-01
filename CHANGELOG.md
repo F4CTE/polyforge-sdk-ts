@@ -45,6 +45,19 @@
   `ComboCollection`, `ComboCollectionsPage`, `ComboLookupLeg`,
   `ComboLookupParams`, `ComboTickerLookup`, `CorrelationCategoriesReport`).
 
+### Fixed
+- **`UpdateSettingsProfileParams` shape** — removed the phantom `username`
+  field (the platform's `PATCH /api/v1/settings/profile` does not whitelist
+  `username` and `forbidNonWhitelisted` rejects any payload containing it
+  with HTTP 400) and added the missing `twitterHandle` field, matching the
+  platform `UpdateProfileDto`. To change a username, use the appropriate
+  public-profile endpoint instead — it does not belong on the settings
+  profile patch. The `updateSettingsProfile` doc-comment was also corrected
+  to no longer advertise `username`. Restores SDK-to-SDK parity with
+  sdk-python's `update_settings_profile(twitter_handle=...)`. A regression
+  test now asserts the serialized PATCH body contains exactly the four
+  whitelisted fields and never contains `username`. (closes #192)
+
 ## [1.19.5] — 2026-04-21
 
 ### Fixed

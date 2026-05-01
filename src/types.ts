@@ -1264,9 +1264,9 @@ export interface FollowResult {
 
 export interface UpdateSettingsProfileParams {
   displayName?: string;
-  username?: string;
   bio?: string;
   avatarUrl?: string;
+  twitterHandle?: string;
 }
 
 export interface NotificationSettings {
