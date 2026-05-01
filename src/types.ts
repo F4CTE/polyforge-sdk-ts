@@ -1310,6 +1310,233 @@ export interface UpdateEventNotificationsParams {
   preferences: EventNotificationPreferences;
 }
 
+// ── Misc Public Utility Endpoints (POLA-1856) ───────────────────────────────
+
+/** Pagination filter accepted by `GET /api/v1/feed`. */
+export interface FeedQueryParams {
+  /** Numeric string lower bound on whale-trade notional, e.g. "10000". */
+  minSize?: string;
+  marketId?: string;
+  walletAddress?: string;
+  side?: 'BUY' | 'SELL';
+  page?: number;
+  /** 1–100. Defaults to 20 server-side. */
+  limit?: number;
+}
+
+/** Pagination + mood filter accepted by `GET /api/v1/journal`. */
+export type JournalMood =
+  | 'CONFIDENT'
+  | 'UNCERTAIN'
+  | 'FOMO'
+  | 'DISCIPLINED'
+  | 'REVENGE';
+
+export interface JournalQueryParams {
+  page?: number;
+  /** 1–100. Defaults to 20 server-side. */
+  limit?: number;
+  mood?: JournalMood;
+}
+
+/** A row in the journal page (orders that have been annotated with a mood). */
+export interface JournalEntry {
+  id: string;
+  marketId: string;
+  mood: JournalMood | string | null;
+  note: string | null;
+  side: string;
+  outcome: string;
+  price: string;
+  size: string;
+  status: string;
+  createdAt: string;
+}
+
+/** Body for `PATCH /api/v1/orders/:id/journal`. */
+export interface UpdateOrderJournalParams {
+  mood: JournalMood;
+  /** Optional free-text note, up to 2000 chars. */
+  note?: string;
+}
+
+/** Pagination filter accepted by `GET /api/v1/notifications`. */
+export interface ListNotificationsParams {
+  page?: number;
+  /** 1–100. Defaults to 20 server-side. */
+  limit?: number;
+}
+
+/** A row in the notification history page. */
+export interface NotificationHistoryEntry {
+  id: string;
+  userId: string;
+  channel: string;
+  eventType: string;
+  title: string | null;
+  body: string | null;
+  metadata: Record<string, unknown> | null;
+  read: boolean;
+  sentAt: string;
+}
+
+/** Response shape for `GET /api/v1/referrals/me`. */
+export interface MyReferrals {
+  referralCode: string;
+  referralLink: string;
+  stats: {
+    invited: number;
+    signedUp: number;
+    active: number;
+    creditsEarned: number;
+  };
+  referrals: Array<Record<string, unknown>>;
+}
+
+/** Body for `POST /api/v1/fees/preview`. */
+export interface FeePreviewParams {
+  tokenId: string;
+  side: 'BUY' | 'SELL';
+  /** Order size (contracts). */
+  size: number;
+  /** Order price (0.001–0.999). */
+  price: number;
+  /** Optional order type, e.g. "POST_ONLY" to flag maker. */
+  orderType?: string;
+}
+
+/** Per-venue fee estimate returned by the preview endpoint. */
+export interface VenueFeeEstimate {
+  venue: string;
+  feeBps: number;
+  feeUsd: number;
+  totalCostUsd: number;
+  isMaker: boolean;
+}
+
+/** Response shape for `POST /api/v1/fees/preview`. */
+export interface FeePreviewResult {
+  polymarket: VenueFeeEstimate;
+  kalshi: VenueFeeEstimate | null;
+  savings: number;
+  recommendedVenue: string;
+  marketMatch: { matchId: string; confidence: number } | null;
+}
+
+/** Single Polymarket fee schedule row. */
+export interface PolymarketFeeScheduleEntry {
+  category: string | null;
+  role: string;
+  feeBps: number;
+  effectiveAt: string;
+}
+
+/** Single Kalshi fee schedule row. */
+export interface KalshiFeeScheduleEntry {
+  role: string;
+  feeBps: number;
+  minPrice: number | null;
+  maxPrice: number | null;
+  effectiveAt: string;
+}
+
+/** Response shape for `GET /api/v1/fees/schedules`. */
+export interface FeeSchedules {
+  polymarket: PolymarketFeeScheduleEntry[];
+  kalshi: KalshiFeeScheduleEntry[];
+}
+
+/** A single per-market price alert. */
+export interface MarketAlert {
+  id: string;
+  marketId: string;
+  outcome: string;
+  condition: 'above' | 'below' | string;
+  threshold: number;
+  triggered: boolean;
+  createdAt: string;
+}
+
+/** Body for `POST /api/v1/markets/:marketId/alerts`. */
+export interface CreateMarketAlertParams {
+  outcome: 'YES' | 'NO' | 'Yes' | 'No';
+  condition: 'above' | 'below';
+  /** 0.01–0.99. */
+  threshold: number;
+}
+
+/** Period filter accepted by `GET /api/v1/markets/:marketId/history`. */
+export type MarketHistoryPeriod = '1d' | '7d' | '30d' | '90d';
+
+/** Single bucket in the per-market history series. */
+export interface MarketHistoryEntry {
+  timestamp: string;
+  yesPrice: number;
+  noPrice: number;
+  volume: number;
+}
+
+/** Response shape for `GET /api/v1/markets/:marketId/history`. */
+export interface MarketHistory {
+  data: MarketHistoryEntry[];
+}
+
+/** Response shape for `GET /api/v1/markets/:marketId/sentiment`. */
+export interface MarketSentimentReport {
+  yesPercent: number;
+  noPercent: number;
+  totalVotes: number;
+  userVote: { direction: string; confidence: number } | null;
+}
+
+/** Query filter accepted by `GET /api/v1/markets/combo/collections`. */
+export interface ListComboCollectionsParams {
+  seriesTicker?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+/** A single Kalshi multivariate (combo) collection. */
+export interface ComboCollection {
+  collection_ticker: string;
+  title: string;
+  category: string;
+  status: string;
+  markets_count: number;
+  series_ticker?: string;
+}
+
+/** Page shape for `GET /api/v1/markets/combo/collections`. */
+export interface ComboCollectionsPage {
+  collections: ComboCollection[];
+  cursor: string;
+}
+
+/** Single leg of a combo lookup request. */
+export interface ComboLookupLeg {
+  ticker: string;
+  outcome: 'yes' | 'no';
+}
+
+/** Body for `POST /api/v1/markets/combo/lookup`. */
+export interface ComboLookupParams {
+  collectionTicker: string;
+  legs: ComboLookupLeg[];
+}
+
+/** Response shape for `POST /api/v1/markets/combo/lookup`. */
+export interface ComboTickerLookup {
+  event_ticker: string;
+  market_ticker: string;
+}
+
+/** Response shape for `GET /api/v1/analytics/correlation/categories`. */
+export interface CorrelationCategoriesReport {
+  categories: string[];
+  matrix: number[][];
+  updatedAt: string;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {

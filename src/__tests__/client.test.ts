@@ -3557,3 +3557,421 @@ describe('response body size limit (#184)', () => {
     }
   });
 });
+
+describe('Misc public utility endpoints (POLA-1856)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  const jsonResponse = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  beforeEach(() => {
+    client = new PolyforgeClient({
+      apiKey: 'test-key',
+      apiUrl: 'https://api.polyforge.app',
+    });
+  });
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+
+  it('getAccuracyOverview GETs /accuracy and returns the AccuracyScore shape', async () => {
+    const payload = {
+      brierScore: 0.18,
+      totalPredictions: 25,
+      correctPredictions: 18,
+      winRate: '0.72',
+      calibration: [{ bucketMid: 0.5, frequency: 0.55, count: 10 }],
+      byCategory: { Crypto: { count: 10, brierScore: 0.15 } },
+    };
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(payload));
+
+    const result = await client.getAccuracyOverview();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('GET');
+    expect(url).toContain('/api/v1/accuracy');
+    expect(url).not.toContain('/accuracy/me');
+    expect(result).toEqual(payload);
+  });
+
+  it('getFeed forwards every supported query param and returns paginated whale trades', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        data: [{ id: 'w1', notional: '15000' }],
+        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      }),
+    );
+
+    const result = await client.getFeed({
+      minSize: '10000',
+      marketId: 'm1',
+      walletAddress: '0xabc',
+      side: 'BUY',
+      page: 2,
+      limit: 50,
+    });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(init.method).toBe('GET');
+    expect(parsed.pathname).toBe('/api/v1/feed');
+    expect(parsed.searchParams.get('minSize')).toBe('10000');
+    expect(parsed.searchParams.get('marketId')).toBe('m1');
+    expect(parsed.searchParams.get('walletAddress')).toBe('0xabc');
+    expect(parsed.searchParams.get('side')).toBe('BUY');
+    expect(parsed.searchParams.get('page')).toBe('2');
+    expect(parsed.searchParams.get('limit')).toBe('50');
+    expect(result.data).toHaveLength(1);
+    expect(result.pagination.total).toBe(1);
+  });
+
+  it('listJournal forwards mood + pagination', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        data: [
+          {
+            id: 'o1',
+            marketId: 'm1',
+            mood: 'CONFIDENT',
+            note: 'High conviction',
+            side: 'BUY',
+            outcome: 'YES',
+            price: '0.55',
+            size: '100',
+            status: 'CONFIRMED',
+            createdAt: '2026-05-01T00:00:00Z',
+          },
+        ],
+        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      }),
+    );
+
+    const result = await client.listJournal({ mood: 'CONFIDENT', page: 1, limit: 20 });
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(parsed.pathname).toBe('/api/v1/journal');
+    expect(parsed.searchParams.get('mood')).toBe('CONFIDENT');
+    expect(parsed.searchParams.get('page')).toBe('1');
+    expect(parsed.searchParams.get('limit')).toBe('20');
+    expect(result.data[0].mood).toBe('CONFIDENT');
+  });
+
+  it('listNotifications GETs /notifications with pagination params', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        data: [
+          {
+            id: 'n1',
+            userId: 'u1',
+            channel: 'inApp',
+            eventType: 'order_filled',
+            title: 'Order filled',
+            body: null,
+            metadata: null,
+            read: false,
+            sentAt: '2026-05-01T00:00:00Z',
+          },
+        ],
+        pagination: { page: 1, limit: 50, total: 1, totalPages: 1 },
+      }),
+    );
+
+    const result = await client.listNotifications({ limit: 50 });
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(parsed.pathname).toBe('/api/v1/notifications');
+    expect(parsed.searchParams.get('limit')).toBe('50');
+    expect(result.data[0].channel).toBe('inApp');
+  });
+
+  it('getMyReferrals GETs /referrals/me and returns the MyReferrals shape', async () => {
+    const payload = {
+      referralCode: 'ABCDEF12',
+      referralLink: 'https://polyforge.trade/ref/ABCDEF12',
+      stats: { invited: 0, signedUp: 0, active: 0, creditsEarned: 0 },
+      referrals: [],
+    };
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(payload));
+
+    const result = await client.getMyReferrals();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('GET');
+    expect(url).toContain('/api/v1/referrals/me');
+    expect(result).toEqual(payload);
+  });
+
+  it('previewFees POSTs the body to /fees/preview', async () => {
+    const responseBody = {
+      polymarket: { venue: 'POLYMARKET', feeBps: 200, feeUsd: 1, totalCostUsd: 51, isMaker: false },
+      kalshi: null,
+      savings: 0,
+      recommendedVenue: 'POLYMARKET',
+      marketMatch: null,
+    };
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(responseBody));
+
+    const params = {
+      tokenId: 'tok-1',
+      side: 'BUY' as const,
+      size: 100,
+      price: 0.5,
+      orderType: 'POST_ONLY',
+    };
+    const result = await client.previewFees(params);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('POST');
+    expect(url).toContain('/api/v1/fees/preview');
+    expect(JSON.parse(init.body as string)).toEqual(params);
+    expect(result.recommendedVenue).toBe('POLYMARKET');
+  });
+
+  it('getFeeSchedules GETs /fees/schedules and returns both venue arrays', async () => {
+    const payload = {
+      polymarket: [
+        { category: 'Crypto', role: 'TAKER', feeBps: 200, effectiveAt: '2026-01-01T00:00:00Z' },
+      ],
+      kalshi: [
+        {
+          role: 'MAKER',
+          feeBps: 100,
+          minPrice: 0.01,
+          maxPrice: 0.99,
+          effectiveAt: '2026-01-01T00:00:00Z',
+        },
+      ],
+    };
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(payload));
+
+    const result = await client.getFeeSchedules();
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(url).toContain('/api/v1/fees/schedules');
+    expect(result.polymarket).toHaveLength(1);
+    expect(result.kalshi).toHaveLength(1);
+  });
+
+  it('listMarketAlerts URL-encodes the marketId', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ data: [] }),
+    );
+
+    await client.listMarketAlerts('market with space');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(url).toContain('/api/v1/markets/market%20with%20space/alerts');
+  });
+
+  it('createMarketAlert POSTs the body to /markets/:marketId/alerts', async () => {
+    const responseBody = {
+      id: 'alert-1',
+      marketId: 'm1',
+      outcome: 'YES',
+      condition: 'above',
+      threshold: 0.6,
+      triggered: false,
+      createdAt: '2026-05-01T00:00:00Z',
+    };
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(responseBody, 201));
+
+    const params = { outcome: 'YES' as const, condition: 'above' as const, threshold: 0.6 };
+    const result = await client.createMarketAlert('m1', params);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('POST');
+    expect(url).toContain('/api/v1/markets/m1/alerts');
+    expect(JSON.parse(init.body as string)).toEqual(params);
+    expect(result.id).toBe('alert-1');
+  });
+
+  it('deleteMarketAlert URL-encodes both path params', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(null, { status: 204 }),
+    );
+
+    await client.deleteMarketAlert('m 1', 'a/1');
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('DELETE');
+    expect(url).toContain('/api/v1/markets/m%201/alerts/a%2F1');
+  });
+
+  it('getMarketHistory forwards the period query param when supplied', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        data: [
+          { timestamp: '2026-05-01T00:00:00Z', yesPrice: 0.5, noPrice: 0.5, volume: 100 },
+        ],
+      }),
+    );
+
+    const result = await client.getMarketHistory('m1', '30d');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(parsed.pathname).toBe('/api/v1/markets/m1/history');
+    expect(parsed.searchParams.get('period')).toBe('30d');
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('getMarketHistory omits the period query param when not supplied', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ data: [] }));
+
+    await client.getMarketHistory('m1');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(parsed.search).toBe('');
+  });
+
+  it('getMarketSentimentReport GETs /markets/:id/sentiment', async () => {
+    const payload = { yesPercent: 60, noPercent: 40, totalVotes: 5, userVote: null };
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(payload));
+
+    const result = await client.getMarketSentimentReport('m1');
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('GET');
+    expect(url).toContain('/api/v1/markets/m1/sentiment');
+    expect(result).toEqual(payload);
+  });
+
+  it('voteMarketSentiment POSTs (no body) to /markets/:id/sentiment', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ yesPercent: 60, noPercent: 40, totalVotes: 5, userVote: null }),
+    );
+
+    const result = await client.voteMarketSentiment('m1');
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('POST');
+    expect(url).toContain('/api/v1/markets/m1/sentiment');
+    expect(result.yesPercent).toBe(60);
+  });
+
+  it('updateOrderJournal PATCHes /orders/:id/journal with mood + note', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ id: 'o1', mood: 'CONFIDENT', note: 'High conviction' }),
+    );
+
+    const params = { mood: 'CONFIDENT' as const, note: 'High conviction' };
+    await client.updateOrderJournal('o1', params);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('PATCH');
+    expect(url).toContain('/api/v1/orders/o1/journal');
+    expect(JSON.parse(init.body as string)).toEqual(params);
+  });
+
+  it('listComboCollections forwards seriesTicker, limit, cursor', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ collections: [], cursor: 'next' }),
+    );
+
+    await client.listComboCollections({ seriesTicker: 'KXNFL', limit: 25, cursor: 'abc' });
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(parsed.pathname).toBe('/api/v1/markets/combo/collections');
+    expect(parsed.searchParams.get('seriesTicker')).toBe('KXNFL');
+    expect(parsed.searchParams.get('limit')).toBe('25');
+    expect(parsed.searchParams.get('cursor')).toBe('abc');
+  });
+
+  it('getComboCollection URL-encodes the ticker', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        collection_ticker: 'C/1',
+        title: 'Combo',
+        category: 'Sports',
+        status: 'open',
+        markets_count: 3,
+      }),
+    );
+
+    await client.getComboCollection('C/1');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(url).toContain('/api/v1/markets/combo/collections/C%2F1');
+  });
+
+  it('lookupComboTicker POSTs the body to /markets/combo/lookup', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ event_ticker: 'EVT-1', market_ticker: 'MKT-1' }),
+    );
+
+    const params = {
+      collectionTicker: 'COMBO-A',
+      legs: [
+        { ticker: 'MKT-1', outcome: 'yes' as const },
+        { ticker: 'MKT-2', outcome: 'no' as const },
+      ],
+    };
+    const result = await client.lookupComboTicker(params);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('POST');
+    expect(url).toContain('/api/v1/markets/combo/lookup');
+    expect(JSON.parse(init.body as string)).toEqual(params);
+    expect(result.event_ticker).toBe('EVT-1');
+  });
+
+  it('getCorrelationCategories GETs /analytics/correlation/categories', async () => {
+    const payload = {
+      categories: ['Crypto', 'Politics'],
+      matrix: [
+        [1, 0.4],
+        [0.4, 1],
+      ],
+      updatedAt: '2026-05-01T00:00:00Z',
+    };
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(payload));
+
+    const result = await client.getCorrelationCategories();
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(url).toContain('/api/v1/analytics/correlation/categories');
+    expect(result.categories).toEqual(['Crypto', 'Politics']);
+    expect(result.matrix[0][0]).toBe(1);
+  });
+
+  it.each<[string, (c: PolyforgeClient) => Promise<unknown>]>([
+    ['getAccuracyOverview', (c) => c.getAccuracyOverview()],
+    ['getFeed', (c) => c.getFeed()],
+    ['listJournal', (c) => c.listJournal()],
+    ['listNotifications', (c) => c.listNotifications()],
+    ['getMyReferrals', (c) => c.getMyReferrals()],
+    ['previewFees', (c) =>
+      c.previewFees({ tokenId: 't', side: 'BUY', size: 1, price: 0.5 })],
+    ['getFeeSchedules', (c) => c.getFeeSchedules()],
+    ['listMarketAlerts', (c) => c.listMarketAlerts('m1')],
+    ['createMarketAlert', (c) =>
+      c.createMarketAlert('m1', { outcome: 'YES', condition: 'above', threshold: 0.5 })],
+    ['deleteMarketAlert', (c) => c.deleteMarketAlert('m1', 'a1')],
+    ['getMarketHistory', (c) => c.getMarketHistory('m1')],
+    ['getMarketSentimentReport', (c) => c.getMarketSentimentReport('m1')],
+    ['voteMarketSentiment', (c) => c.voteMarketSentiment('m1')],
+    ['updateOrderJournal', (c) => c.updateOrderJournal('o1', { mood: 'CONFIDENT' })],
+    ['listComboCollections', (c) => c.listComboCollections()],
+    ['getComboCollection', (c) => c.getComboCollection('ghost')],
+    ['lookupComboTicker', (c) => c.lookupComboTicker({ collectionTicker: 'g', legs: [] })],
+    ['getCorrelationCategories', (c) => c.getCorrelationCategories()],
+  ])('%s surfaces 401 UNAUTHORIZED as PolyforgeError', async (_name, call) => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ code: 'UNAUTHORIZED', message: 'Missing token' }, 401),
+    );
+
+    await expect(call(client)).rejects.toMatchObject({
+      status: 401,
+      code: 'UNAUTHORIZED',
+    });
+  });
+});
