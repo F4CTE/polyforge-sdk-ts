@@ -1269,27 +1269,33 @@ export interface UpdateSettingsProfileParams {
   twitterHandle?: string;
 }
 
+/**
+ * Notification settings as exposed by `GET/PATCH /api/v1/settings/notifications`.
+ *
+ * Mirrors the platform `UpdateNotificationsDto`
+ * (`services/api-service/src/settings/dto/update-notifications.dto.ts`):
+ * three channel toggles (`emailEnabled`, `telegramEnabled`, `discordEnabled`)
+ * plus per-event toggles named `onXxx`. The platform's global
+ * `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` rejects
+ * any field not listed here with HTTP 400 — so this interface must stay an
+ * exact mirror of the DTO. (closes #191)
+ */
 export interface NotificationSettings {
-  emailOnOrderFilled: boolean;
-  emailOnStrategyError: boolean;
-  emailOnDailyLossLimit: boolean;
-  emailOnMarketResolved: boolean;
-  pushOnOrderFilled: boolean;
-  pushOnStrategyError: boolean;
-  pushOnWhaleAlert: boolean;
-  pushOnPriceAlert: boolean;
+  emailEnabled?: boolean;
+  telegramEnabled?: boolean;
+  discordEnabled?: boolean;
+  onOrderFilled?: boolean;
+  onStrategyError?: boolean;
+  onBacktestComplete?: boolean;
+  onDailyLossLimit?: boolean;
+  onMarketResolved?: boolean;
+  onSomeoneForked?: boolean;
+  onSomeoneFollowed?: boolean;
+  onSomeoneLiked?: boolean;
+  onSomeoneCommented?: boolean;
 }
 
-export interface UpdateNotificationSettingsParams {
-  emailOnOrderFilled?: boolean;
-  emailOnStrategyError?: boolean;
-  emailOnDailyLossLimit?: boolean;
-  emailOnMarketResolved?: boolean;
-  pushOnOrderFilled?: boolean;
-  pushOnStrategyError?: boolean;
-  pushOnWhaleAlert?: boolean;
-  pushOnPriceAlert?: boolean;
-}
+export type UpdateNotificationSettingsParams = Partial<NotificationSettings>;
 
 export interface ChangePasswordSettingsParams {
   currentPassword: string;

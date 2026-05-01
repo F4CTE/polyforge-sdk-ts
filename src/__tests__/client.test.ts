@@ -3284,12 +3284,24 @@ describe('Settings endpoints (POLA-780)', () => {
     expect(body).not.toHaveProperty('username');
   });
 
-  it('getNotificationSettings calls GET /api/v1/settings/notifications', async () => {
+  it('getNotificationSettings deserializes the platform NotificationSettings shape', async () => {
+    // Fixture matches the platform UpdateNotificationsDto exactly (channel
+    // toggles + per-event `onXxx` toggles). The previous fixture used the
+    // SDK's old phantom `emailOn*`/`pushOn*` names — exactly the broken
+    // contract this fix closes (POLA-1996 / sdk-ts#191).
     const mockSettings = {
-      emailOnOrderFilled: true, emailOnStrategyError: false,
-      emailOnDailyLossLimit: true, emailOnMarketResolved: false,
-      pushOnOrderFilled: true, pushOnStrategyError: true,
-      pushOnWhaleAlert: false, pushOnPriceAlert: false,
+      emailEnabled: true,
+      telegramEnabled: false,
+      discordEnabled: true,
+      onOrderFilled: true,
+      onStrategyError: false,
+      onBacktestComplete: true,
+      onDailyLossLimit: false,
+      onMarketResolved: true,
+      onSomeoneForked: false,
+      onSomeoneFollowed: true,
+      onSomeoneLiked: false,
+      onSomeoneCommented: true,
     };
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify(mockSettings), { status: 200, headers: { 'Content-Type': 'application/json' } }),
@@ -3298,19 +3310,61 @@ describe('Settings endpoints (POLA-780)', () => {
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toBe('/api/v1/settings/notifications');
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
-    expect(result.emailOnOrderFilled).toBe(true);
+    expect(result).toEqual(mockSettings);
   });
 
-  it('updateNotificationSettings sends PATCH /api/v1/settings/notifications', async () => {
+  it('updateNotificationSettings sends PATCH /api/v1/settings/notifications with platform-whitelisted fields only', async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
-    await client.updateNotificationSettings({ pushOnWhaleAlert: true });
+    await client.updateNotificationSettings({
+      emailEnabled: true,
+      telegramEnabled: false,
+      discordEnabled: true,
+      onOrderFilled: true,
+      onStrategyError: false,
+      onBacktestComplete: true,
+      onDailyLossLimit: false,
+      onMarketResolved: true,
+      onSomeoneForked: false,
+      onSomeoneFollowed: true,
+      onSomeoneLiked: false,
+      onSomeoneCommented: true,
+    });
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(new URL(url).pathname).toBe('/api/v1/settings/notifications');
     expect(init.method).toBe('PATCH');
     const body = JSON.parse(init.body as string);
-    expect(body.pushOnWhaleAlert).toBe(true);
+    expect(body).toEqual({
+      emailEnabled: true,
+      telegramEnabled: false,
+      discordEnabled: true,
+      onOrderFilled: true,
+      onStrategyError: false,
+      onBacktestComplete: true,
+      onDailyLossLimit: false,
+      onMarketResolved: true,
+      onSomeoneForked: false,
+      onSomeoneFollowed: true,
+      onSomeoneLiked: false,
+      onSomeoneCommented: true,
+    });
+    // Regression guard for the phantom `emailOn*` / `pushOn*` fields
+    // (POLA-1996 / sdk-ts#191): the platform DTO does not whitelist any of
+    // them, and `forbidNonWhitelisted` makes any payload containing them
+    // return HTTP 400. Verify none of the old shapes leak into the wire body.
+    for (const phantom of [
+      'emailOnOrderFilled',
+      'emailOnStrategyError',
+      'emailOnDailyLossLimit',
+      'emailOnMarketResolved',
+      'pushOnOrderFilled',
+      'pushOnStrategyError',
+      'pushOnWhaleAlert',
+      'pushOnPriceAlert',
+    ]) {
+      expect(body).not.toHaveProperty(phantom);
+    }
   });
 
   it('changePassword sends PATCH /api/v1/settings/password', async () => {

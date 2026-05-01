@@ -57,6 +57,28 @@
   sdk-python's `update_settings_profile(twitter_handle=...)`. A regression
   test now asserts the serialized PATCH body contains exactly the four
   whitelisted fields and never contains `username`. (closes #192)
+- **`NotificationSettings` / `UpdateNotificationSettingsParams` shape** —
+  rewrote both interfaces to match the platform's `UpdateNotificationsDto`
+  for `GET/PATCH /api/v1/settings/notifications` exactly. The previous
+  shape used phantom `emailOnOrderFilled`/`emailOnStrategyError`/
+  `emailOnDailyLossLimit`/`emailOnMarketResolved`/`pushOnOrderFilled`/
+  `pushOnStrategyError`/`pushOnWhaleAlert`/`pushOnPriceAlert` fields that
+  do not exist on the platform DTO, so every call to
+  `client.updateNotificationSettings(...)` was rejected with HTTP 400 by
+  the platform's `forbidNonWhitelisted` validator (and `getNotificationSettings()`
+  silently returned an object with all-undefined declared fields). The new
+  shape exposes the platform's three channel toggles (`emailEnabled`,
+  `telegramEnabled`, `discordEnabled`) and per-event toggles (`onOrderFilled`,
+  `onStrategyError`, `onBacktestComplete`, `onDailyLossLimit`, `onMarketResolved`,
+  `onSomeoneForked`, `onSomeoneFollowed`, `onSomeoneLiked`, `onSomeoneCommented`),
+  unblocking Telegram/Discord toggles and several event toggles that were
+  previously unreachable from sdk-ts. `UpdateNotificationSettingsParams` is
+  now `Partial<NotificationSettings>`. Restores parity with the MCP server's
+  `update_settings_notifications` tool. Tests now assert exact wire-body
+  equality and a regression guard explicitly forbids the old phantom field
+  names. **Breaking change** for anyone who was reading or sending the old
+  field names (which never worked against the live platform anyway).
+  (closes #191)
 
 ## [1.19.5] — 2026-04-21
 
