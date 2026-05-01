@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -71,6 +71,44 @@ describe('PolyforgeClient', () => {
         apiUrl: 'https://api.example.com',
       });
       expect(client).toBeDefined();
+    });
+  });
+
+  describe('health endpoints', () => {
+    let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+    afterEach(() => {
+      fetchSpy?.mockRestore();
+    });
+
+    it('getHealth calls the public health endpoint and returns public health only', async () => {
+      const payload: SystemHealthPublic = { status: 'ok', service: 'api-service' };
+      fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+      const client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+
+      const result = await client.getHealth();
+      const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+      expect(new URL(url).pathname).toBe('/health');
+      expect(init.method).toBe('GET');
+      expect(result.status).toBe('ok');
+    });
+
+    it('getHealthAuthenticated calls the status endpoint with authenticated health type', async () => {
+      const payload: SystemHealthAuthenticated = { status: 'operational' };
+      fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+      const client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+
+      const result = await client.getHealthAuthenticated();
+      const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+      expect(new URL(url).pathname).toBe('/api/v1/status');
+      expect(init.headers).toMatchObject({ Authorization: 'Bearer test-key' });
+      expect(result.status).toBe('operational');
     });
   });
 
@@ -2199,6 +2237,29 @@ describe('Discover and Leaderboard (#66)', () => {
     expect(url.pathname).toBe('/api/v1/leaderboard');
     expect(url.searchParams.get('period')).toBe('7d');
   });
+
+  it('getAccuracyLeaderboard sends paginated params to /api/v1/leaderboard', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: [],
+          pagination: { total: 0, page: 3, limit: 25, totalPages: 0 },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const params: AccuracyLeaderboardParams = { period: '30d', limit: 25, offset: 50 };
+
+    await client.getAccuracyLeaderboard(params);
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+
+    expect(url.pathname).toBe('/api/v1/leaderboard');
+    expect(url.searchParams.get('period')).toBe('30d');
+    expect(url.searchParams.get('limit')).toBe('25');
+    expect(url.searchParams.get('page')).toBe('3');
+    expect(url.searchParams.has('offset')).toBe(false);
+    expect(url.searchParams.has('cursor')).toBe(false);
+  });
 });
 
 describe('Paper trading (#66)', () => {
@@ -3385,6 +3446,55 @@ describe('Notification preference endpoints (POLA-780)', () => {
   });
 });
 
+describe('User venue preference endpoints (POLA-1913)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  const mockPreferences: UserPreferences = {
+    defaultVenue: 'polymarket',
+    enabledVenues: ['polymarket', 'kalshi'],
+    singlePlatformMode: false,
+  };
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+  });
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+
+  it('getMyPreferences calls GET /api/v1/users/me/venue-preferences', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(mockPreferences), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.getMyPreferences();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(new URL(url).pathname).toBe('/api/v1/users/me/venue-preferences');
+    expect(init.method).toBe('GET');
+    expect(result.enabledVenues).toEqual(['polymarket', 'kalshi']);
+  });
+
+  it('updateMyPreferences PATCHes the same shape returned by getMyPreferences', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(mockPreferences), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const params: UpdateUserPreferencesParams = {
+      defaultVenue: 'kalshi',
+      singlePlatformMode: false,
+    };
+
+    await client.updateMyPreferences(params);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(new URL(url).pathname).toBe('/api/v1/users/me/venue-preferences');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body as string)).toEqual(params);
+  });
+});
+
 describe('response body size limit (#184)', () => {
   let client: PolyforgeClient;
   let fetchSpy: ReturnType<typeof vi.spyOn>;
@@ -3903,7 +4013,7 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
     expect(url).toContain('/api/v1/markets/combo/collections/C%2F1');
   });
 
-  it('lookupComboTicker POSTs the body to /markets/combo/lookup', async () => {
+  it('lookupComboMarket POSTs the body to /markets/combo/lookup', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse({ event_ticker: 'EVT-1', market_ticker: 'MKT-1' }),
     );
@@ -3915,13 +4025,25 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
         { ticker: 'MKT-2', outcome: 'no' as const },
       ],
     };
-    const result = await client.lookupComboTicker(params);
+    const result: ComboMarketLookup = await client.lookupComboMarket(params);
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
 
     expect(init.method).toBe('POST');
     expect(url).toContain('/api/v1/markets/combo/lookup');
     expect(JSON.parse(init.body as string)).toEqual(params);
     expect(result.event_ticker).toBe('EVT-1');
+  });
+
+  it('lookupComboTicker remains a deprecated alias for lookupComboMarket', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ event_ticker: 'EVT-1', market_ticker: 'MKT-1' }),
+    );
+
+    await client.lookupComboTicker({ collectionTicker: 'COMBO-A', legs: [] });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('POST');
+    expect(url).toContain('/api/v1/markets/combo/lookup');
   });
 
   it('getCorrelationCategories GETs /analytics/correlation/categories', async () => {
@@ -3962,6 +4084,7 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
     ['updateOrderJournal', (c) => c.updateOrderJournal('o1', { mood: 'CONFIDENT' })],
     ['listComboCollections', (c) => c.listComboCollections()],
     ['getComboCollection', (c) => c.getComboCollection('ghost')],
+    ['lookupComboMarket', (c) => c.lookupComboMarket({ collectionTicker: 'g', legs: [] })],
     ['lookupComboTicker', (c) => c.lookupComboTicker({ collectionTicker: 'g', legs: [] })],
     ['getCorrelationCategories', (c) => c.getCorrelationCategories()],
   ])('%s surfaces 401 UNAUTHORIZED as PolyforgeError', async (_name, call) => {

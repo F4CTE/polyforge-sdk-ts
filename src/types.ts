@@ -856,6 +856,49 @@ export interface LeaderboardParams {
   limit?: number;
 }
 
+export interface AccuracyLeaderboardParams {
+  period?: '7d' | '30d' | 'allTime';
+  /** 1-100. Defaults to 20 server-side. */
+  limit?: number;
+  /** Platform-native page number. Takes precedence over offset when supplied. */
+  page?: number;
+  /** Zero-based row offset. Converted to the platform page/limit contract. */
+  offset?: number;
+  /** Reserved for future cursor pagination. The current API is page-based. */
+  cursor?: string;
+}
+
+export interface AccuracyLeaderboardEntry {
+  rank: number;
+  userId: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  pnl: string;
+  winRate: string;
+  tradeCount: number;
+}
+
+export interface SystemHealthPublic {
+  status: string;
+  service?: string;
+  version?: string;
+  uptime?: number;
+}
+
+export interface SystemHealthAuthenticated extends SystemHealthPublic {
+  db?: {
+    connections?: number;
+    status?: string;
+  };
+  redis?: {
+    memoryUsageMb?: number;
+    status?: string;
+  };
+  queueDepth?: number;
+  services?: Record<string, unknown>;
+}
+
 // ── Paper trading ───────────────────────────────────────────────────────────
 
 export interface PaperSummary {
@@ -1256,6 +1299,18 @@ export interface GasUsage {
   breakdown: Array<{ type: string; amount: string; count: number }>;
 }
 
+export interface UserPreferences {
+  defaultVenue: string;
+  enabledVenues: string[];
+  singlePlatformMode: boolean;
+}
+
+export interface UpdateUserPreferencesParams {
+  defaultVenue?: string;
+  enabledVenues?: string[];
+  singlePlatformMode?: boolean;
+}
+
 // ── Support Tickets ─────────────────────────────────────────────────────────
 
 export type TicketCategory = 'GENERAL' | 'BILLING' | 'TECHNICAL' | 'ACCOUNT' | 'BUG' | 'FEATURE_REQUEST';
@@ -1465,7 +1520,18 @@ export interface CreateMarketAlertParams {
   threshold: number;
 }
 
-/** Period filter accepted by `GET /api/v1/markets/:marketId/history`. */
+/**
+ * Period filter accepted by `GET /api/v1/markets/:marketId/history`.
+ *
+ * Recommended maximum request windows:
+ * - `1d`: use for intraday views.
+ * - `7d`: default short-term window.
+ * - `30d`: medium-term trend window.
+ * - `90d`: longest currently supported market-history window.
+ *
+ * For candle APIs that expose explicit intervals, keep windows bounded around
+ * `1m` <= 7 days, `5m` <= 30 days, `1h` <= 1 year, and `1d` <= 10 years.
+ */
 export type MarketHistoryPeriod = '1d' | '7d' | '30d' | '90d';
 
 /** Single bucket in the per-market history series. */
@@ -1529,6 +1595,8 @@ export interface ComboTickerLookup {
   event_ticker: string;
   market_ticker: string;
 }
+
+export type ComboMarketLookup = ComboTickerLookup;
 
 /** Response shape for `GET /api/v1/analytics/correlation/categories`. */
 export interface CorrelationCategoriesReport {

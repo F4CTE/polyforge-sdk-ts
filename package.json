@@ -24,6 +24,7 @@
     "build": "tsc && node scripts/emit-esm.mjs",
     "test": "vitest run",
     "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
