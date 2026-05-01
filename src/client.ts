@@ -159,6 +159,15 @@ import type {
   ComboLookupParams,
   ComboTickerLookup,
   CorrelationCategoriesReport,
+  ArbExecuteParams,
+  ArbExecutionResult,
+  ArbPosition,
+  ArbPositionsResponse,
+  ArbPositionStatus,
+  ArbCloseResponse,
+  ArbRiskDashboard,
+  ArbSettlementRisk,
+  ArbPnlRefreshResult,
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
@@ -1531,6 +1540,84 @@ export class PolyforgeClient {
   /** Deactivate an arbitrage alert subscription. */
   async deleteArbitrageAlert(alertId: string): Promise<void> {
     return this.request('DELETE', `/api/v1/arbitrage/alerts/${encodeURIComponent(alertId)}`);
+  }
+
+  // ── Cross-Venue Arb Execution / Positions / Risk (POLA-1850) ────────────
+  //
+  // Trading-impact surface. `executeArb` and `closeArbPosition` place real
+  // orders on Polymarket and Kalshi. The client never auto-retries — there is
+  // no retry layer; each request is a single attempt. Backend error codes
+  // (VENUES_NOT_CONNECTED, MATCH_NOT_FOUND, COMPARISON_UNAVAILABLE,
+  // SPREAD_TOO_LOW, TOKEN_RESOLUTION_FAILED, ARB_POSITION_NOT_FOUND,
+  // INVALID_STATUS) surface verbatim on `PolyforgeError.code`.
+
+  /**
+   * Execute a cross-venue arbitrage trade (real orders on Polymarket and Kalshi).
+   * Validates `size` ∈ [1, 10000] and `maxSlippagePct` ∈ [0, 5] client-side
+   * before the request, mirroring the server's class-validator bounds.
+   */
+  async executeArb(params: ArbExecuteParams): Promise<ArbExecutionResult> {
+    this.validateFinancialParam('size', params.size);
+    if (params.size > 10000) {
+      throw new PolyforgeError({
+        status: 0,
+        code: 'VALIDATION_ERROR',
+        message: 'size must be <= 10000',
+      });
+    }
+    if (params.maxSlippagePct !== undefined) {
+      if (!Number.isFinite(params.maxSlippagePct)) {
+        throw new PolyforgeError({
+          status: 0,
+          code: 'VALIDATION_ERROR',
+          message: 'maxSlippagePct must be a finite number',
+        });
+      }
+      if (params.maxSlippagePct < 0 || params.maxSlippagePct > 5) {
+        throw new PolyforgeError({
+          status: 0,
+          code: 'VALIDATION_ERROR',
+          message: 'maxSlippagePct must be between 0 and 5',
+        });
+      }
+    }
+    return this.request('POST', '/api/v1/arbitrage/execute', { body: params });
+  }
+
+  /** List the caller's cross-venue arbitrage positions. */
+  async listArbPositions(params?: {
+    status?: ArbPositionStatus;
+    limit?: number;
+    offset?: number;
+  }): Promise<ArbPositionsResponse> {
+    return this.request('GET', '/api/v1/arbitrage/positions', {
+      query: params as Record<string, unknown> | undefined,
+    });
+  }
+
+  /** Get a specific cross-venue arbitrage position by ID. */
+  async getArbPosition(id: string): Promise<ArbPosition> {
+    return this.request('GET', `/api/v1/arbitrage/positions/${encodeURIComponent(id)}`);
+  }
+
+  /** Close an open cross-venue arbitrage position (real reverse orders). */
+  async closeArbPosition(id: string): Promise<ArbCloseResponse> {
+    return this.request('POST', `/api/v1/arbitrage/positions/${encodeURIComponent(id)}/close`);
+  }
+
+  /** Cross-venue arb risk dashboard: net exposure, P&L, and position breakdown. */
+  async getArbRiskDashboard(): Promise<ArbRiskDashboard> {
+    return this.request('GET', '/api/v1/arbitrage/risk/dashboard');
+  }
+
+  /** Settlement-risk analysis for open arb positions (resolution-criteria mismatch). */
+  async getArbSettlementRisks(): Promise<ArbSettlementRisk[]> {
+    return this.request('GET', '/api/v1/arbitrage/risk/settlement');
+  }
+
+  /** Refresh unrealized P&L for open arb positions. Returns the count updated. */
+  async refreshArbPnl(): Promise<ArbPnlRefreshResult> {
+    return this.request('POST', '/api/v1/arbitrage/risk/refresh-pnl');
   }
 
   // ── Smart Orders ─────────────────────────────────────────────────────────

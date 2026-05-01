@@ -4258,3 +4258,275 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
     });
   });
 });
+
+// ── Cross-Venue Arb Execution / Positions / Risk (POLA-1850) ────────────────
+
+describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => { fetchSpy.mockRestore(); });
+
+  // ── executeArb ─────────────────────────────────────────────────────────
+
+  it('executeArb sends POST /api/v1/arbitrage/execute with body and returns result', async () => {
+    const mockResult = {
+      arbPositionId: 'pos-1',
+      buyLeg: { venue: 'KALSHI', intentId: 'int-buy', tokenId: 'tok-buy', price: 0.48 },
+      sellLeg: { venue: 'POLYMARKET', intentId: 'int-sell', tokenId: 'tok-sell', price: 0.55 },
+      entrySpreadPct: 7,
+      status: 'PENDING',
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockResult), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.executeArb({ matchId: 'match-1', size: 100, maxSlippagePct: 0.5 });
+
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/execute');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual({
+      matchId: 'match-1', size: 100, maxSlippagePct: 0.5,
+    });
+    expect(result.arbPositionId).toBe('pos-1');
+    expect(result.status).toBe('PENDING');
+  });
+
+  it('executeArb rejects size <= 0 client-side without calling fetch', async () => {
+    await expect(client.executeArb({ matchId: 'm', size: 0 })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('executeArb rejects size > 10000 client-side without calling fetch', async () => {
+    await expect(client.executeArb({ matchId: 'm', size: 10001 })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('<= 10000'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('executeArb rejects maxSlippagePct out of [0, 5] client-side', async () => {
+    await expect(client.executeArb({ matchId: 'm', size: 1, maxSlippagePct: -0.1 })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    await expect(client.executeArb({ matchId: 'm', size: 1, maxSlippagePct: 5.1 })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('executeArb rejects non-finite maxSlippagePct', async () => {
+    await expect(client.executeArb({ matchId: 'm', size: 1, maxSlippagePct: Number.NaN })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('executeArb surfaces backend error code verbatim on 403 VENUES_NOT_CONNECTED', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ code: 'VENUES_NOT_CONNECTED', message: 'Both wallets must be connected' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    await expect(client.executeArb({ matchId: 'm', size: 100 })).rejects.toMatchObject({
+      status: 403,
+      code: 'VENUES_NOT_CONNECTED',
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('executeArb surfaces SPREAD_TOO_LOW on 422 without retrying', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ code: 'SPREAD_TOO_LOW', message: 'Current spread 0.5% is below minimum 1%' }),
+        { status: 422, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    await expect(client.executeArb({ matchId: 'm', size: 100 })).rejects.toMatchObject({
+      status: 422,
+      code: 'SPREAD_TOO_LOW',
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('executeArb surfaces MATCH_NOT_FOUND on 404 without retrying', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ code: 'MATCH_NOT_FOUND', message: 'Market match not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    await expect(client.executeArb({ matchId: 'missing', size: 100 })).rejects.toMatchObject({
+      status: 404,
+      code: 'MATCH_NOT_FOUND',
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // ── listArbPositions / getArbPosition ──────────────────────────────────
+
+  it('listArbPositions calls GET /api/v1/arbitrage/positions and returns paginated shape', async () => {
+    const mockResponse = { positions: [{ id: 'p1', status: 'OPEN' }], total: 1 };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockResponse), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.listArbPositions();
+
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/positions');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result.total).toBe(1);
+    expect(result.positions[0]!.id).toBe('p1');
+  });
+
+  it('listArbPositions forwards status/limit/offset as query params', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ positions: [], total: 0 }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await client.listArbPositions({ status: 'OPEN', limit: 25, offset: 50 });
+
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('status')).toBe('OPEN');
+    expect(url.searchParams.get('limit')).toBe('25');
+    expect(url.searchParams.get('offset')).toBe('50');
+  });
+
+  it('getArbPosition calls GET /api/v1/arbitrage/positions/:id and url-encodes the id', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'pos/1', status: 'OPEN' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await client.getArbPosition('pos/1');
+
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/positions/pos%2F1');
+  });
+
+  // ── closeArbPosition ───────────────────────────────────────────────────
+
+  it('closeArbPosition sends POST /api/v1/arbitrage/positions/:id/close and returns CLOSING', async () => {
+    const mockResponse = { status: 'CLOSING', positionId: 'pos-42' };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockResponse), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.closeArbPosition('pos-42');
+
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/positions/pos-42/close');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect(result.status).toBe('CLOSING');
+    expect(result.positionId).toBe('pos-42');
+  });
+
+  it('closeArbPosition surfaces ARB_POSITION_NOT_FOUND on 404 without retrying', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ code: 'ARB_POSITION_NOT_FOUND', message: 'Arb position not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    await expect(client.closeArbPosition('missing')).rejects.toMatchObject({
+      status: 404,
+      code: 'ARB_POSITION_NOT_FOUND',
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('closeArbPosition surfaces INVALID_STATUS on 422 without retrying', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ code: 'INVALID_STATUS', message: 'Cannot close position in CLOSED status' }),
+        { status: 422, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    await expect(client.closeArbPosition('pos-closed')).rejects.toMatchObject({
+      status: 422,
+      code: 'INVALID_STATUS',
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Risk endpoints ─────────────────────────────────────────────────────
+
+  it('getArbRiskDashboard calls GET /api/v1/arbitrage/risk/dashboard and returns dashboard shape', async () => {
+    const mockDashboard = {
+      openPositions: 2,
+      pendingPositions: 1,
+      totalDeployed: 500,
+      netExposure: { polymarket: 200, kalshi: 300 },
+      totalRealizedPnl: 12.5,
+      totalUnrealizedPnl: -3.25,
+      avgSpreadPct: 4.5,
+      positionsByStatus: { OPEN: 2, PENDING: 1 },
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockDashboard), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.getArbRiskDashboard();
+
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/risk/dashboard');
+    expect(result.openPositions).toBe(2);
+    expect(result.netExposure.polymarket).toBe(200);
+    expect(result.positionsByStatus.OPEN).toBe(2);
+  });
+
+  it('getArbSettlementRisks calls GET /api/v1/arbitrage/risk/settlement and returns array', async () => {
+    const mockRisks = [
+      {
+        matchId: 'match-1',
+        polymarketTitle: 'BTC > 100k',
+        kalshiTitle: 'BTC above 100k',
+        polymarketEndDate: '2026-12-31T00:00:00Z',
+        kalshiEndDate: '2026-12-31T00:00:00Z',
+        endDateDiffDays: 0,
+        confidence: 0.92,
+        riskLevel: 'LOW',
+        reason: 'Markets appear well-matched',
+      },
+    ];
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockRisks), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.getArbSettlementRisks();
+
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/risk/settlement');
+    expect(result).toHaveLength(1);
+    expect(result[0]!.riskLevel).toBe('LOW');
+  });
+
+  it('refreshArbPnl sends POST /api/v1/arbitrage/risk/refresh-pnl and returns updated count', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ updated: 3 }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.refreshArbPnl();
+
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/arbitrage/risk/refresh-pnl');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect(result.updated).toBe(3);
+  });
+});

@@ -44,6 +44,26 @@
   `MarketHistory`, `MarketSentimentReport`, `ListComboCollectionsParams`,
   `ComboCollection`, `ComboCollectionsPage`, `ComboLookupLeg`,
   `ComboLookupParams`, `ComboTickerLookup`, `CorrelationCategoriesReport`).
+- **Cross-venue arb execute / positions / risk endpoints (POLA-1850)** — 7 new
+  methods on `PolyforgeClient` covering POST `/api/v1/arbitrage/execute`, GET
+  `/api/v1/arbitrage/positions`, GET `/api/v1/arbitrage/positions/:id`, POST
+  `/api/v1/arbitrage/positions/:id/close`, GET
+  `/api/v1/arbitrage/risk/dashboard`, GET
+  `/api/v1/arbitrage/risk/settlement`, and POST
+  `/api/v1/arbitrage/risk/refresh-pnl`. New types: `ArbExecuteParams`,
+  `ArbExecutionResult`, `ArbExecutionLeg`, `ArbPosition`,
+  `ArbPositionsResponse`, `ArbCloseResponse`, `ArbRiskDashboard`,
+  `ArbSettlementRisk`, `ArbPnlRefreshResult`, `ArbPositionStatus`, `Venue`.
+- **Trading-impact safety:** `executeArb` and `closeArbPosition` place real
+  orders on Polymarket and Kalshi. The TS client has no auto-retry layer, so
+  every request is single-attempt by design. Backend error codes
+  (`VENUES_NOT_CONNECTED`, `MATCH_NOT_FOUND`, `COMPARISON_UNAVAILABLE`,
+  `SPREAD_TOO_LOW`, `TOKEN_RESOLUTION_FAILED`, `ARB_POSITION_NOT_FOUND`,
+  `INVALID_STATUS`) surface verbatim on `PolyforgeError.code`.
+- `executeArb` validates `size` in [1, 10000] and `maxSlippagePct` in [0, 5]
+  client-side before sending the request, mirroring the server's
+  `class-validator` bounds. Validation failures throw `PolyforgeError` with
+  `code: 'VALIDATION_ERROR'` and `status: 0` (no network call is made).
 
 ### Fixed
 - **`ImportStrategyParams` block nesting** — moved import block arrays under
