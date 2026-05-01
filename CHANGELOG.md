@@ -1,5 +1,45 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **Misc public utility endpoints (POLA-1856)** — 18 new methods covering
+  feed/journal/accuracy/fees/notifications/referrals + per-market alerts,
+  history, sentiment, combo collections, and analytics correlation:
+  - `getAccuracyOverview()` — `GET /api/v1/accuracy` (companion to existing
+    `getAccuracy()` which targets `/accuracy/me`)
+  - `getFeed(params?)` — `GET /api/v1/feed` (whale-trade feed with filters)
+  - `listJournal(params?)` — `GET /api/v1/journal` (mood-tagged orders)
+  - `listNotifications(params?)` — `GET /api/v1/notifications` (notification
+    history, distinct from `getNotificationSettings()`)
+  - `getMyReferrals()` — `GET /api/v1/referrals/me`
+  - `previewFees(params)` — `POST /api/v1/fees/preview`
+  - `getFeeSchedules()` — `GET /api/v1/fees/schedules`
+  - `listMarketAlerts(marketId)` — `GET /api/v1/markets/:marketId/alerts`
+  - `createMarketAlert(marketId, params)` — `POST /api/v1/markets/:marketId/alerts`
+  - `deleteMarketAlert(marketId, alertId)` — `DELETE
+    /api/v1/markets/:marketId/alerts/:alertId`
+  - `getMarketHistory(marketId, period?)` — `GET /api/v1/markets/:marketId/history`
+  - `getMarketSentimentReport(marketId)` — `GET /api/v1/markets/:marketId/sentiment`
+    (distinct from existing `getMarketSentiment()` which targets
+    `/news/sentiment/:marketId`)
+  - `voteMarketSentiment(marketId)` — `POST /api/v1/markets/:marketId/sentiment`
+  - `updateOrderJournal(orderId, params)` — `PATCH /api/v1/orders/:id/journal`
+  - `listComboCollections(params?)` — `GET /api/v1/markets/combo/collections`
+  - `getComboCollection(ticker)` — `GET /api/v1/markets/combo/collections/:ticker`
+  - `lookupComboTicker(params)` — `POST /api/v1/markets/combo/lookup`
+  - `getCorrelationCategories()` — `GET /api/v1/analytics/correlation/categories`
+
+  Adds 22 new exported types (`FeedQueryParams`, `JournalEntry`,
+  `JournalMood`, `JournalQueryParams`, `UpdateOrderJournalParams`,
+  `ListNotificationsParams`, `NotificationHistoryEntry`, `MyReferrals`,
+  `FeePreviewParams`, `FeePreviewResult`, `VenueFeeEstimate`, `FeeSchedules`,
+  `PolymarketFeeScheduleEntry`, `KalshiFeeScheduleEntry`, `MarketAlert`,
+  `CreateMarketAlertParams`, `MarketHistoryPeriod`, `MarketHistoryEntry`,
+  `MarketHistory`, `MarketSentimentReport`, `ListComboCollectionsParams`,
+  `ComboCollection`, `ComboCollectionsPage`, `ComboLookupLeg`,
+  `ComboLookupParams`, `ComboTickerLookup`, `CorrelationCategoriesReport`).
+
 ## [1.19.5] — 2026-04-21
 
 ### Fixed

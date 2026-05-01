@@ -131,6 +131,27 @@ import type {
   SpreadSummary,
   ArbitrageAlertSubscription,
   CreateArbitrageAlertParams,
+  FeedQueryParams,
+  JournalQueryParams,
+  JournalEntry,
+  UpdateOrderJournalParams,
+  ListNotificationsParams,
+  NotificationHistoryEntry,
+  MyReferrals,
+  FeePreviewParams,
+  FeePreviewResult,
+  FeeSchedules,
+  MarketAlert,
+  CreateMarketAlertParams,
+  MarketHistoryPeriod,
+  MarketHistory,
+  MarketSentimentReport,
+  ListComboCollectionsParams,
+  ComboCollectionsPage,
+  ComboCollection,
+  ComboLookupParams,
+  ComboTickerLookup,
+  CorrelationCategoriesReport,
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
@@ -1672,6 +1693,179 @@ export class PolyforgeClient {
   /** Update per-event notification preferences. */
   async updateNotificationPreferences(params: UpdateEventNotificationsParams): Promise<EventNotificationPreferences> {
     return this.request('PUT', '/api/v1/users/me/notification-preferences', { body: params });
+  }
+
+  // ── Misc Public Utility Endpoints (POLA-1856) ─────────────────────────────
+
+  /**
+   * Get the authenticated user's prediction-accuracy overview from the root
+   * accuracy endpoint. Functionally equivalent to {@link getAccuracy} (which
+   * targets `/accuracy/me`); both controller routes return the same shape.
+   */
+  async getAccuracyOverview(): Promise<AccuracyScore> {
+    return this.request('GET', '/api/v1/accuracy');
+  }
+
+  /**
+   * Get the unified whale-activity feed (`GET /api/v1/feed`).
+   * This is the platform-level alias for the whale feed; it shares the same
+   * filter shape as {@link getWhaleFeed} but is wired to the dedicated
+   * `feed` controller.
+   */
+  async getFeed(params?: FeedQueryParams): Promise<PaginatedResponse<WhaleTrade>> {
+    return this.request('GET', '/api/v1/feed', {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * List the authenticated user's mood-tagged orders (trading journal).
+   * Filterable by mood; cursor-paginated via `page` / `limit`.
+   */
+  async listJournal(params?: JournalQueryParams): Promise<PaginatedResponse<JournalEntry>> {
+    return this.request('GET', '/api/v1/journal', {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * List the authenticated user's notification history (in-app, email, push).
+   * Distinct from {@link getNotificationSettings} (channel toggles) and
+   * {@link updateProfileNotifications} (per-event prefs).
+   */
+  async listNotifications(
+    params?: ListNotificationsParams,
+  ): Promise<PaginatedResponse<NotificationHistoryEntry>> {
+    return this.request('GET', '/api/v1/notifications', {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /** Get the authenticated user's referral code, link, and aggregate stats. */
+  async getMyReferrals(): Promise<MyReferrals> {
+    return this.request('GET', '/api/v1/referrals/me');
+  }
+
+  /**
+   * Preview platform fees for a hypothetical order across both venues
+   * (Polymarket + Kalshi where available) and surface the recommended venue.
+   */
+  async previewFees(params: FeePreviewParams): Promise<FeePreviewResult> {
+    return this.request('POST', '/api/v1/fees/preview', { body: params });
+  }
+
+  /** List the active fee schedules for all supported venues. */
+  async getFeeSchedules(): Promise<FeeSchedules> {
+    return this.request('GET', '/api/v1/fees/schedules');
+  }
+
+  /**
+   * List the authenticated user's price alerts for a single market.
+   * Distinct from {@link listAlerts} which returns the top-level alert list
+   * across all markets.
+   */
+  async listMarketAlerts(marketId: string): Promise<{ data: MarketAlert[] }> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(marketId)}/alerts`);
+  }
+
+  /** Create a price alert on a specific market outcome (YES/NO). */
+  async createMarketAlert(
+    marketId: string,
+    params: CreateMarketAlertParams,
+  ): Promise<MarketAlert> {
+    return this.request('POST', `/api/v1/markets/${encodeURIComponent(marketId)}/alerts`, {
+      body: params,
+    });
+  }
+
+  /** Delete one of the authenticated user's per-market price alerts. */
+  async deleteMarketAlert(marketId: string, alertId: string): Promise<void> {
+    return this.request(
+      'DELETE',
+      `/api/v1/markets/${encodeURIComponent(marketId)}/alerts/${encodeURIComponent(alertId)}`,
+    );
+  }
+
+  /**
+   * Get a time-series price/volume history for a market over a fixed period.
+   * Server bucket size is 1 hour; defaults to 7d when no period is supplied.
+   */
+  async getMarketHistory(
+    marketId: string,
+    period?: MarketHistoryPeriod,
+  ): Promise<MarketHistory> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(marketId)}/history`, {
+      query: period ? { period } : undefined,
+    });
+  }
+
+  /**
+   * Get the aggregated user-sentiment report for a market (yes%/no%/totalVotes
+   * + the caller's own vote, if any). Distinct from {@link getMarketSentiment}
+   * which returns the news-derived sentiment from `/news/sentiment/:marketId`.
+   */
+  async getMarketSentimentReport(marketId: string): Promise<MarketSentimentReport> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(marketId)}/sentiment`);
+  }
+
+  /**
+   * Cast a sentiment vote on a market. Returns the updated sentiment report.
+   * Note: the current controller treats POST as idempotent and returns the
+   * latest aggregate without persisting the user's vote.
+   */
+  async voteMarketSentiment(marketId: string): Promise<MarketSentimentReport> {
+    return this.request('POST', `/api/v1/markets/${encodeURIComponent(marketId)}/sentiment`);
+  }
+
+  /**
+   * Annotate one of the authenticated user's orders with a mood tag and an
+   * optional free-text note (used by the trading journal).
+   */
+  async updateOrderJournal(
+    orderId: string,
+    params: UpdateOrderJournalParams,
+  ): Promise<Order> {
+    return this.request('PATCH', `/api/v1/orders/${encodeURIComponent(orderId)}/journal`, {
+      body: params,
+    });
+  }
+
+  /**
+   * List Kalshi multivariate (combo) market collections.
+   * Optional `seriesTicker` narrows to a single series; `cursor` resumes
+   * pagination from a previous page.
+   */
+  async listComboCollections(
+    params?: ListComboCollectionsParams,
+  ): Promise<ComboCollectionsPage> {
+    return this.request('GET', '/api/v1/markets/combo/collections', {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /** Get a single combo collection by its `collection_ticker`. */
+  async getComboCollection(ticker: string): Promise<ComboCollection> {
+    return this.request(
+      'GET',
+      `/api/v1/markets/combo/collections/${encodeURIComponent(ticker)}`,
+    );
+  }
+
+  /**
+   * Resolve a `(collectionTicker, legs[])` tuple to the underlying combo
+   * event/market ticker pair. Throws a 404-style {@link PolyforgeError} when
+   * no combo matches the given legs.
+   */
+  async lookupComboTicker(params: ComboLookupParams): Promise<ComboTickerLookup> {
+    return this.request('POST', '/api/v1/markets/combo/lookup', { body: params });
+  }
+
+  /**
+   * Get the per-category correlation matrix derived from market volumes and
+   * counts (used by the analytics correlation heatmap).
+   */
+  async getCorrelationCategories(): Promise<CorrelationCategoriesReport> {
+    return this.request('GET', '/api/v1/analytics/correlation/categories');
   }
 
   // ── Strategy Execution Watching (SSE) ────────────────────────────────────
