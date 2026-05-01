@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.21.0] — 2026-05-01
+
+### Added — POLA-1843 (SDK coverage catch-up, batch 2)
+- **Market-specific alerts** — `listMarketAlerts(marketId)`, `createMarketAlert(marketId, params)`, `deleteMarketAlert(marketId, alertId)` covering GET/POST `/api/v1/markets/:id/alerts` and DELETE `/api/v1/markets/:id/alerts/:alertId`.
+- **Market community sentiment** — `getMarketCommunitySentiment(marketId)` and `voteMarketSentiment(marketId, params)` covering GET/POST `/api/v1/markets/:id/sentiment`. Distinct from the existing `getMarketSentiment(marketId)` which returns news-derived sentiment from `/api/v1/news/sentiment/:id`.
+- **Market history (OHLCV)** — `getMarketHistory(marketId, params?)` covering GET `/api/v1/markets/:id/history`. Distinct from `getPriceHistory(tokenId, params?)` which targets the legacy `/api/v1/markets/:tokenId/price-history` shape.
+- **User follow by id** — `getFollowStatus(userId)` and `toggleFollowUserById(userId)` covering GET/POST `/api/v1/users/:id/follow`. Complements the existing username-keyed `followUser(username)`.
+- **Platform action catalog** — `getPlatformActions()` covering GET `/api/v1/actions` (public; designed for AI agent capability discovery).
+- **Accuracy leaderboard** — `getAccuracyLeaderboard()` covering GET `/api/v1/accuracy`. Companion to the existing `getAccuracy()` which returns only the authenticated user's stats.
+- **Correlation analytics** — `getCorrelationByCategory()` covering GET `/api/v1/analytics/correlation/categories`.
+
+New types: `MarketAlertOutcome`, `MarketAlertCondition`, `CreateMarketAlertParams`, `MarketAlert`, `SentimentVote`, `MarketCommunitySentiment`, `VoteMarketSentimentParams`, `MarketHistoryInterval`, `MarketHistoryParams`, `MarketHistoryCandle`, `FollowStatus`, `FollowToggleResult`, `PlatformAction`, `PlatformActionCatalog`, `AccuracyLeaderboardEntry`, `CategoryCorrelation`, `CorrelationByCategory`.
+
 ## [1.19.5] — 2026-04-21
 
 ### Fixed

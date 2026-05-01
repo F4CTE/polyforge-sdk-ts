@@ -1310,6 +1310,120 @@ export interface UpdateEventNotificationsParams {
   preferences: EventNotificationPreferences;
 }
 
+// ── Market-Specific Alerts ──────────────────────────────────────────────────
+
+export type MarketAlertOutcome = 'YES' | 'NO';
+export type MarketAlertCondition = 'above' | 'below';
+
+export interface CreateMarketAlertParams {
+  outcome: MarketAlertOutcome;
+  condition: MarketAlertCondition;
+  threshold: number;
+}
+
+export interface MarketAlert {
+  id: string;
+  marketId: string;
+  outcome: MarketAlertOutcome;
+  condition: MarketAlertCondition;
+  threshold: number;
+  triggeredAt?: string | null;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+// ── Market Community Sentiment ──────────────────────────────────────────────
+
+export type SentimentVote = 'YES' | 'NO';
+
+export interface MarketCommunitySentiment {
+  marketId: string;
+  yesVotes: number;
+  noVotes: number;
+  userVote: SentimentVote | null;
+}
+
+export interface VoteMarketSentimentParams {
+  vote: SentimentVote;
+}
+
+// ── Market History (OHLCV) ──────────────────────────────────────────────────
+
+export type MarketHistoryInterval = '1m' | '5m' | '1h' | '1d';
+
+export interface MarketHistoryParams {
+  from?: string;
+  to?: string;
+  interval?: MarketHistoryInterval;
+}
+
+export interface MarketHistoryCandle {
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+// ── User Follow (by id) ─────────────────────────────────────────────────────
+
+export interface FollowStatus {
+  following: boolean;
+  followedAt: string | null;
+}
+
+export interface FollowToggleResult {
+  following: boolean;
+}
+
+// ── Platform API Action Catalog ─────────────────────────────────────────────
+
+/**
+ * Public catalog of API capabilities. Designed for AI agents to discover
+ * platform actions programmatically. Server schema is open-ended; SDK exposes
+ * the basic shape and lets callers narrow as needed.
+ */
+export interface PlatformAction {
+  name: string;
+  method: string;
+  path: string;
+  scope?: string;
+  category?: string;
+  parameters?: unknown;
+  [key: string]: unknown;
+}
+
+export interface PlatformActionCatalog {
+  version: string;
+  actions: PlatformAction[];
+}
+
+// ── Accuracy Leaderboard ────────────────────────────────────────────────────
+
+export interface AccuracyLeaderboardEntry {
+  rank: number;
+  userId: string;
+  username?: string;
+  brierScore?: number;
+  totalPredictions?: number;
+  correctPredictions?: number;
+  winRate?: number;
+  [key: string]: unknown;
+}
+
+// ── Correlation Analytics ───────────────────────────────────────────────────
+
+export interface CategoryCorrelation {
+  name: string;
+  correlation: number;
+  markets: string[];
+}
+
+export interface CorrelationByCategory {
+  categories: CategoryCorrelation[];
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {

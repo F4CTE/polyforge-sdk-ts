@@ -127,6 +127,17 @@ import type {
   TicketMessage,
   EventNotificationPreferences,
   UpdateEventNotificationsParams,
+  MarketAlert,
+  CreateMarketAlertParams,
+  MarketCommunitySentiment,
+  VoteMarketSentimentParams,
+  MarketHistoryParams,
+  MarketHistoryCandle,
+  FollowStatus,
+  FollowToggleResult,
+  PlatformActionCatalog,
+  AccuracyLeaderboardEntry,
+  CorrelationByCategory,
   VenuePriceInfo,
   SpreadSummary,
   ArbitrageAlertSubscription,
@@ -1672,6 +1683,97 @@ export class PolyforgeClient {
   /** Update per-event notification preferences. */
   async updateNotificationPreferences(params: UpdateEventNotificationsParams): Promise<EventNotificationPreferences> {
     return this.request('PUT', '/api/v1/users/me/notification-preferences', { body: params });
+  }
+
+  // ── Market-Specific Alerts ────────────────────────────────────────────────
+
+  /** List the authenticated user's price alerts for a specific market. */
+  async listMarketAlerts(marketId: string): Promise<MarketAlert[]> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(marketId)}/alerts`);
+  }
+
+  /** Create a price alert for a market outcome. */
+  async createMarketAlert(marketId: string, params: CreateMarketAlertParams): Promise<MarketAlert> {
+    return this.request('POST', `/api/v1/markets/${encodeURIComponent(marketId)}/alerts`, { body: params });
+  }
+
+  /** Delete a market-specific price alert. */
+  async deleteMarketAlert(marketId: string, alertId: string): Promise<void> {
+    return this.request(
+      'DELETE',
+      `/api/v1/markets/${encodeURIComponent(marketId)}/alerts/${encodeURIComponent(alertId)}`,
+    );
+  }
+
+  // ── Market Community Sentiment ────────────────────────────────────────────
+
+  /**
+   * Get community vote sentiment for a market — the user-driven counterpart to
+   * `getMarketSentiment(marketId)`, which returns news-derived sentiment.
+   */
+  async getMarketCommunitySentiment(marketId: string): Promise<MarketCommunitySentiment> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(marketId)}/sentiment`);
+  }
+
+  /** Cast a community sentiment vote on a market. Idempotent per user. */
+  async voteMarketSentiment(marketId: string, params: VoteMarketSentimentParams): Promise<MarketCommunitySentiment> {
+    return this.request('POST', `/api/v1/markets/${encodeURIComponent(marketId)}/sentiment`, { body: params });
+  }
+
+  // ── Market History (OHLCV) ────────────────────────────────────────────────
+
+  /**
+   * Get OHLCV-style price history for a market. Distinct from
+   * `getPriceHistory(tokenId, ...)`, which uses a token-id keyed path and
+   * returns the legacy price-history shape.
+   */
+  async getMarketHistory(marketId: string, params?: MarketHistoryParams): Promise<MarketHistoryCandle[]> {
+    return this.request('GET', `/api/v1/markets/${encodeURIComponent(marketId)}/history`, {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  // ── User Follow (by id) ───────────────────────────────────────────────────
+
+  /** Check whether the authenticated user follows the given user (by user id). */
+  async getFollowStatus(userId: string): Promise<FollowStatus> {
+    return this.request('GET', `/api/v1/users/${encodeURIComponent(userId)}/follow`);
+  }
+
+  /**
+   * Toggle follow on a user by id. Idempotent — the server returns the new
+   * follow state. Distinct from `followUser(username)` which targets the
+   * username-keyed `/api/v1/profile/:username/follow` endpoint.
+   */
+  async toggleFollowUserById(userId: string): Promise<FollowToggleResult> {
+    return this.request('POST', `/api/v1/users/${encodeURIComponent(userId)}/follow`);
+  }
+
+  // ── Platform Action Catalog ───────────────────────────────────────────────
+
+  /**
+   * Public catalog of platform API actions for capability discovery
+   * (designed for AI agents). Public — no authentication required.
+   */
+  async getPlatformActions(): Promise<PlatformActionCatalog> {
+    return this.request('GET', '/api/v1/actions');
+  }
+
+  // ── Accuracy Leaderboard ──────────────────────────────────────────────────
+
+  /**
+   * Get the prediction accuracy leaderboard. The companion endpoint
+   * `getAccuracy()` returns only the authenticated user's stats.
+   */
+  async getAccuracyLeaderboard(): Promise<AccuracyLeaderboardEntry[]> {
+    return this.request('GET', '/api/v1/accuracy');
+  }
+
+  // ── Correlation Analytics ─────────────────────────────────────────────────
+
+  /** Get market correlation grouped by category. */
+  async getCorrelationByCategory(): Promise<CorrelationByCategory> {
+    return this.request('GET', '/api/v1/analytics/correlation/categories');
   }
 
   // ── Strategy Execution Watching (SSE) ────────────────────────────────────

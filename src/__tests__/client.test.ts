@@ -3557,3 +3557,187 @@ describe('response body size limit (#184)', () => {
     }
   });
 });
+
+describe('SDK coverage catch-up batch 2 (POLA-1843)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+  });
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+
+  function mockJson(payload: unknown, status = 200) {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(payload), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+  }
+
+  function mockNoContent() {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(null, { status: 204 }),
+    );
+  }
+
+  describe('market-specific alerts', () => {
+    it('listMarketAlerts GETs /api/v1/markets/:id/alerts', async () => {
+      mockJson([{ id: 'a-1', marketId: 'm-1', outcome: 'YES', condition: 'above', threshold: 0.75, createdAt: 't' }]);
+      const result = await client.listMarketAlerts('m-1');
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/markets/m-1/alerts');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+      expect(result).toHaveLength(1);
+      expect(result[0].outcome).toBe('YES');
+    });
+
+    it('createMarketAlert POSTs the alert spec and returns the created alert', async () => {
+      mockJson({ id: 'a-2', marketId: 'm-1', outcome: 'NO', condition: 'below', threshold: 0.25, createdAt: 't' }, 201);
+      const result = await client.createMarketAlert('m-1', { outcome: 'NO', condition: 'below', threshold: 0.25 });
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/markets/m-1/alerts');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+      expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual({
+        outcome: 'NO',
+        condition: 'below',
+        threshold: 0.25,
+      });
+      expect(result.id).toBe('a-2');
+    });
+
+    it('deleteMarketAlert DELETEs the nested path and resolves with no body', async () => {
+      mockNoContent();
+      await client.deleteMarketAlert('m-1', 'a-2');
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/markets/m-1/alerts/a-2');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('DELETE');
+    });
+
+    it('createMarketAlert encodes path segments containing reserved characters', async () => {
+      mockJson({ id: 'a-3', marketId: 'm/1', outcome: 'YES', condition: 'above', threshold: 0.5, createdAt: 't' }, 201);
+      await client.createMarketAlert('m/1', { outcome: 'YES', condition: 'above', threshold: 0.5 });
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/markets/m%2F1/alerts');
+    });
+  });
+
+  describe('market community sentiment', () => {
+    it('getMarketCommunitySentiment GETs /api/v1/markets/:id/sentiment', async () => {
+      mockJson({ marketId: 'm-1', yesVotes: 142, noVotes: 58, userVote: 'YES' });
+      const result = await client.getMarketCommunitySentiment('m-1');
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/markets/m-1/sentiment');
+      expect(result.yesVotes).toBe(142);
+      expect(result.userVote).toBe('YES');
+    });
+
+    it('voteMarketSentiment POSTs the vote and returns updated sentiment', async () => {
+      mockJson({ marketId: 'm-1', yesVotes: 143, noVotes: 58, userVote: 'YES' });
+      const result = await client.voteMarketSentiment('m-1', { vote: 'YES' });
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+      expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual({ vote: 'YES' });
+      expect(result.yesVotes).toBe(143);
+    });
+
+    it('does not collide with existing news-derived getMarketSentiment', () => {
+      // Both methods exist with distinct paths.
+      expect(typeof client.getMarketSentiment).toBe('function');
+      expect(typeof client.getMarketCommunitySentiment).toBe('function');
+      expect(client.getMarketSentiment).not.toBe(client.getMarketCommunitySentiment);
+    });
+  });
+
+  describe('market history (OHLCV)', () => {
+    it('GETs /api/v1/markets/:id/history with query params', async () => {
+      mockJson([
+        { timestamp: '2026-05-01T00:00:00Z', open: 0.5, high: 0.55, low: 0.48, close: 0.52, volume: 1000 },
+      ]);
+      const result = await client.getMarketHistory('m-1', { from: '2026-04-01T00:00:00Z', interval: '1h' });
+      const url = fetchSpy.mock.calls[0][0] as string;
+      expect(url.startsWith('https://api.polyforge.app/api/v1/markets/m-1/history')).toBe(true);
+      expect(url).toContain('from=2026-04-01T00%3A00%3A00Z');
+      expect(url).toContain('interval=1h');
+      expect(result).toHaveLength(1);
+      expect(result[0].open).toBe(0.5);
+    });
+
+    it('omits query string entirely when no params given', async () => {
+      mockJson([]);
+      await client.getMarketHistory('m-1');
+      const url = fetchSpy.mock.calls[0][0] as string;
+      expect(url).toBe('https://api.polyforge.app/api/v1/markets/m-1/history');
+    });
+  });
+
+  describe('user follow by id', () => {
+    it('getFollowStatus GETs /api/v1/users/:id/follow', async () => {
+      mockJson({ following: true, followedAt: '2026-04-01T00:00:00Z' });
+      const result = await client.getFollowStatus('u-1');
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/users/u-1/follow');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+      expect(result.following).toBe(true);
+    });
+
+    it('toggleFollowUserById POSTs without a body and returns the new state', async () => {
+      mockJson({ following: false });
+      const result = await client.toggleFollowUserById('u-1');
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/users/u-1/follow');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+      expect(result.following).toBe(false);
+    });
+
+    it('surfaces 400 CANNOT_FOLLOW_SELF as a PolyforgeError', async () => {
+      fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ code: 'CANNOT_FOLLOW_SELF', message: 'cannot follow yourself' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      try {
+        await client.toggleFollowUserById('me');
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(PolyforgeError);
+        expect((err as PolyforgeError).code).toBe('CANNOT_FOLLOW_SELF');
+      }
+    });
+  });
+
+  describe('platform actions catalog (public)', () => {
+    it('GETs /api/v1/actions and returns the catalog', async () => {
+      mockJson({
+        version: '1.0',
+        actions: [{ name: 'list_markets', method: 'GET', path: '/api/v1/markets' }],
+      });
+      const result = await client.getPlatformActions();
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/actions');
+      expect(result.version).toBe('1.0');
+      expect(result.actions).toHaveLength(1);
+    });
+  });
+
+  describe('accuracy leaderboard', () => {
+    it('GETs /api/v1/accuracy and returns ranked entries', async () => {
+      mockJson([
+        { rank: 1, userId: 'u-1', winRate: 0.75 },
+        { rank: 2, userId: 'u-2', winRate: 0.7 },
+      ]);
+      const result = await client.getAccuracyLeaderboard();
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/accuracy');
+      expect(result).toHaveLength(2);
+      expect(result[0].rank).toBe(1);
+    });
+  });
+
+  describe('correlation analytics', () => {
+    it('GETs /api/v1/analytics/correlation/categories', async () => {
+      mockJson({
+        categories: [{ name: 'crypto', correlation: 0.82, markets: ['m-1', 'm-2'] }],
+      });
+      const result = await client.getCorrelationByCategory();
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/analytics/correlation/categories');
+      expect(result.categories[0].name).toBe('crypto');
+      expect(result.categories[0].correlation).toBe(0.82);
+    });
+  });
+});
