@@ -127,6 +127,14 @@ import type {
   TicketMessage,
   EventNotificationPreferences,
   UpdateEventNotificationsParams,
+  SystemHealth,
+  TotpVerifyParams,
+  TotpVerifyResult,
+  ReferralsInfo,
+  UserPreferences,
+  UpdateUserPreferencesParams,
+  VenuePreferences,
+  UpdateVenuePreferencesParams,
   VenuePriceInfo,
   SpreadSummary,
   ArbitrageAlertSubscription,
@@ -1672,6 +1680,49 @@ export class PolyforgeClient {
   /** Update per-event notification preferences. */
   async updateNotificationPreferences(params: UpdateEventNotificationsParams): Promise<EventNotificationPreferences> {
     return this.request('PUT', '/api/v1/users/me/notification-preferences', { body: params });
+  }
+
+  // ── System Health ─────────────────────────────────────────────────────────
+
+  /** Get system health for all services and core dependencies. Public endpoint. */
+  async getHealth(): Promise<SystemHealth> {
+    return this.request('GET', '/api/v1/health');
+  }
+
+  // ── Auth — TOTP ───────────────────────────────────────────────────────────
+
+  /**
+   * Re-authenticate with a TOTP code to authorize sensitive actions.
+   * Returns a short-lived re-auth token (default 5 min lifetime).
+   */
+  async verifyTotp(params: TotpVerifyParams): Promise<TotpVerifyResult> {
+    return this.request('POST', '/api/v1/auth/totp/verify', { body: params });
+  }
+
+  // ── Referrals ─────────────────────────────────────────────────────────────
+
+  /** Get the authenticated user's referral code, statistics, and earnings. */
+  async getMyReferrals(): Promise<ReferralsInfo> {
+    return this.request('GET', '/api/v1/referrals/me');
+  }
+
+  // ── User Preferences ──────────────────────────────────────────────────────
+
+  /** Update user preferences (theme, locale, onboarding state, etc.). Returns the full preferences object. */
+  async updateMyPreferences(params: UpdateUserPreferencesParams): Promise<UserPreferences> {
+    return this.request('PATCH', '/api/v1/users/me/preferences', { body: params });
+  }
+
+  // ── Venue Preferences ─────────────────────────────────────────────────────
+
+  /** Get venue preferences (default venue, enabled venues, single-platform mode). */
+  async getVenuePreferences(): Promise<VenuePreferences> {
+    return this.request('GET', '/api/v1/users/me/venue-preferences');
+  }
+
+  /** Update venue preferences. Returns the updated preferences object. */
+  async updateVenuePreferences(params: UpdateVenuePreferencesParams): Promise<VenuePreferences> {
+    return this.request('PATCH', '/api/v1/users/me/venue-preferences', { body: params });
   }
 
   // ── Strategy Execution Watching (SSE) ────────────────────────────────────

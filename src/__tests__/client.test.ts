@@ -3557,3 +3557,134 @@ describe('response body size limit (#184)', () => {
     }
   });
 });
+
+describe('SDK coverage catch-up (POLA-1843)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+  });
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+
+  function mockJson(payload: unknown, status = 200) {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(payload), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+  }
+
+  describe('getHealth', () => {
+    it('GETs /api/v1/health and returns the parsed body', async () => {
+      mockJson({
+        status: 'healthy',
+        services: { 'auth-service': { status: 'healthy', latencyMs: 2 } },
+      });
+      const result = await client.getHealth();
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/health');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+      expect(result.status).toBe('healthy');
+      expect(result.services?.['auth-service']?.status).toBe('healthy');
+    });
+
+    it('surfaces a PolyforgeError when the server returns 503', async () => {
+      fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ code: 'SERVICE_UNAVAILABLE', message: 'down' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      await expect(client.getHealth()).rejects.toBeInstanceOf(PolyforgeError);
+    });
+  });
+
+  describe('verifyTotp', () => {
+    it('POSTs the TOTP code and returns the re-auth token', async () => {
+      mockJson({ reAuthToken: 'tok-abc', expiresAt: '2026-05-01T10:30:00Z' });
+      const result = await client.verifyTotp({ code: '123456' });
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/auth/totp/verify');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+      expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual({ code: '123456' });
+      expect(result.reAuthToken).toBe('tok-abc');
+      expect(result.expiresAt).toBe('2026-05-01T10:30:00Z');
+    });
+
+    it('surfaces 401 INVALID_TOTP as a PolyforgeError with the right code', async () => {
+      fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ code: 'INVALID_TOTP', message: 'wrong code' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      try {
+        await client.verifyTotp({ code: '000000' });
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(PolyforgeError);
+        expect((err as PolyforgeError).code).toBe('INVALID_TOTP');
+      }
+    });
+  });
+
+  describe('getMyReferrals', () => {
+    it('GETs /api/v1/referrals/me and returns the referral payload', async () => {
+      mockJson({
+        userId: 'u-1',
+        referralCode: 'ABC123',
+        totalReferred: 5,
+        activeReferred: 3,
+        earnings: '25.00',
+        referrals: [{ userId: 'u-2', joinedAt: '2026-04-01T00:00:00Z', active: true }],
+      });
+      const result = await client.getMyReferrals();
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/referrals/me');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+      expect(result.referralCode).toBe('ABC123');
+      expect(result.referrals).toHaveLength(1);
+    });
+  });
+
+  describe('updateMyPreferences', () => {
+    it('PATCHes /api/v1/users/me/preferences with a partial body', async () => {
+      mockJson({ theme: 'dark', locale: 'en-US', onboardingDismissed: true });
+      const result = await client.updateMyPreferences({ theme: 'dark' });
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/users/me/preferences');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('PATCH');
+      expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual({ theme: 'dark' });
+      expect(result.theme).toBe('dark');
+    });
+  });
+
+  describe('venue preferences', () => {
+    it('GET /api/v1/users/me/venue-preferences returns full preferences', async () => {
+      mockJson({
+        defaultVenue: 'POLYMARKET',
+        enabledVenues: ['POLYMARKET', 'KALSHI'],
+        singlePlatformMode: false,
+      });
+      const result = await client.getVenuePreferences();
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/users/me/venue-preferences');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+      expect(result.defaultVenue).toBe('POLYMARKET');
+      expect(result.enabledVenues).toEqual(['POLYMARKET', 'KALSHI']);
+    });
+
+    it('PATCH /api/v1/users/me/venue-preferences sends partial body and returns updated prefs', async () => {
+      mockJson({
+        defaultVenue: 'KALSHI',
+        enabledVenues: ['POLYMARKET', 'KALSHI'],
+        singlePlatformMode: false,
+      });
+      const result = await client.updateVenuePreferences({ defaultVenue: 'KALSHI' });
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://api.polyforge.app/api/v1/users/me/venue-preferences');
+      expect(fetchSpy.mock.calls[0][1]!.method).toBe('PATCH');
+      expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual({ defaultVenue: 'KALSHI' });
+      expect(result.defaultVenue).toBe('KALSHI');
+    });
+  });
+});

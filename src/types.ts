@@ -1310,6 +1310,81 @@ export interface UpdateEventNotificationsParams {
   preferences: EventNotificationPreferences;
 }
 
+// ── System Health ───────────────────────────────────────────────────────────
+
+export interface ServiceHealth {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  latencyMs?: number;
+  [key: string]: unknown;
+}
+
+export interface SystemHealth {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  services?: Record<string, ServiceHealth>;
+  db?: ServiceHealth & { connections?: number };
+  redis?: ServiceHealth & { memoryUsageMb?: number };
+  [key: string]: unknown;
+}
+
+// ── Auth — TOTP ─────────────────────────────────────────────────────────────
+
+export interface TotpVerifyParams {
+  code: string;
+}
+
+export interface TotpVerifyResult {
+  reAuthToken: string;
+  expiresAt: string;
+}
+
+// ── Referrals ───────────────────────────────────────────────────────────────
+
+export interface ReferralEntry {
+  userId: string;
+  joinedAt: string;
+  active: boolean;
+}
+
+export interface ReferralsInfo {
+  userId: string;
+  referralCode: string;
+  totalReferred: number;
+  activeReferred: number;
+  earnings: string;
+  referrals: ReferralEntry[];
+}
+
+// ── User Preferences ────────────────────────────────────────────────────────
+
+/**
+ * User preferences. The server returns the complete preferences object on read
+ * and update; clients may send any subset of writable keys when updating.
+ */
+export interface UserPreferences {
+  theme?: 'light' | 'dark' | 'system';
+  locale?: string;
+  onboardingDismissed?: boolean;
+  [key: string]: unknown;
+}
+
+export type UpdateUserPreferencesParams = Partial<UserPreferences>;
+
+// ── Venue Preferences ───────────────────────────────────────────────────────
+
+export type Venue = 'POLYMARKET' | 'KALSHI' | (string & {});
+
+export interface VenuePreferences {
+  defaultVenue: Venue;
+  enabledVenues: Venue[];
+  singlePlatformMode: boolean;
+}
+
+export interface UpdateVenuePreferencesParams {
+  defaultVenue?: Venue;
+  enabledVenues?: Venue[];
+  singlePlatformMode?: boolean;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {

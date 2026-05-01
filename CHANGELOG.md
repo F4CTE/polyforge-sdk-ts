@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.20.0] — 2026-05-01
+
+### Added — POLA-1843 (SDK coverage catch-up, batch 1)
+- **System health** — `getHealth()` covering GET `/api/v1/health` for service + dependency status (public, no auth required).
+- **TOTP re-authentication** — `verifyTotp({ code })` covering POST `/api/v1/auth/totp/verify` for sensitive-action re-auth flows. Returns a short-lived `reAuthToken`.
+- **Referrals** — `getMyReferrals()` covering GET `/api/v1/referrals/me` for referral code, statistics, and earnings.
+- **User preferences** — `updateMyPreferences(params)` covering PATCH `/api/v1/users/me/preferences` (theme, locale, onboarding state).
+- **Venue preferences** — `getVenuePreferences()` and `updateVenuePreferences(params)` covering GET/PATCH `/api/v1/users/me/venue-preferences` (default venue, enabled venues, single-platform mode).
+
+New types: `SystemHealth`, `ServiceHealth`, `TotpVerifyParams`, `TotpVerifyResult`, `ReferralEntry`, `ReferralsInfo`, `UserPreferences`, `UpdateUserPreferencesParams`, `Venue`, `VenuePreferences`, `UpdateVenuePreferencesParams`. All new methods follow the existing `this.request()` pattern and ship with unit tests covering happy path and (where applicable) error responses.
+
 ## [1.19.5] — 2026-04-21
 
 ### Fixed
