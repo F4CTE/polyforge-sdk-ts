@@ -3,6 +3,8 @@ import { resolve4, resolve6 } from 'node:dns/promises';
 import { PolyforgeError } from './errors.js';
 import type {
   AccuracyScore,
+  AccuracyLeaderboardEntry,
+  AccuracyLeaderboardParams,
   AiQueryResponse,
   Alert,
   ApiKey,
@@ -53,6 +55,8 @@ import type {
   RedeemPositionParams,
   RedeemPositionResponse,
   SmartOrder,
+  SystemHealthAuthenticated,
+  SystemHealthPublic,
   SpreadResult,
   SplitPositionParams,
   Strategy,
@@ -101,6 +105,7 @@ import type {
   RewardsMarket,
   RiskSettings,
   UpdateRiskSettingsParams,
+  UserPreferences,
   UserReward,
   UserRewardsPercentages,
   UserRewardsTotal,
@@ -118,6 +123,7 @@ import type {
   UpdateSettingsProfileParams,
   NotificationSettings,
   UpdateNotificationSettingsParams,
+  UpdateUserPreferencesParams,
   ChangePasswordSettingsParams,
   BetaUsage,
   GasUsage,
@@ -149,6 +155,7 @@ import type {
   ListComboCollectionsParams,
   ComboCollectionsPage,
   ComboCollection,
+  ComboMarketLookup,
   ComboLookupParams,
   ComboTickerLookup,
   CorrelationCategoriesReport,
@@ -371,6 +378,20 @@ export class PolyforgeClient {
   /** Prevent API key from leaking via util.inspect(client) or console.log(client). */
   [Symbol.for('nodejs.util.inspect.custom')](): string {
     return `PolyforgeClient { baseUrl: '${this.baseUrl}', apiKey: '[REDACTED]' }`;
+  }
+
+  /** Get the public API health payload. Public health excludes operational metrics. */
+  async getHealth(): Promise<SystemHealthPublic> {
+    return this.request('GET', '/health');
+  }
+
+  /**
+   * Get authenticated health/status data. Full operational metrics are typed
+   * separately from public health so unauthenticated callers do not assume DB,
+   * Redis, or queue internals are available.
+   */
+  async getHealthAuthenticated(): Promise<SystemHealthAuthenticated> {
+    return this.request('GET', '/api/v1/status');
   }
 
   // ── Financial parameter validation ──────────────────────────────────────
@@ -1099,6 +1120,29 @@ export class PolyforgeClient {
     return this.request('GET', '/api/v1/leaderboard', { query: params as Record<string, unknown> });
   }
 
+  /**
+   * Get the accuracy/leaderboard view in the platform paginated envelope.
+   *
+   * The API currently paginates this endpoint with `page` / `limit`; `offset`
+   * is converted to the corresponding page when supplied.
+   */
+  async getAccuracyLeaderboard(
+    params?: AccuracyLeaderboardParams,
+  ): Promise<PaginatedResponse<AccuracyLeaderboardEntry>> {
+    const query: Record<string, unknown> = {};
+    if (params?.period !== undefined) query.period = params.period;
+    if (params?.limit !== undefined) query.limit = params.limit;
+
+    if (params?.offset !== undefined && params.page === undefined) {
+      const limit = params.limit ?? 20;
+      query.page = Math.floor(params.offset / limit) + 1;
+    } else if (params?.page !== undefined) {
+      query.page = params.page;
+    }
+
+    return this.request('GET', '/api/v1/leaderboard', { query });
+  }
+
   // ── Paper trading ─────────────────────────────────────────────────────────
 
   /** Get a summary of the authenticated user's paper trading account. */
@@ -1661,6 +1705,16 @@ export class PolyforgeClient {
     return this.request('GET', '/api/v1/settings/gas');
   }
 
+  /** Get the authenticated user's venue/platform preferences. */
+  async getMyPreferences(): Promise<UserPreferences> {
+    return this.request('GET', '/api/v1/users/me/venue-preferences');
+  }
+
+  /** Update the authenticated user's venue/platform preferences. */
+  async updateMyPreferences(params: UpdateUserPreferencesParams): Promise<UserPreferences> {
+    return this.request('PATCH', '/api/v1/users/me/venue-preferences', { body: params });
+  }
+
   // ── Support Tickets ───────────────────────────────────────────────────────
 
   /** Create a new support ticket. */
@@ -1856,8 +1910,16 @@ export class PolyforgeClient {
    * event/market ticker pair. Throws a 404-style {@link PolyforgeError} when
    * no combo matches the given legs.
    */
-  async lookupComboTicker(params: ComboLookupParams): Promise<ComboTickerLookup> {
+  async lookupComboMarket(params: ComboLookupParams): Promise<ComboMarketLookup> {
     return this.request('POST', '/api/v1/markets/combo/lookup', { body: params });
+  }
+
+  /**
+   * @deprecated Use {@link lookupComboMarket}. This alias will be removed in a
+   * future minor release after cross-SDK naming has settled.
+   */
+  async lookupComboTicker(params: ComboLookupParams): Promise<ComboTickerLookup> {
+    return this.lookupComboMarket(params);
   }
 
   /**

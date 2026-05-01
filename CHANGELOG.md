@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Added
+- **POLA-1913 SDK polish** — added paginated `getAccuracyLeaderboard(params?)`,
+  public/authenticated health types and methods, `getMyPreferences()` /
+  `updateMyPreferences()` for venue preferences, and renamed combo lookup to
+  `lookupComboMarket()` while keeping `lookupComboTicker()` as a deprecated
+  compatibility alias.
 - **Misc public utility endpoints (POLA-1856)** — 18 new methods covering
   feed/journal/accuracy/fees/notifications/referrals + per-market alerts,
   history, sentiment, combo collections, and analytics correlation:
