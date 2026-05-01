@@ -3906,6 +3906,253 @@ describe('response body size limit (#184)', () => {
   });
 });
 
+// ── Sports markets endpoints (POLA-1841) ───────────────────────────────────
+
+describe('Sports markets endpoints', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  const jsonResponse = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+  });
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+
+  it('listSportsCategories GETs /sports/categories and returns the array as-is', async () => {
+    const payload = [
+      { category: 'NFL', label: 'NFL', seriesTickers: ['KXNFL'], marketCount: 12 },
+      { category: 'NBA', label: 'NBA', seriesTickers: ['KXNBA'], marketCount: 5 },
+    ];
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(payload));
+
+    const result = await client.listSportsCategories();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('GET');
+    expect(url).toContain('/api/v1/sports/categories');
+    expect(new URL(url).search).toBe('');
+    expect(result).toEqual(payload);
+  });
+
+  it('listSportsMarkets forwards every supported query param', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        data: [{ id: 'm1', title: 'Will Lakers win?' }],
+        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      }),
+    );
+
+    const result = await client.listSportsMarkets({
+      page: 2,
+      limit: 25,
+      category: 'NFL',
+      search: 'lakers',
+      seriesTicker: 'KXNFL',
+      eventTicker: 'KXNFLGAME-26W12-KCDEN',
+      liveOnly: true,
+      sort: 'closing_soon',
+    });
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(init.method).toBe('GET');
+    expect(parsed.pathname).toBe('/api/v1/sports/markets');
+    expect(parsed.searchParams.get('page')).toBe('2');
+    expect(parsed.searchParams.get('limit')).toBe('25');
+    expect(parsed.searchParams.get('category')).toBe('NFL');
+    expect(parsed.searchParams.get('search')).toBe('lakers');
+    expect(parsed.searchParams.get('seriesTicker')).toBe('KXNFL');
+    expect(parsed.searchParams.get('eventTicker')).toBe('KXNFLGAME-26W12-KCDEN');
+    expect(parsed.searchParams.get('liveOnly')).toBe('true');
+    expect(parsed.searchParams.get('sort')).toBe('closing_soon');
+    expect(result.data).toHaveLength(1);
+    expect(result.pagination.total).toBe(1);
+  });
+
+  it('listSportsEvents forwards category, seriesTicker and status', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        data: [{ id: 'evt-1', status: 'LIVE' }],
+        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      }),
+    );
+
+    const result = await client.listSportsEvents({
+      page: 1,
+      limit: 20,
+      category: 'NBA',
+      seriesTicker: 'KXNBA',
+      status: 'LIVE',
+    });
+
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(parsed.pathname).toBe('/api/v1/sports/events');
+    expect(parsed.searchParams.get('category')).toBe('NBA');
+    expect(parsed.searchParams.get('seriesTicker')).toBe('KXNBA');
+    expect(parsed.searchParams.get('status')).toBe('LIVE');
+    expect(result.data[0]).toMatchObject({ id: 'evt-1', status: 'LIVE' });
+  });
+
+  it('getSportsEvent URL-encodes the eventTicker path segment', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        event: { id: 'KX/NFL GAME', title: 'Game' },
+        markets: [{ id: 'm1' }, { id: 'm2' }],
+      }),
+    );
+
+    const result = await client.getSportsEvent('KX/NFL GAME');
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('GET');
+    // '/' -> %2F, ' ' -> %20
+    expect(url).toContain('/api/v1/sports/events/KX%2FNFL%20GAME');
+    expect(result.markets).toHaveLength(2);
+    expect(result.event).toMatchObject({ id: 'KX/NFL GAME' });
+  });
+
+  it('listSportsMilestones returns the cursor-paginated page shape', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        milestones: [{ id: 'milestone-1' }, { id: 'milestone-2' }],
+        cursor: 'next-page-cursor',
+      }),
+    );
+
+    const result = await client.listSportsMilestones({
+      limit: 10,
+      cursor: 'cursor-1',
+      eventTicker: 'KXNFLGAME-26W12-KCDEN',
+      status: 'open',
+    });
+
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(parsed.pathname).toBe('/api/v1/sports/milestones');
+    expect(parsed.searchParams.get('limit')).toBe('10');
+    expect(parsed.searchParams.get('cursor')).toBe('cursor-1');
+    expect(parsed.searchParams.get('eventTicker')).toBe('KXNFLGAME-26W12-KCDEN');
+    expect(parsed.searchParams.get('status')).toBe('open');
+    expect(result.milestones).toHaveLength(2);
+    expect(result.cursor).toBe('next-page-cursor');
+  });
+
+  it('getSportsLiveData URL-encodes the milestoneId and accepts null liveData', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ liveData: null }),
+    );
+
+    const result = await client.getSportsLiveData('milestone with space');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(url).toContain('/api/v1/sports/live-data/milestone%20with%20space');
+    expect(result).toEqual({ liveData: null });
+  });
+
+  it('listSportsCombos forwards seriesTicker', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        collections: [{ collectionTicker: 'COMBO-A' }],
+        cursor: null,
+      }),
+    );
+
+    const result = await client.listSportsCombos({
+      limit: 5,
+      cursor: 'cursor-2',
+      seriesTicker: 'KXNFL',
+    });
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(parsed.pathname).toBe('/api/v1/sports/combos');
+    expect(parsed.searchParams.get('limit')).toBe('5');
+    expect(parsed.searchParams.get('cursor')).toBe('cursor-2');
+    expect(parsed.searchParams.get('seriesTicker')).toBe('KXNFL');
+    expect(result.collections).toHaveLength(1);
+    expect(result.cursor).toBeNull();
+  });
+
+  it('getSportsComboCollection URL-encodes the collectionTicker', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ collections: [], cursor: null }),
+    );
+
+    await client.getSportsComboCollection('combo/with space');
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(url).toContain('/api/v1/sports/combos/combo%2Fwith%20space');
+  });
+
+  it('lookupSportsCombo POSTs the body and returns the resolved tickers', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ eventTicker: 'EVT-1', marketTicker: 'MKT-1' }),
+    );
+
+    const params = {
+      collectionTicker: 'COMBO-A',
+      selectedMarkets: [
+        { marketTicker: 'MKT-1', eventTicker: 'EVT-1', side: 'yes' as const },
+        { marketTicker: 'MKT-2', eventTicker: 'EVT-2', side: 'no' as const },
+      ],
+    };
+
+    const result = await client.lookupSportsCombo(params);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('POST');
+    expect(url).toContain('/api/v1/sports/combos/lookup');
+    expect(JSON.parse(init.body as string)).toEqual(params);
+    expect(result).toEqual({ eventTicker: 'EVT-1', marketTicker: 'MKT-1' });
+  });
+
+  it('lookupSportsCombo returns null when no combo matches', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(null));
+
+    const result = await client.lookupSportsCombo({
+      collectionTicker: 'COMBO-A',
+      selectedMarkets: [],
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it.each<[string, (c: PolyforgeClient) => Promise<unknown>]>([
+    ['listSportsCategories', (c) => c.listSportsCategories()],
+    ['listSportsMarkets', (c) => c.listSportsMarkets()],
+    ['listSportsEvents', (c) => c.listSportsEvents()],
+    ['getSportsEvent', (c) => c.getSportsEvent('ghost')],
+    ['listSportsMilestones', (c) => c.listSportsMilestones()],
+    ['getSportsLiveData', (c) => c.getSportsLiveData('ghost')],
+    ['listSportsCombos', (c) => c.listSportsCombos()],
+    ['getSportsComboCollection', (c) => c.getSportsComboCollection('ghost')],
+    ['lookupSportsCombo', (c) =>
+      c.lookupSportsCombo({ collectionTicker: 'ghost', selectedMarkets: [] }),
+    ],
+  ])('%s surfaces 401 UNAUTHORIZED as PolyforgeError', async (_name, call) => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ code: 'UNAUTHORIZED', message: 'Missing token' }, 401),
+    );
+
+    await expect(call(client)).rejects.toMatchObject({
+      status: 401,
+      code: 'UNAUTHORIZED',
+    });
+  });
+});
+
 describe('Misc public utility endpoints (POLA-1856)', () => {
   let client: PolyforgeClient;
   let fetchSpy: ReturnType<typeof vi.spyOn>;

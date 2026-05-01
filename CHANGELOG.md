@@ -79,6 +79,18 @@
   client-side before sending the request, mirroring the server's
   `class-validator` bounds. Validation failures throw `PolyforgeError` with
   `code: 'VALIDATION_ERROR'` and `status: 0` (no network call is made).
+- **Sports markets endpoints (POLA-1841)** — nine methods wrapping the new `/api/v1/sports` Kalshi-backed surface:
+  - `listSportsCategories()` → `SportsCategorySummary[]`
+  - `listSportsMarkets(params?)` → `PaginatedResponse<Record<string, unknown>>` (filters: `category`, `search`, `seriesTicker`, `eventTicker`, `liveOnly`, `sort`)
+  - `listSportsEvents(params?)` → `PaginatedResponse<Record<string, unknown>>` (filters: `category`, `seriesTicker`, `status`)
+  - `getSportsEvent(eventTicker)` → `{ event, markets[] }`
+  - `listSportsMilestones(params?)` → `{ milestones, cursor }`
+  - `getSportsLiveData(milestoneId)` → `{ liveData }`
+  - `listSportsCombos(params?)` → `{ collections, cursor }`
+  - `getSportsComboCollection(collectionTicker)` → `{ collections, cursor }`
+  - `lookupSportsCombo({ collectionTicker, selectedMarkets })` → `{ eventTicker, marketTicker } | null`
+
+  Many response payloads are intentionally weakly typed (`Record<string, unknown>` / `unknown[]`) because the upstream Kalshi proxies forward arbitrary JSON; the SDK mirrors controller fidelity rather than inventing strict types that would drift. All path segments are URL-encoded.
 
 ### Fixed
 - **`ImportStrategyParams` block nesting** — moved import block arrays under

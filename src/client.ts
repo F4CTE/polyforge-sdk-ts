@@ -174,6 +174,17 @@ import type {
   ArbRiskDashboard,
   ArbSettlementRisk,
   ArbPnlRefreshResult,
+  SportsCategorySummary,
+  ListSportsMarketsParams,
+  ListSportsEventsParams,
+  SportsEventDetail,
+  ListSportsMilestonesParams,
+  SportsMilestonesPage,
+  SportsLiveData,
+  ListSportsCombosParams,
+  SportsCombosPage,
+  LookupSportsComboParams,
+  SportsComboLookupResult,
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
@@ -2281,5 +2292,105 @@ export class PolyforgeClient {
     } finally {
       reader.cancel().catch(() => undefined);
     }
+  }
+
+  // ── Sports (POLA-1841) ───────────────────────────────────────────────────
+  //
+  // Sports markets endpoints. Many response payloads are intentionally weakly
+  // typed (`Record<string, unknown>` / `unknown[]`) because the upstream
+  // Kalshi proxies forward arbitrary JSON. Strict types would drift the moment
+  // the server changes — the SDK mirrors controller fidelity instead.
+
+  /** List the available sports categories (NFL, NBA, soccer, etc.) with market counts. */
+  async listSportsCategories(): Promise<SportsCategorySummary[]> {
+    return this.request('GET', '/api/v1/sports/categories');
+  }
+
+  /**
+   * List sports markets with filtering, search, and pagination.
+   * Sort defaults to `'volume'` server-side when omitted.
+   */
+  async listSportsMarkets(
+    params?: ListSportsMarketsParams,
+  ): Promise<PaginatedResponse<Record<string, unknown>>> {
+    return this.request('GET', '/api/v1/sports/markets', {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /** List sports events with optional category, series, and lifecycle status filters. */
+  async listSportsEvents(
+    params?: ListSportsEventsParams,
+  ): Promise<PaginatedResponse<Record<string, unknown>>> {
+    return this.request('GET', '/api/v1/sports/events', {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /** Get a single sports event with its associated markets. */
+  async getSportsEvent(eventTicker: string): Promise<SportsEventDetail> {
+    return this.request(
+      'GET',
+      `/api/v1/sports/events/${encodeURIComponent(eventTicker)}`,
+    );
+  }
+
+  /**
+   * List sports milestones (in-game scoring/moment markers) for an event.
+   * Returns a cursor-paginated page; pass the returned `cursor` for the next
+   * slice.
+   */
+  async listSportsMilestones(
+    params?: ListSportsMilestonesParams,
+  ): Promise<SportsMilestonesPage> {
+    return this.request('GET', '/api/v1/sports/milestones', {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /** Get current live data (score, clock, etc.) for a single milestone. */
+  async getSportsLiveData(milestoneId: string): Promise<SportsLiveData> {
+    return this.request(
+      'GET',
+      `/api/v1/sports/live-data/${encodeURIComponent(milestoneId)}`,
+    );
+  }
+
+  /** List sports combo collections (multi-leg parlays) for a series. */
+  async listSportsCombos(
+    params?: ListSportsCombosParams,
+  ): Promise<SportsCombosPage> {
+    return this.request('GET', '/api/v1/sports/combos', {
+      query: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get a single sports combo collection by ticker.
+   *
+   * Note (server-side, POLA-1841): the underlying controller currently ignores
+   * the path param and returns the first combo collection regardless of
+   * `collectionTicker`. The SDK wraps the endpoint as-is; a separate server fix
+   * is tracked outside this SDK.
+   */
+  async getSportsComboCollection(
+    collectionTicker: string,
+  ): Promise<SportsCombosPage> {
+    return this.request(
+      'GET',
+      `/api/v1/sports/combos/${encodeURIComponent(collectionTicker)}`,
+    );
+  }
+
+  /**
+   * Resolve a (collectionTicker, selectedMarkets) tuple to the underlying
+   * combo event/market ticker. Returns `null` when no matching combo exists.
+   */
+  async lookupSportsCombo(
+    params: LookupSportsComboParams,
+  ): Promise<SportsComboLookupResult | null> {
+    return this.request('POST', '/api/v1/sports/combos/lookup', {
+      body: params,
+    });
   }
 }

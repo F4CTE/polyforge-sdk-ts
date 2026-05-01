@@ -43,6 +43,22 @@ const client = new PolyforgeClient({
 | `listMarkets(params?)` | List markets with search, category filter, and pagination |
 | `getMarket(id)` | Get a single market by ID |
 
+### Sports
+
+Kalshi-backed sports markets, events, milestones, and combo lookups. Many response payloads are intentionally permissive (`Record<string, unknown>` / `unknown[]`) — the upstream Kalshi proxies forward arbitrary JSON and the SDK mirrors that fidelity rather than inventing strict types.
+
+| Method | Description |
+|--------|-------------|
+| `listSportsCategories()` | List sports categories with market counts |
+| `listSportsMarkets(params?)` | List sports markets (filters: `category`, `search`, `seriesTicker`, `eventTicker`, `liveOnly`, `sort`) |
+| `listSportsEvents(params?)` | List sports events (filters: `category`, `seriesTicker`, `status`) |
+| `getSportsEvent(eventTicker)` | Get a single event with its markets |
+| `listSportsMilestones(params?)` | List in-game milestones (cursor-paginated) |
+| `getSportsLiveData(milestoneId)` | Live score / clock data for a milestone |
+| `listSportsCombos(params?)` | List combo collections for a series |
+| `getSportsComboCollection(collectionTicker)` | Get a single combo collection by ticker |
+| `lookupSportsCombo(params)` | Resolve a combo selection to its underlying event/market ticker |
+
 ### Strategies
 
 | Method | Description |
