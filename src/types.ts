@@ -783,9 +783,22 @@ export interface WebhookTestResult {
 // ── Price History & Order Book ──────────────────────────────────────────────
 
 export interface PriceHistoryParams {
+  /**
+   * Candle bucket size.
+   *
+   * Recommended maximum windows when using `from` / `to`:
+   * - `1m`: 7 days.
+   * - `5m`: 30 days.
+   * - `15m`: 90 days.
+   * - `1h`: 1 year.
+   * - `1d`: 10 years.
+   */
   resolution?: '1m' | '5m' | '15m' | '1h' | '1d';
+  /** ISO timestamp lower bound for returned candles. */
   from?: string;
+  /** ISO timestamp upper bound for returned candles. */
   to?: string;
+  /** Maximum number of candles to request. */
   limit?: number;
 }
 

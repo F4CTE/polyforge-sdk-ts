@@ -2242,15 +2242,30 @@ describe('Discover and Leaderboard (#66)', () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          data: [],
-          pagination: { total: 0, page: 3, limit: 25, totalPages: 0 },
+          data: [
+            {
+              rank: 51,
+              userId: 'u1',
+              username: 'alice',
+              displayName: null,
+              avatarUrl: null,
+              pnl: '12.50',
+              winRate: '55.0',
+              tradeCount: 10,
+            },
+          ],
+          total: 75,
+          page: 3,
+          limit: 25,
+          totalPages: 3,
+          hasNext: false,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
     );
     const params: AccuracyLeaderboardParams = { period: '30d', limit: 25, offset: 50 };
 
-    await client.getAccuracyLeaderboard(params);
+    const result = await client.getAccuracyLeaderboard(params);
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
 
     expect(url.pathname).toBe('/api/v1/leaderboard');
@@ -2259,6 +2274,8 @@ describe('Discover and Leaderboard (#66)', () => {
     expect(url.searchParams.get('page')).toBe('3');
     expect(url.searchParams.has('offset')).toBe(false);
     expect(url.searchParams.has('cursor')).toBe(false);
+    expect(result.data[0]!.rank).toBe(51);
+    expect(result.pagination).toEqual({ total: 75, page: 3, limit: 25, totalPages: 3 });
   });
 });
 
