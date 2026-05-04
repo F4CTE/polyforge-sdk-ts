@@ -168,6 +168,30 @@ const DEFAULT_STREAM_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours for long-live
 const MAX_SSE_BUFFER_SIZE = 1_048_576; // 1 MB — prevents memory exhaustion from unbounded SSE payloads
 const MAX_RESPONSE_BODY_SIZE = 10 * 1024 * 1024; // 10 MB — prevents OOM from oversized API responses
 
+interface PlatformPaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNext?: boolean;
+}
+
+function normalizePaginatedResponse<T>(
+  response: PaginatedResponse<T> | PlatformPaginatedResponse<T>,
+): PaginatedResponse<T> {
+  if ('pagination' in response) return response;
+  return {
+    data: response.data,
+    pagination: {
+      total: response.total,
+      page: response.page,
+      limit: response.limit,
+      totalPages: response.totalPages,
+    },
+  };
+}
+
 /**
  * Expand a compressed IPv6 address into its full 8-group colon-hex form.
  * E.g. "fe80::1" → "fe80:0000:0000:0000:0000:0000:0000:0001"
@@ -1140,7 +1164,11 @@ export class PolyforgeClient {
       query.page = params.page;
     }
 
-    return this.request('GET', '/api/v1/leaderboard', { query });
+    const response = await this.request<
+      PaginatedResponse<AccuracyLeaderboardEntry> | PlatformPaginatedResponse<AccuracyLeaderboardEntry>
+    >('GET', '/api/v1/leaderboard', { query });
+
+    return normalizePaginatedResponse(response);
   }
 
   // ── Paper trading ─────────────────────────────────────────────────────────
