@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -14,6 +14,16 @@ import { resolve4, resolve6 } from 'node:dns/promises';
 
 const mockResolve4 = vi.mocked(resolve4);
 const mockResolve6 = vi.mocked(resolve6);
+
+type PriceHistoryResolution = NonNullable<PriceHistoryParams['resolution']>;
+const supportedPriceHistoryResolutions: PriceHistoryResolution[] = ['1m', '1h', '1d'];
+
+// @ts-expect-error The platform price-history endpoint rejects 5m.
+const unsupportedFiveMinutePriceHistoryResolution: PriceHistoryResolution = '5m';
+// @ts-expect-error The platform price-history endpoint rejects 15m.
+const unsupportedFifteenMinutePriceHistoryResolution: PriceHistoryResolution = '15m';
+void unsupportedFiveMinutePriceHistoryResolution;
+void unsupportedFifteenMinutePriceHistoryResolution;
 
 describe('PolyforgeClient', () => {
   describe('constructor', () => {
@@ -1872,18 +1882,17 @@ describe('Price history & order book (issue #52)', () => {
     expect(result[0].volume).toBe(1500);
   });
 
-  it('getPriceHistory accepts 5m and 15m resolutions', async () => {
-    await client.getPriceHistory('token-1', { resolution: '5m' });
-    let url = new URL(fetchSpy.mock.calls[0][0] as string);
-    expect(url.searchParams.get('resolution')).toBe('5m');
+  it('getPriceHistory accepts platform-supported resolutions', async () => {
+    for (const resolution of supportedPriceHistoryResolutions) {
+      await client.getPriceHistory('token-1', { resolution });
+      const url = new URL(fetchSpy.mock.calls[0][0] as string);
+      expect(url.searchParams.get('resolution')).toBe(resolution);
 
-    fetchSpy.mockClear();
-    fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
-    );
-    await client.getPriceHistory('token-1', { resolution: '15m' });
-    url = new URL(fetchSpy.mock.calls[0][0] as string);
-    expect(url.searchParams.get('resolution')).toBe('15m');
+      fetchSpy.mockClear();
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+    }
   });
 
   it('getOrderBook sends GET to /api/v1/markets/:tokenId/book', async () => {
