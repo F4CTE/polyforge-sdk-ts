@@ -1814,6 +1814,115 @@ export interface CorrelationCategoriesReport {
   updatedAt: string;
 }
 
+// ── Sports (POLA-1841) ──────────────────────────────────────────────────────
+//
+// Server contract is intentionally permissive: many of the underlying payloads
+// originate from upstream Kalshi proxies and are forwarded as `Record<string,
+// unknown>` / `unknown[]` by the API. The SDK mirrors that fidelity rather
+// than inventing strict types that would drift the moment the server changes.
+
+export type SportsCategoryKey =
+  | 'NFL'
+  | 'NBA'
+  | 'MLB'
+  | 'NHL'
+  | 'SOCCER'
+  | 'TENNIS'
+  | 'GOLF'
+  | 'F1'
+  | 'UFC'
+  | 'BOXING'
+  | 'COLLEGE_FOOTBALL'
+  | 'COLLEGE_BASKETBALL'
+  | 'CRICKET'
+  | 'OTHER'
+  | (string & {});
+
+export interface SportsCategorySummary {
+  category: SportsCategoryKey;
+  label: string;
+  seriesTickers: string[];
+  marketCount: number;
+}
+
+export type SportsMarketsSort = 'volume' | 'closing_soon' | 'newest';
+
+export interface ListSportsMarketsParams {
+  page?: number;
+  limit?: number;
+  category?: SportsCategoryKey;
+  search?: string;
+  seriesTicker?: string;
+  eventTicker?: string;
+  liveOnly?: boolean;
+  sort?: SportsMarketsSort;
+}
+
+export type SportsEventStatus =
+  | 'SCHEDULED'
+  | 'PREGAME'
+  | 'LIVE'
+  | 'HALFTIME'
+  | 'FINAL';
+
+export interface ListSportsEventsParams {
+  page?: number;
+  limit?: number;
+  category?: SportsCategoryKey;
+  seriesTicker?: string;
+  status?: SportsEventStatus;
+}
+
+export interface SportsEventDetail {
+  event: Record<string, unknown>;
+  markets: Record<string, unknown>[];
+}
+
+export interface ListSportsMilestonesParams {
+  page?: number;
+  limit?: number;
+  eventTicker?: string;
+  status?: string;
+}
+
+export interface SportsMilestonesPage {
+  milestones: unknown[];
+  cursor: string | null;
+}
+
+export interface SportsLiveData {
+  liveData: unknown | null;
+}
+
+export interface ListSportsCombosParams {
+  page?: number;
+  limit?: number;
+  seriesTicker?: string;
+}
+
+export interface SportsCombosPage {
+  collections: unknown[];
+  cursor: string | null;
+}
+
+export type SportsComboSide = 'yes' | 'no';
+
+export interface SportsComboSelection {
+  marketTicker: string;
+  eventTicker: string;
+  side: SportsComboSide;
+}
+
+export interface LookupSportsComboParams {
+  collectionTicker: string;
+  selectedMarkets: SportsComboSelection[];
+}
+
+export interface SportsComboLookupResult {
+  eventTicker: string;
+  marketTicker: string;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {
