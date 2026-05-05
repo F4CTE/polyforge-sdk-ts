@@ -1220,6 +1220,123 @@ export interface CreateArbitrageAlertParams {
   marketId?: string;
 }
 
+// ── Cross-Venue Arb Execution / Positions / Risk (POLA-1850) ────────────────
+//
+// Trading-impact surface: `executeArb` and `closeArbPosition` place real orders
+// on Polymarket and Kalshi. Backend error codes (VENUES_NOT_CONNECTED,
+// MATCH_NOT_FOUND, COMPARISON_UNAVAILABLE, SPREAD_TOO_LOW, TOKEN_RESOLUTION_FAILED,
+// ARB_POSITION_NOT_FOUND, INVALID_STATUS) are passed through verbatim via
+// PolyforgeError.code.
+
+export type ArbPositionStatus =
+  | 'PENDING'
+  | 'PARTIAL'
+  | 'OPEN'
+  | 'CLOSING'
+  | 'CLOSED'
+  | 'FAILED';
+
+export type Venue = 'POLYMARKET' | 'KALSHI' | 'POLYMARKET_US';
+
+export interface ArbExecuteParams {
+  matchId: string;
+  /** Position size in USDC, applied to both legs. Server bounds: 1..10000. */
+  size: number;
+  /** Max acceptable slippage % from quoted prices (default 0.5). Server bounds: 0..5. */
+  maxSlippagePct?: number;
+}
+
+export interface ArbExecutionLeg {
+  venue: Venue;
+  intentId: string;
+  tokenId: string;
+  price: number;
+}
+
+export interface ArbExecutionResult {
+  arbPositionId: string;
+  buyLeg: ArbExecutionLeg;
+  sellLeg: ArbExecutionLeg;
+  entrySpreadPct: number;
+  status: ArbPositionStatus;
+}
+
+/**
+ * Cross-venue arbitrage position. Decimal fields are serialized as strings
+ * by the API to preserve precision — parse with `Number()` only when arithmetic
+ * is needed.
+ */
+export interface ArbPosition {
+  id: string;
+  userId: string;
+  matchId: string;
+  status: ArbPositionStatus;
+
+  buyVenue: Venue;
+  buyOrderId: string | null;
+  buyTokenId: string;
+  buyPrice: string;
+  buySize: string;
+  buyFillPrice: string | null;
+  buyFillSize: string | null;
+
+  sellVenue: Venue;
+  sellOrderId: string | null;
+  sellTokenId: string;
+  sellPrice: string;
+  sellSize: string;
+  sellFillPrice: string | null;
+  sellFillSize: string | null;
+
+  entrySpreadPct: string;
+  currentSpreadPct: string | null;
+  realizedPnl: string | null;
+  unrealizedPnl: string | null;
+
+  openedAt: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ArbPositionsResponse {
+  positions: ArbPosition[];
+  total: number;
+}
+
+export interface ArbCloseResponse {
+  status: 'CLOSING';
+  positionId: string;
+}
+
+export interface ArbRiskDashboard {
+  openPositions: number;
+  pendingPositions: number;
+  totalDeployed: number;
+  netExposure: { polymarket: number; kalshi: number };
+  totalRealizedPnl: number;
+  totalUnrealizedPnl: number;
+  avgSpreadPct: number;
+  /** Counts keyed by `ArbPositionStatus`. Status keys not present have count 0. */
+  positionsByStatus: Partial<Record<ArbPositionStatus, number>>;
+}
+
+export interface ArbSettlementRisk {
+  matchId: string;
+  polymarketTitle: string;
+  kalshiTitle: string;
+  polymarketEndDate: string | null;
+  kalshiEndDate: string | null;
+  endDateDiffDays: number | null;
+  confidence: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  reason: string;
+}
+
+export interface ArbPnlRefreshResult {
+  updated: number;
+}
+
 // ── Whale Alert Filter ──────────────────────────────────────────────────────
 
 export interface WhaleAlertFilter {
