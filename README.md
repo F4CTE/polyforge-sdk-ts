@@ -53,7 +53,7 @@ Kalshi-backed sports markets, events, milestones, and combo lookups. Many respon
 | `listSportsMarkets(params?)` | List sports markets (filters: `category`, `search`, `seriesTicker`, `eventTicker`, `liveOnly`, `sort`) |
 | `listSportsEvents(params?)` | List sports events (filters: `category`, `seriesTicker`, `status`) |
 | `getSportsEvent(eventTicker)` | Get a single event with its markets |
-| `listSportsMilestones(params?)` | List in-game milestones (cursor-paginated) |
+| `listSportsMilestones(params?)` | List in-game milestones (page-based pagination) |
 | `getSportsLiveData(milestoneId)` | Live score / clock data for a milestone |
 | `listSportsCombos(params?)` | List combo collections for a series |
 | `getSportsComboCollection(collectionTicker)` | Get a single combo collection by ticker |

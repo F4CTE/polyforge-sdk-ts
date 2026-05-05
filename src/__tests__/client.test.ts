@@ -4022,7 +4022,7 @@ describe('Sports markets endpoints', () => {
     expect(result.event).toMatchObject({ id: 'KX/NFL GAME' });
   });
 
-  it('listSportsMilestones returns the cursor-paginated page shape', async () => {
+  it('listSportsMilestones forwards only supported query params', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse({
         milestones: [{ id: 'milestone-1' }, { id: 'milestone-2' }],
@@ -4031,20 +4031,22 @@ describe('Sports markets endpoints', () => {
     );
 
     const result = await client.listSportsMilestones({
+      page: 2,
       limit: 10,
       cursor: 'cursor-1',
       eventTicker: 'KXNFLGAME-26W12-KCDEN',
       status: 'open',
-    });
+    } as any);
 
     const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
     const parsed = new URL(url);
 
     expect(parsed.pathname).toBe('/api/v1/sports/milestones');
+    expect(parsed.searchParams.get('page')).toBe('2');
     expect(parsed.searchParams.get('limit')).toBe('10');
-    expect(parsed.searchParams.get('cursor')).toBe('cursor-1');
     expect(parsed.searchParams.get('eventTicker')).toBe('KXNFLGAME-26W12-KCDEN');
     expect(parsed.searchParams.get('status')).toBe('open');
+    expect(parsed.searchParams.has('cursor')).toBe(false);
     expect(result.milestones).toHaveLength(2);
     expect(result.cursor).toBe('next-page-cursor');
   });
@@ -4061,7 +4063,7 @@ describe('Sports markets endpoints', () => {
     expect(result).toEqual({ liveData: null });
   });
 
-  it('listSportsCombos forwards seriesTicker', async () => {
+  it('listSportsCombos forwards only supported query params', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse({
         collections: [{ collectionTicker: 'COMBO-A' }],
@@ -4070,17 +4072,19 @@ describe('Sports markets endpoints', () => {
     );
 
     const result = await client.listSportsCombos({
+      page: 3,
       limit: 5,
       cursor: 'cursor-2',
       seriesTicker: 'KXNFL',
-    });
+    } as any);
     const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
     const parsed = new URL(url);
 
     expect(parsed.pathname).toBe('/api/v1/sports/combos');
+    expect(parsed.searchParams.get('page')).toBe('3');
     expect(parsed.searchParams.get('limit')).toBe('5');
-    expect(parsed.searchParams.get('cursor')).toBe('cursor-2');
     expect(parsed.searchParams.get('seriesTicker')).toBe('KXNFL');
+    expect(parsed.searchParams.has('cursor')).toBe(false);
     expect(result.collections).toHaveLength(1);
     expect(result.cursor).toBeNull();
   });

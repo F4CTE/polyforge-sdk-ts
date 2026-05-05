@@ -2337,14 +2337,22 @@ export class PolyforgeClient {
 
   /**
    * List sports milestones (in-game scoring/moment markers) for an event.
-   * Returns a cursor-paginated page; pass the returned `cursor` for the next
-   * slice.
+   * Supports page-based pagination and optional event/status filters.
    */
   async listSportsMilestones(
     params?: ListSportsMilestonesParams,
   ): Promise<SportsMilestonesPage> {
+    const query = params
+      ? {
+          page: params.page,
+          limit: params.limit,
+          eventTicker: params.eventTicker,
+          status: params.status,
+        }
+      : undefined;
+
     return this.request('GET', '/api/v1/sports/milestones', {
-      query: params as Record<string, unknown>,
+      query,
     });
   }
 
@@ -2360,8 +2368,16 @@ export class PolyforgeClient {
   async listSportsCombos(
     params?: ListSportsCombosParams,
   ): Promise<SportsCombosPage> {
+    const query = params
+      ? {
+          page: params.page,
+          limit: params.limit,
+          seriesTicker: params.seriesTicker,
+        }
+      : undefined;
+
     return this.request('GET', '/api/v1/sports/combos', {
-      query: params as Record<string, unknown>,
+      query,
     });
   }
 

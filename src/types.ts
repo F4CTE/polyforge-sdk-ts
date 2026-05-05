@@ -1881,7 +1881,6 @@ export interface SportsEventDetail {
 export interface ListSportsMilestonesParams {
   page?: number;
   limit?: number;
-  cursor?: string;
   eventTicker?: string;
   status?: string;
 }
@@ -1898,7 +1897,6 @@ export interface SportsLiveData {
 export interface ListSportsCombosParams {
   page?: number;
   limit?: number;
-  cursor?: string;
   seriesTicker?: string;
 }
 
