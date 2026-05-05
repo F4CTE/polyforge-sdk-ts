@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- `getPlatformActions()` / `getActions()` — `GET /api/v1/actions`; fetches the
+  public platform capability manifest for API/tooling discovery. Adds exported
+  `ActionsSchema`, `ActionDefinition`, and `ActionParameter` types.
 - **POLA-1913 SDK polish** — added paginated `getAccuracyLeaderboard(params?)`,
   public/authenticated health types and methods, `getMyPreferences()` /
   `updateMyPreferences()` for venue preferences, and renamed combo lookup to

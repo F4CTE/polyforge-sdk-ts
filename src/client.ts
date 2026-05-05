@@ -5,6 +5,7 @@ import type {
   AccuracyScore,
   AccuracyLeaderboardEntry,
   AccuracyLeaderboardParams,
+  ActionsSchema,
   AiQueryResponse,
   Alert,
   ApiKey,
@@ -1250,6 +1251,28 @@ export class PolyforgeClient {
    */
   async batchRequests(items: BatchRequestItem[]): Promise<BatchResponse> {
     return this.request('POST', '/api/v1/batch', { body: { items } });
+  }
+
+  // ── Actions Catalog ─────────────────────────────────────────────────────
+
+  /**
+   * Fetch the platform's public API actions catalog.
+   *
+   * This capability manifest is intended for agent/tooling discovery and
+   * mirrors sdk-python's `get_actions()` coverage for `GET /api/v1/actions`.
+   */
+  async getPlatformActions(): Promise<ActionsSchema> {
+    return this.request('GET', '/api/v1/actions');
+  }
+
+  /**
+   * Fetch the platform's public API actions catalog.
+   *
+   * Alias for {@link getPlatformActions}; matches sdk-python's `get_actions()`
+   * naming when converted to idiomatic TypeScript camelCase.
+   */
+  async getActions(): Promise<ActionsSchema> {
+    return this.getPlatformActions();
   }
 
   // ── API Keys ────────────────────────────────────────────────────────────

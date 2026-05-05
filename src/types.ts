@@ -950,6 +950,35 @@ export interface BatchResponse {
   }>;
 }
 
+// ── Actions Catalog ────────────────────────────────────────────────────────
+
+export interface ActionParameter {
+  name: string;
+  type: string;
+  required: boolean;
+  in?: 'path' | 'query' | 'body';
+  description?: string;
+  enum?: string[];
+  default?: unknown;
+  max?: number;
+  min?: number;
+}
+
+export interface ActionDefinition {
+  name: string;
+  description: string;
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  path: string;
+  scope: 'READ' | 'WRITE' | 'TRADE';
+  category: string;
+  parameters?: ActionParameter[];
+}
+
+export interface ActionsSchema {
+  version: string;
+  actions: ActionDefinition[];
+}
+
 // ── Marketplace seller ──────────────────────────────────────────────────────
 
 export interface CreateListingParams {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -243,6 +243,59 @@ describe('Platform contract compliance', () => {
     for (const e of events) {
       expect(e).not.toContain('.');
     }
+  });
+
+  it('getPlatformActions calls the public actions catalog endpoint', async () => {
+    const payload: ActionsSchema = {
+      version: '1.0',
+      actions: [
+        {
+          name: 'list_markets',
+          description: 'Browse prediction markets',
+          method: 'GET',
+          path: '/api/v1/markets',
+          scope: 'READ',
+          category: 'markets',
+          parameters: [
+            {
+              name: 'limit',
+              type: 'number',
+              required: false,
+              in: 'query',
+              default: 20,
+              min: 1,
+              max: 100,
+            },
+          ],
+        },
+      ],
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.getPlatformActions();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(new URL(url).pathname).toBe('/api/v1/actions');
+    expect(init.method).toBe('GET');
+    expect(result.actions[0].parameters?.[0].in).toBe('query');
+  });
+
+  it('getActions is a camelCase alias for the actions catalog', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ version: '1.0', actions: [] satisfies ActionsSchema['actions'] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const result = await client.getActions();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(new URL(url).pathname).toBe('/api/v1/actions');
+    expect(init.method).toBe('GET');
+    expect(result.actions).toEqual([]);
   });
 });
 
