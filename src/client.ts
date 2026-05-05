@@ -104,12 +104,15 @@ import type {
   RunBacktestParams,
   Rebate,
   RewardsMarket,
+  RewardsMarketDetail,
+  RewardsSponsorUrl,
   RiskSettings,
   UpdateRiskSettingsParams,
   UserPreferences,
   UserReward,
   UserRewardsPercentages,
   UserRewardsTotal,
+  UserSponsoredMarkets,
   CrossVenueOpportunity,
   CrossVenueComparison,
   MarketMatch,
@@ -1852,6 +1855,21 @@ export class PolyforgeClient {
   /** Get the authenticated user's fee rebate history. */
   async getRebates(): Promise<{ rebates: Rebate[] }> {
     return this.request('GET', '/api/v1/rewards/rebates');
+  }
+
+  /** Get CLOB liquidity-reward details for a market by platform market ID. */
+  async getMarketRewardsDetail(marketId: string): Promise<RewardsMarketDetail | null> {
+    return this.request('GET', `/api/v1/rewards/market/${encodeURIComponent(marketId)}`);
+  }
+
+  /** List the authenticated user's sponsored rewards markets. */
+  async getUserSponsoredMarkets(): Promise<UserSponsoredMarkets> {
+    return this.request('GET', '/api/v1/rewards/user/sponsored-markets');
+  }
+
+  /** Get the Polymarket sponsor page URL for a market. */
+  async getRewardsSponsorUrl(marketId: string): Promise<RewardsSponsorUrl> {
+    return this.request('GET', `/api/v1/rewards/sponsor-url/${encodeURIComponent(marketId)}`);
   }
 
   // ── Profile ──────────────────────────────────────────────────────────────

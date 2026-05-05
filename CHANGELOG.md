@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- Rewards residual coverage: `getMarketRewardsDetail(marketId)` for
+  `GET /api/v1/rewards/market/:marketId`,
+  `getUserSponsoredMarkets()` for
+  `GET /api/v1/rewards/user/sponsored-markets`, and
+  `getRewardsSponsorUrl(marketId)` for
+  `GET /api/v1/rewards/sponsor-url/:marketId`. Adds exported
+  `RewardsMarketDetail`, `UserSponsoredMarkets`, and `RewardsSponsorUrl` types.
 - `getMyFollowing(params?)` — `GET /api/v1/users/me/following`; lists users
   followed by the authenticated user with normalized pagination. Adds exported
   `FollowedUser` and `GetMyFollowingParams` types.

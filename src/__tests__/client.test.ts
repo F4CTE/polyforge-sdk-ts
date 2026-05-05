@@ -2977,6 +2977,31 @@ describe('Rewards API', () => {
     expect(url.pathname).toBe('/api/v1/rewards/rebates');
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
   });
+
+  it('getMarketRewardsDetail sends GET to /api/v1/rewards/market/:marketId', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(null), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getMarketRewardsDetail('mkt/with spaces');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/market/mkt%2Fwith%20spaces');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getUserSponsoredMarkets sends GET to /api/v1/rewards/user/sponsored-markets', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ markets: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getUserSponsoredMarkets();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/user/sponsored-markets');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getRewardsSponsorUrl sends GET to /api/v1/rewards/sponsor-url/:marketId', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ url: 'https://polymarket.com/event/test/rewards' }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    const result = await client.getRewardsSponsorUrl('market/123');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/rewards/sponsor-url/market%2F123');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result.url).toContain('/rewards');
+  });
 });
 
 describe('redeemPosition return type (#152)', () => {
