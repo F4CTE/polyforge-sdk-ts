@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -709,6 +709,53 @@ describe('ImportStrategyParams matches platform DTO (#27)', () => {
     expect(body).toHaveProperty('strategy');
     expect(body.strategy).toHaveProperty('name', 'Test');
     expect(body).not.toHaveProperty('data');
+  });
+
+  it('sends strategy blocks nested under strategy.blocks (#207)', async () => {
+    const params: ImportStrategyParams = {
+      polyforge: '1.7.1',
+      strategy: {
+        name: 'Blocks Strategy',
+        blocks: {
+          triggers: [{ type: 'PRICE_CROSSES_UP', config: {} }],
+          conditions: [],
+          actions: [{ type: 'BUY_YES', config: { size: '50' } }],
+          safety: [],
+        },
+      },
+    };
+
+    await client.importStrategy(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.strategy.blocks.triggers).toHaveLength(1);
+    expect(body.strategy.blocks.actions).toHaveLength(1);
+    expect(body.strategy).not.toHaveProperty('triggers');
+    expect(body.strategy).not.toHaveProperty('conditions');
+    expect(body.strategy).not.toHaveProperty('actions');
+    expect(body.strategy).not.toHaveProperty('safety');
+  });
+
+  it('types import blocks as platform ImportBlockDto items only (#207)', () => {
+    const blocks: ImportStrategyBlocks = {
+      triggers: [{ type: 'PRICE_CROSSES_UP', config: { threshold: '0.6' } }],
+      conditions: [{ type: 'MIN_LIQUIDITY', config: { min: '1000' } }],
+      actions: [{ type: 'BUY_YES', config: { size: '50' } }],
+      safety: [{ type: 'STOP_IF_DAILY_LOSS', config: { maxLoss: '25' } }],
+    };
+
+    expect(blocks.triggers?.[0]?.type).toBe('PRICE_CROSSES_UP');
+
+    const rejectedBlocks: ImportStrategyBlocks = {
+      triggers: [
+        {
+          // @ts-expect-error platform import blocks reject client-side block ids
+          id: 't1',
+          type: 'PRICE_CROSSES_UP',
+          config: {},
+        },
+      ],
+    };
+    expect(rejectedBlocks.triggers?.[0]?.type).toBe('PRICE_CROSSES_UP');
   });
 });
 

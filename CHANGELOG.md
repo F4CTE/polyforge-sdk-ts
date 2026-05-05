@@ -46,6 +46,16 @@
   `ComboLookupParams`, `ComboTickerLookup`, `CorrelationCategoriesReport`).
 
 ### Fixed
+- **`ImportStrategyParams` block nesting** — moved import block arrays under
+  `strategy.blocks` and removed unsupported top-level `triggers`,
+  `conditions`, `actions`, `safety`, `logicBlocks`, `calcBlocks`, and
+  `marketId` fields from the import payload type so
+  `client.importStrategy(...)` matches the platform `ImportStrategyDto`.
+  Import block items are now narrowed to the platform-accepted `type` plus
+  optional `config` shape instead of full client-side `StrategyBlock` objects.
+  Added regression coverage that asserts the serialized body uses
+  `strategy.blocks.triggers` and does not send forbidden top-level block
+  arrays. (closes #207)
 - **`UpdateSettingsProfileParams` shape** — removed the phantom `username`
   field (the platform's `PATCH /api/v1/settings/profile` does not whitelist
   `username` and `forbidNonWhitelisted` rejects any payload containing it
