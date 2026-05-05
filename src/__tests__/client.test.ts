@@ -4288,11 +4288,12 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
       new Response(JSON.stringify(mockResult), { status: 201, headers: { 'Content-Type': 'application/json' } }),
     );
 
-    const result = await client.executeArb({ matchId: 'match-1', size: 100, maxSlippagePct: 0.5 });
+    const result = await client.executeArb({ matchId: 'match-1', size: 100, maxSlippagePct: 0.5 }, 'arb-key-123');
 
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toBe('/api/v1/arbitrage/execute');
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBe('arb-key-123');
     expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual({
       matchId: 'match-1', size: 100, maxSlippagePct: 0.5,
     });
@@ -4300,15 +4301,31 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
     expect(result.status).toBe('PENDING');
   });
 
+  it('executeArb rejects invalid idempotencyKey client-side without calling fetch', async () => {
+    await expect(client.executeArb({ matchId: 'm', size: 1 }, 'short')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('idempotencyKey'),
+    });
+    await expect(client.executeArb({ matchId: 'm', size: 1 }, ' key-with-spaces ')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('idempotencyKey'),
+    });
+    await expect(client.executeArb({ matchId: 'm', size: 1 }, `valid-key\nbad`)).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('idempotencyKey'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('executeArb rejects size <= 0 client-side without calling fetch', async () => {
-    await expect(client.executeArb({ matchId: 'm', size: 0 })).rejects.toMatchObject({
+    await expect(client.executeArb({ matchId: 'm', size: 0 }, 'arb-key-123')).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
     });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('executeArb rejects size > 10000 client-side without calling fetch', async () => {
-    await expect(client.executeArb({ matchId: 'm', size: 10001 })).rejects.toMatchObject({
+    await expect(client.executeArb({ matchId: 'm', size: 10001 }, 'arb-key-123')).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
       message: expect.stringContaining('<= 10000'),
     });
@@ -4316,17 +4333,17 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
   });
 
   it('executeArb rejects maxSlippagePct out of [0, 5] client-side', async () => {
-    await expect(client.executeArb({ matchId: 'm', size: 1, maxSlippagePct: -0.1 })).rejects.toMatchObject({
+    await expect(client.executeArb({ matchId: 'm', size: 1, maxSlippagePct: -0.1 }, 'arb-key-123')).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
     });
-    await expect(client.executeArb({ matchId: 'm', size: 1, maxSlippagePct: 5.1 })).rejects.toMatchObject({
+    await expect(client.executeArb({ matchId: 'm', size: 1, maxSlippagePct: 5.1 }, 'arb-key-123')).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
     });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('executeArb rejects non-finite maxSlippagePct', async () => {
-    await expect(client.executeArb({ matchId: 'm', size: 1, maxSlippagePct: Number.NaN })).rejects.toMatchObject({
+    await expect(client.executeArb({ matchId: 'm', size: 1, maxSlippagePct: Number.NaN }, 'arb-key-123')).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
     });
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -4340,7 +4357,7 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
       ),
     );
 
-    await expect(client.executeArb({ matchId: 'm', size: 100 })).rejects.toMatchObject({
+    await expect(client.executeArb({ matchId: 'm', size: 100 }, 'arb-key-123')).rejects.toMatchObject({
       status: 403,
       code: 'VENUES_NOT_CONNECTED',
     });
@@ -4355,7 +4372,7 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
       ),
     );
 
-    await expect(client.executeArb({ matchId: 'm', size: 100 })).rejects.toMatchObject({
+    await expect(client.executeArb({ matchId: 'm', size: 100 }, 'arb-key-123')).rejects.toMatchObject({
       status: 422,
       code: 'SPREAD_TOO_LOW',
     });
@@ -4370,7 +4387,7 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
       ),
     );
 
-    await expect(client.executeArb({ matchId: 'missing', size: 100 })).rejects.toMatchObject({
+    await expect(client.executeArb({ matchId: 'missing', size: 100 }, 'arb-key-123')).rejects.toMatchObject({
       status: 404,
       code: 'MATCH_NOT_FOUND',
     });
@@ -4426,13 +4443,22 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
       new Response(JSON.stringify(mockResponse), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
-    const result = await client.closeArbPosition('pos-42');
+    const result = await client.closeArbPosition('pos-42', 'close-key-123');
 
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toBe('/api/v1/arbitrage/positions/pos-42/close');
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBe('close-key-123');
     expect(result.status).toBe('CLOSING');
     expect(result.positionId).toBe('pos-42');
+  });
+
+  it('closeArbPosition rejects invalid idempotencyKey client-side without calling fetch', async () => {
+    await expect(client.closeArbPosition('pos-42', 'short')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('idempotencyKey'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('closeArbPosition surfaces ARB_POSITION_NOT_FOUND on 404 without retrying', async () => {
@@ -4443,7 +4469,7 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
       ),
     );
 
-    await expect(client.closeArbPosition('missing')).rejects.toMatchObject({
+    await expect(client.closeArbPosition('missing', 'close-key-123')).rejects.toMatchObject({
       status: 404,
       code: 'ARB_POSITION_NOT_FOUND',
     });
@@ -4458,7 +4484,7 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
       ),
     );
 
-    await expect(client.closeArbPosition('pos-closed')).rejects.toMatchObject({
+    await expect(client.closeArbPosition('pos-closed', 'close-key-123')).rejects.toMatchObject({
       status: 422,
       code: 'INVALID_STATUS',
     });

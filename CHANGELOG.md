@@ -56,7 +56,9 @@
   `ArbSettlementRisk`, `ArbPnlRefreshResult`, `ArbPositionStatus`, `Venue`.
 - **Trading-impact safety:** `executeArb` and `closeArbPosition` place real
   orders on Polymarket and Kalshi. The TS client has no auto-retry layer, so
-  every request is single-attempt by design. Backend error codes
+  every request is single-attempt by design. Both methods require a
+  caller-supplied idempotency key and send it as `Idempotency-Key`, matching
+  the backend replay-protection contract. Backend error codes
   (`VENUES_NOT_CONNECTED`, `MATCH_NOT_FOUND`, `COMPARISON_UNAVAILABLE`,
   `SPREAD_TOO_LOW`, `TOKEN_RESOLUTION_FAILED`, `ARB_POSITION_NOT_FOUND`,
   `INVALID_STATUS`) surface verbatim on `PolyforgeError.code`.

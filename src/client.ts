@@ -507,7 +507,7 @@ export class PolyforgeClient {
   private async request<T>(
     method: string,
     path: string,
-    options?: { body?: unknown; query?: Record<string, unknown> },
+    options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> },
   ): Promise<T> {
     const url = new URL(`${this.baseUrl}${path}`);
 
@@ -526,6 +526,9 @@ export class PolyforgeClient {
 
     if (options?.body !== undefined) {
       headers['Content-Type'] = 'application/json';
+    }
+    if (options?.headers) {
+      Object.assign(headers, options.headers);
     }
 
     const response = await fetch(url.toString(), {
@@ -559,6 +562,24 @@ export class PolyforgeClient {
     }
 
     return this.safeJson<T>(response);
+  }
+
+  private idempotencyHeaders(idempotencyKey: string): Record<string, string> {
+    if (
+      typeof idempotencyKey !== 'string' ||
+      idempotencyKey.length < 8 ||
+      idempotencyKey.length > 128 ||
+      idempotencyKey.trim() !== idempotencyKey ||
+      /[\r\n]/.test(idempotencyKey)
+    ) {
+      throw new PolyforgeError({
+        status: 0,
+        code: 'VALIDATION_ERROR',
+        message: 'idempotencyKey must be 8-128 characters and a valid Idempotency-Key header value',
+      });
+    }
+
+    return { 'Idempotency-Key': idempotencyKey };
   }
 
   /**
@@ -1553,10 +1574,12 @@ export class PolyforgeClient {
 
   /**
    * Execute a cross-venue arbitrage trade (real orders on Polymarket and Kalshi).
+   * Pass a stable caller-generated `idempotencyKey` and reuse it when retrying
+   * the same execution attempt.
    * Validates `size` ∈ [1, 10000] and `maxSlippagePct` ∈ [0, 5] client-side
    * before the request, mirroring the server's class-validator bounds.
    */
-  async executeArb(params: ArbExecuteParams): Promise<ArbExecutionResult> {
+  async executeArb(params: ArbExecuteParams, idempotencyKey: string): Promise<ArbExecutionResult> {
     this.validateFinancialParam('size', params.size);
     if (params.size > 10000) {
       throw new PolyforgeError({
@@ -1581,7 +1604,10 @@ export class PolyforgeClient {
         });
       }
     }
-    return this.request('POST', '/api/v1/arbitrage/execute', { body: params });
+    return this.request('POST', '/api/v1/arbitrage/execute', {
+      body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
+    });
   }
 
   /** List the caller's cross-venue arbitrage positions. */
@@ -1600,9 +1626,15 @@ export class PolyforgeClient {
     return this.request('GET', `/api/v1/arbitrage/positions/${encodeURIComponent(id)}`);
   }
 
-  /** Close an open cross-venue arbitrage position (real reverse orders). */
-  async closeArbPosition(id: string): Promise<ArbCloseResponse> {
-    return this.request('POST', `/api/v1/arbitrage/positions/${encodeURIComponent(id)}/close`);
+  /**
+   * Close an open cross-venue arbitrage position (real reverse orders).
+   * Pass a stable caller-generated `idempotencyKey` and reuse it when retrying
+   * the same close attempt.
+   */
+  async closeArbPosition(id: string, idempotencyKey: string): Promise<ArbCloseResponse> {
+    return this.request('POST', `/api/v1/arbitrage/positions/${encodeURIComponent(id)}/close`, {
+      headers: this.idempotencyHeaders(idempotencyKey),
+    });
   }
 
   /** Cross-venue arb risk dashboard: net exposure, P&L, and position breakdown. */
