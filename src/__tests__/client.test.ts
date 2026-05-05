@@ -2795,16 +2795,6 @@ describe('Trading write idempotency (#208)', () => {
       call: (key: string) => client.redeemPosition({ positionId: 'pos-1' }, key),
     },
     {
-      name: 'splitPosition',
-      path: '/api/v1/orders/split',
-      call: (key: string) => client.splitPosition({ tokenId: 'tok-1', amount: '10' }, key),
-    },
-    {
-      name: 'mergePosition',
-      path: '/api/v1/orders/merge',
-      call: (key: string) => client.mergePosition({ tokenId: 'tok-1', amount: '10' }, key),
-    },
-    {
       name: 'createConditionalOrder',
       path: '/api/v1/orders/conditional',
       call: (key: string) => client.createConditionalOrder({
@@ -2837,6 +2827,20 @@ describe('Trading write idempotency (#208)', () => {
         { marketId: 'mkt-1', tokenId: 'tok-1', amountUsdc: 100 },
         key,
       ),
+    },
+  ];
+  const unprotectedPositionWrites = [
+    {
+      name: 'splitPosition',
+      path: '/api/v1/orders/split',
+      params: { tokenId: 'tok-1', amount: '10' },
+      call: (params: SplitPositionParams) => client.splitPosition(params),
+    },
+    {
+      name: 'mergePosition',
+      path: '/api/v1/orders/merge',
+      params: { tokenId: 'tok-1', amount: '10' },
+      call: (params: MergePositionParams) => client.mergePosition(params),
     },
   ];
 
@@ -2874,6 +2878,29 @@ describe('Trading write idempotency (#208)', () => {
     for (const [, init] of fetchSpy.mock.calls) {
       expect((init!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
     }
+  });
+
+  it.each(unprotectedPositionWrites)('$name sends POST without Idempotency-Key until the API protects it', async ({ path, params, call }) => {
+    await call(params);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(new URL(fetchSpy.mock.calls[0][0] as string).pathname).toBe(path);
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
+  });
+
+  it.each(unprotectedPositionWrites)('$name forwards the position body without idempotency fields', async ({ params, call }) => {
+    await call(params);
+
+    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual(params);
+    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).not.toHaveProperty('idempotencyKey');
+  });
+
+  it.each(unprotectedPositionWrites)('$name ignores accidental extra key arguments instead of validating them', async ({ params, call }) => {
+    await (call as unknown as (requestParams: SplitPositionParams | MergePositionParams, key: string) => Promise<unknown>)(params, 'short');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
   });
 });
 

@@ -111,15 +111,16 @@ Stop the stream at any time by calling `ac.abort()`. The generator will clean up
 | `placeBatchOrders(orders, idempotencyKey)` | Place multiple orders in one request |
 | `closePosition(params, idempotencyKey)` | Close an open position |
 | `redeemPosition(params, idempotencyKey)` | Redeem winning shares |
-| `splitPosition(params, idempotencyKey)` | Split a position |
-| `mergePosition(params, idempotencyKey)` | Merge positions |
+| `splitPosition(params)` | Split a position |
+| `mergePosition(params)` | Merge positions |
 | `cancelOrder(orderId)` | Cancel a pending or live order |
 
-Trading write methods that create or transform orders require a caller-generated
-`idempotencyKey` between 8 and 128 characters. Reuse the same key when retrying
-the same request, and generate a new key for a different trading action. This
-also applies to `createConditionalOrder`, `placeSmartOrder`, `provideLiquidity`,
-`executeArb`, and `closeArbPosition`.
+Protected trading write methods require a caller-generated `idempotencyKey`
+between 8 and 128 characters. Reuse the same key when retrying the same request,
+and generate a new key for a different trading action. This applies to
+`placeOrder`, `placeBatchOrders`, `closePosition`, `redeemPosition`,
+`createConditionalOrder`, `placeSmartOrder`, `provideLiquidity`, `executeArb`,
+and `closeArbPosition`.
 
 ### Social & Signals
 
