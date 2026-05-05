@@ -62,7 +62,15 @@ describe('PolyforgeClient', () => {
         apiKey: 'test-key',
         apiUrl: 'http://localhost:3002///',
       });
-      expect(clientWithSlash).toBeDefined();
+      expect(clientWithSlash.toJSON()).toEqual({ baseUrl: 'http://localhost:3002' });
+    });
+
+    it('should normalize pathological trailing slash runs without regex backtracking', () => {
+      const client = new PolyforgeClient({
+        apiKey: 'test-key',
+        apiUrl: `https://api.example.com${'/'.repeat(50_000)}`,
+      });
+      expect(client.toJSON()).toEqual({ baseUrl: 'https://api.example.com' });
     });
 
     it('should handle URL paths correctly', () => {

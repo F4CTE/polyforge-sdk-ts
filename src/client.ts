@@ -192,6 +192,14 @@ function normalizePaginatedResponse<T>(
   };
 }
 
+function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
 /**
  * Expand a compressed IPv6 address into its full 8-group colon-hex form.
  * E.g. "fe80::1" → "fe80:0000:0000:0000:0000:0000:0000:0001"
@@ -370,7 +378,7 @@ export class PolyforgeClient {
     if (!options.apiKey) {
       throw new Error('apiKey is required');
     }
-    this.baseUrl = (options.apiUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.baseUrl = trimTrailingSlashes(options.apiUrl ?? DEFAULT_BASE_URL);
     this.apiKey = options.apiKey;
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
     this.streamTimeout = options.streamTimeout ?? DEFAULT_STREAM_TIMEOUT_MS;
