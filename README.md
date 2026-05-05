@@ -107,8 +107,19 @@ Stop the stream at any time by calling `ac.abort()`. The generator will clean up
 | `getPortfolio()` | Get portfolio summary with positions |
 | `getOrders(params?)` | List orders with optional filters |
 | `getScore()` | Get your trader score and ranking |
-| `placeOrder(params)` | Place a direct buy/sell order |
+| `placeOrder(params, idempotencyKey)` | Place a direct buy/sell order |
+| `placeBatchOrders(orders, idempotencyKey)` | Place multiple orders in one request |
+| `closePosition(params, idempotencyKey)` | Close an open position |
+| `redeemPosition(params, idempotencyKey)` | Redeem winning shares |
+| `splitPosition(params, idempotencyKey)` | Split a position |
+| `mergePosition(params, idempotencyKey)` | Merge positions |
 | `cancelOrder(orderId)` | Cancel a pending or live order |
+
+Trading write methods that create or transform orders require a caller-generated
+`idempotencyKey` between 8 and 128 characters. Reuse the same key when retrying
+the same request, and generate a new key for a different trading action. This
+also applies to `createConditionalOrder`, `placeSmartOrder`, `provideLiquidity`,
+`executeArb`, and `closeArbPosition`.
 
 ### Social & Signals
 
@@ -139,7 +150,7 @@ Stop the stream at any time by calling `ac.abort()`. The generator will clean up
 |--------|-------------|
 | `getAccuracy()` | Brier score, win rate, calibration buckets, and per-category breakdown |
 | `getMarketSentiment(marketId)` | Sentiment score (−100 to +100) and BULLISH / BEARISH / NEUTRAL label |
-| `provideLiquidity(params)` | Post liquidity; returns `LpPosition` with buy and sell order IDs |
+| `provideLiquidity(params, idempotencyKey)` | Post liquidity; returns `LpPosition` with buy and sell order IDs |
 
 ## Error Handling
 
