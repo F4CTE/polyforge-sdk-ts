@@ -194,30 +194,6 @@ const DEFAULT_STREAM_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours for long-live
 const MAX_SSE_BUFFER_SIZE = 1_048_576; // 1 MB — prevents memory exhaustion from unbounded SSE payloads
 const MAX_RESPONSE_BODY_SIZE = 10 * 1024 * 1024; // 10 MB — prevents OOM from oversized API responses
 
-interface PlatformPaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  hasNext?: boolean;
-}
-
-function normalizePaginatedResponse<T>(
-  response: PaginatedResponse<T> | PlatformPaginatedResponse<T>,
-): PaginatedResponse<T> {
-  if ('pagination' in response) return response;
-  return {
-    data: response.data,
-    pagination: {
-      total: response.total,
-      page: response.page,
-      limit: response.limit,
-      totalPages: response.totalPages,
-    },
-  };
-}
-
 function trimTrailingSlashes(value: string): string {
   let end = value.length;
   while (end > 0 && value.charCodeAt(end - 1) === 47) {
@@ -1224,7 +1200,7 @@ export class PolyforgeClient {
   }
 
   /**
-   * Get the accuracy/leaderboard view in the platform paginated envelope.
+   * Get the accuracy/leaderboard view.
    *
    * The API currently paginates this endpoint with `page` / `limit`; `offset`
    * is converted to the corresponding page when supplied.
@@ -1243,11 +1219,7 @@ export class PolyforgeClient {
       query.page = params.page;
     }
 
-    const response = await this.request<
-      PaginatedResponse<AccuracyLeaderboardEntry> | PlatformPaginatedResponse<AccuracyLeaderboardEntry>
-    >('GET', '/api/v1/leaderboard', { query });
-
-    return normalizePaginatedResponse(response);
+    return this.request('GET', '/api/v1/leaderboard', { query });
   }
 
   // ── Paper trading ─────────────────────────────────────────────────────────
@@ -1940,11 +1912,7 @@ export class PolyforgeClient {
 
   /** List users followed by the authenticated user. */
   async getMyFollowing(params?: GetMyFollowingParams): Promise<PaginatedResponse<FollowedUser>> {
-    const response = await this.request<
-      PaginatedResponse<FollowedUser> | PlatformPaginatedResponse<FollowedUser>
-    >('GET', '/api/v1/users/me/following', { query: params as Record<string, unknown> });
-
-    return normalizePaginatedResponse(response);
+    return this.request('GET', '/api/v1/users/me/following', { query: params as Record<string, unknown> });
   }
 
   // ── Settings ─────────────────────────────────────────────────────────────
