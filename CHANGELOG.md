@@ -103,6 +103,11 @@
   Added regression coverage that asserts the serialized body uses
   `strategy.blocks.triggers` and does not send forbidden top-level block
   arrays. (closes #207)
+- **`MarketSlot` platform compatibility** — rewrote the SDK `MarketSlot`
+  interface from phantom `slotId`/`marketId`/`tokenId` fields to the platform
+  DTO shape: required `slot`, optional `label`, and optional
+  `defaultMarketId`. `createStrategy({ marketSlots })` now serializes fields
+  accepted by PolyForge API validation. (closes #204)
 - **`UpdateSettingsProfileParams` shape** — removed the phantom `username`
   field (the platform's `PATCH /api/v1/settings/profile` does not whitelist
   `username` and `forbidNonWhitelisted` rejects any payload containing it

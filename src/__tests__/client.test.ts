@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -1454,7 +1454,7 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
       variables: [{ name: 'threshold', type: 'number', defaultValue: '0.5' }],
       canvas: { zoom: 1, offsetX: 0, offsetY: 0 },
       marketId: 'mkt-1',
-      marketSlots: [{ slotId: 'slot-1', marketId: 'mkt-1', tokenId: 'tok-1' }],
+      marketSlots: [{ slot: 'slot-1', label: 'Primary market', defaultMarketId: 'mkt-1' }],
     };
     await client.createStrategy(params);
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
@@ -1469,6 +1469,21 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
     expect(body).toHaveProperty('variables');
     expect(body).toHaveProperty('canvas');
     expect(body).toHaveProperty('marketSlots');
+    expect(body.marketSlots).toEqual([{ slot: 'slot-1', label: 'Primary market', defaultMarketId: 'mkt-1' }]);
+    expect(JSON.stringify(body)).not.toContain('slotId');
+    expect(JSON.stringify(body)).not.toContain('tokenId');
+  });
+
+  it('MarketSlot uses platform field names (#204)', () => {
+    const slot: MarketSlot = {
+      slot: 'leg1',
+      label: 'Leg 1',
+      defaultMarketId: 'mkt-1',
+    };
+
+    expect(JSON.stringify({ marketSlots: [slot] })).toBe(
+      '{"marketSlots":[{"slot":"leg1","label":"Leg 1","defaultMarketId":"mkt-1"}]}',
+    );
   });
 
   it('should still work with minimal params (backward compat)', async () => {
