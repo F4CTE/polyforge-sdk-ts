@@ -1581,6 +1581,13 @@ export class PolyforgeClient {
    */
   async executeArb(params: ArbExecuteParams, idempotencyKey: string): Promise<ArbExecutionResult> {
     this.validateFinancialParam('size', params.size);
+    if (params.size < 1) {
+      throw new PolyforgeError({
+        status: 0,
+        code: 'VALIDATION_ERROR',
+        message: 'size must be >= 1',
+      });
+    }
     if (params.size > 10000) {
       throw new PolyforgeError({
         status: 0,

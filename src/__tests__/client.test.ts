@@ -4324,6 +4324,15 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it('executeArb rejects size < 1 client-side without calling fetch', async () => {
+    await expect(client.executeArb({ matchId: 'm', size: 0.5 }, 'arb-key-123')).rejects.toMatchObject({
+      status: 0,
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('>= 1'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('executeArb rejects size > 10000 client-side without calling fetch', async () => {
     await expect(client.executeArb({ matchId: 'm', size: 10001 }, 'arb-key-123')).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
