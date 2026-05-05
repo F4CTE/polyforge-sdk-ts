@@ -659,36 +659,50 @@ describe('StrategyStatusResponse type (#61)', () => {
 });
 
 describe('PaginatedResponse type (#78, #141)', () => {
-  it('should correctly type a paginated strategy response with nested pagination', () => {
+  it('should correctly type a paginated strategy response with flat platform pagination', () => {
     const resp: PaginatedResponse<Strategy> = {
       data: [
         { id: 's1', name: 'Alpha', status: 'IDLE' as StrategyStatus, visibility: 'PRIVATE', execMode: 'TICK', tickMs: 1000, triggers: [], conditions: [], actions: [], safety: [], logicBlocks: [], calcBlocks: [], tags: [], variables: [], pnl: 0, tradeCount: 0, winRate: 0, createdAt: '', updatedAt: '' },
       ],
-      pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+      total: 1,
+      page: 1,
+      limit: 10,
+      totalPages: 1,
+      hasNext: false,
     };
     expect(resp.data).toHaveLength(1);
     expect(resp.data[0].id).toBe('s1');
-    expect(resp.pagination.total).toBe(1);
-    expect(resp.pagination.page).toBe(1);
-    expect(resp.pagination.limit).toBe(10);
-    expect(resp.pagination.totalPages).toBe(1);
+    expect(resp.total).toBe(1);
+    expect(resp.page).toBe(1);
+    expect(resp.limit).toBe(10);
+    expect(resp.totalPages).toBe(1);
+    expect(resp.hasNext).toBe(false);
+    expect(resp).not.toHaveProperty('pagination');
   });
 
   it('should have correct shape for empty response', () => {
     const resp: PaginatedResponse<Strategy> = {
       data: [],
-      pagination: { total: 0, page: 1, limit: 10, totalPages: 0 },
+      total: 0,
+      page: 1,
+      limit: 10,
+      totalPages: 0,
+      hasNext: false,
     };
     expect(resp.data).toHaveLength(0);
-    expect(resp.pagination.total).toBe(0);
+    expect(resp.total).toBe(0);
   });
 
-  it('should not have hasNext field (not part of platform contract)', () => {
+  it('should expose hasNext from the platform contract', () => {
     const resp: PaginatedResponse<Strategy> = {
       data: [],
-      pagination: { total: 0, page: 1, limit: 10, totalPages: 0 },
+      total: 0,
+      page: 1,
+      limit: 10,
+      totalPages: 0,
+      hasNext: false,
     };
-    expect((resp as any).hasNext).toBeUndefined();
+    expect(resp.hasNext).toBe(false);
   });
 });
 
@@ -1498,7 +1512,7 @@ describe('Missing query parameters on list methods', () => {
   beforeEach(() => {
     client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
-      new Response(JSON.stringify({ data: [], pagination: { total: 0, page: 1, limit: 10, totalPages: 0 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ data: [], total: 0, page: 1, limit: 10, totalPages: 0, hasNext: false }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
   });
 
@@ -2022,7 +2036,7 @@ describe('Strategy social + versioning endpoints (#54)', () => {
   });
 
   it('listStrategyComments sends GET /api/v1/strategies/:id/comments with pagination', async () => {
-    const resp = { data: [], pagination: { total: 0, page: 1, limit: 20, totalPages: 0 } };
+    const resp = { data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNext: false };
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify(resp), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
@@ -2404,7 +2418,12 @@ describe('Discover and Leaderboard (#66)', () => {
     expect(url.searchParams.has('offset')).toBe(false);
     expect(url.searchParams.has('cursor')).toBe(false);
     expect(result.data[0]!.rank).toBe(51);
-    expect(result.pagination).toEqual({ total: 75, page: 3, limit: 25, totalPages: 3 });
+    expect(result.total).toBe(75);
+    expect(result.page).toBe(3);
+    expect(result.limit).toBe(25);
+    expect(result.totalPages).toBe(3);
+    expect(result.hasNext).toBe(false);
+    expect(result).not.toHaveProperty('pagination');
   });
 });
 
@@ -4101,7 +4120,11 @@ describe('Sports markets endpoints', () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse({
         data: [{ id: 'm1', title: 'Will Lakers win?' }],
-        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+        hasNext: false,
       }),
     );
 
@@ -4130,7 +4153,7 @@ describe('Sports markets endpoints', () => {
     expect(parsed.searchParams.get('liveOnly')).toBe('true');
     expect(parsed.searchParams.get('sort')).toBe('closing_soon');
     expect(result.data).toHaveLength(1);
-    expect(result.pagination.total).toBe(1);
+    expect(result.total).toBe(1);
   });
 
   it('listSportsEvents forwards category, seriesTicker and status', async () => {
@@ -4357,7 +4380,11 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse({
         data: [{ id: 'w1', notional: '15000' }],
-        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+        hasNext: false,
       }),
     );
 
@@ -4381,7 +4408,7 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
     expect(parsed.searchParams.get('page')).toBe('2');
     expect(parsed.searchParams.get('limit')).toBe('50');
     expect(result.data).toHaveLength(1);
-    expect(result.pagination.total).toBe(1);
+    expect(result.total).toBe(1);
   });
 
   it('listJournal forwards mood + pagination', async () => {
@@ -4401,7 +4428,11 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
             createdAt: '2026-05-01T00:00:00Z',
           },
         ],
-        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+        hasNext: false,
       }),
     );
 
@@ -4432,7 +4463,11 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
             sentAt: '2026-05-01T00:00:00Z',
           },
         ],
-        pagination: { page: 1, limit: 50, total: 1, totalPages: 1 },
+        total: 1,
+        page: 1,
+        limit: 50,
+        totalPages: 1,
+        hasNext: false,
       }),
     );
 
@@ -4477,6 +4512,7 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
         page: 2,
         limit: 10,
         totalPages: 1,
+        hasNext: false,
       }),
     );
 
@@ -4489,7 +4525,8 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
     expect(parsed.searchParams.get('page')).toBe('2');
     expect(parsed.searchParams.get('limit')).toBe('10');
     expect(result.data[0].username).toBe('bob');
-    expect(result.pagination).toEqual({ total: 1, page: 2, limit: 10, totalPages: 1 });
+    expect(result).toMatchObject({ total: 1, page: 2, limit: 10, totalPages: 1, hasNext: false });
+    expect(result).not.toHaveProperty('pagination');
   });
 
   it('previewFees POSTs the body to /fees/preview', async () => {
