@@ -1100,8 +1100,11 @@ export class PolyforgeClient {
   }
 
   /** Create a conditional order. */
-  async createConditionalOrder(params: CreateConditionalOrderParams): Promise<ConditionalOrder> {
-    return this.request('POST', '/api/v1/orders/conditional', { body: params });
+  async createConditionalOrder(params: CreateConditionalOrderParams, idempotencyKey: string): Promise<ConditionalOrder> {
+    return this.request('POST', '/api/v1/orders/conditional', {
+      body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
+    });
   }
 
   /** Get a single conditional order by ID. */
@@ -1456,11 +1459,17 @@ export class PolyforgeClient {
 
   /**
    * Place a direct buy or sell order on a prediction market.
+   *
+   * Pass a stable caller-generated `idempotencyKey` and reuse it when retrying
+   * the same order placement request.
    */
-  async placeOrder(params: PlaceOrderParams): Promise<PlaceOrderResponse> {
+  async placeOrder(params: PlaceOrderParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
     this.validateFinancialParam('size', params.size);
     this.validateFinancialParam('price', params.price);
-    return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', { body: params });
+    return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', {
+      body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
+    });
   }
 
   /**
@@ -1473,8 +1482,11 @@ export class PolyforgeClient {
   /**
    * Place multiple orders in a single request (1–15 orders).
    */
-  async placeBatchOrders(orders: PlaceOrderParams[]): Promise<BatchPlaceOrdersResult> {
-    return this.request('POST', '/api/v1/orders/batch', { body: { orders } });
+  async placeBatchOrders(orders: PlaceOrderParams[], idempotencyKey: string): Promise<BatchPlaceOrdersResult> {
+    return this.request('POST', '/api/v1/orders/batch', {
+      body: { orders },
+      headers: this.idempotencyHeaders(idempotencyKey),
+    });
   }
 
   /**
@@ -1487,29 +1499,39 @@ export class PolyforgeClient {
   /**
    * Close an open position (sell all shares at market price).
    */
-  async closePosition(params: ClosePositionParams): Promise<PlaceOrderResponse> {
-    return this.request('POST', '/api/v1/orders/close-position', { body: params });
+  async closePosition(params: ClosePositionParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
+    return this.request('POST', '/api/v1/orders/close-position', {
+      body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
+    });
   }
 
   /**
    * Redeem winning shares after a market resolves.
    */
-  async redeemPosition(params: RedeemPositionParams): Promise<RedeemPositionResponse> {
-    return this.request<RedeemPositionResponse>('POST', '/api/v1/orders/redeem', { body: params });
+  async redeemPosition(params: RedeemPositionParams, idempotencyKey: string): Promise<RedeemPositionResponse> {
+    return this.request<RedeemPositionResponse>('POST', '/api/v1/orders/redeem', {
+      body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
+    });
   }
 
   /**
    * Split a position into smaller positions.
    */
   async splitPosition(params: SplitPositionParams): Promise<PlaceOrderResponse> {
-    return this.request('POST', '/api/v1/orders/split', { body: params });
+    return this.request('POST', '/api/v1/orders/split', {
+      body: params,
+    });
   }
 
   /**
    * Merge multiple positions into one.
    */
   async mergePosition(params: MergePositionParams): Promise<PlaceOrderResponse> {
-    return this.request('POST', '/api/v1/orders/merge', { body: params });
+    return this.request('POST', '/api/v1/orders/merge', {
+      body: params,
+    });
   }
 
   // ── Arbitrage ────────────────────────────────────────────────────────────
@@ -1703,9 +1725,12 @@ export class PolyforgeClient {
   /**
    * Place an advanced smart order (TWAP, DCA, BRACKET, or OCO).
    */
-  async placeSmartOrder(params: PlaceSmartOrderParams): Promise<PlaceSmartOrderResponse> {
+  async placeSmartOrder(params: PlaceSmartOrderParams, idempotencyKey: string): Promise<PlaceSmartOrderResponse> {
     this.validateFinancialParam('totalSize', params.totalSize);
-    return this.request('POST', '/api/v1/orders/smart', { body: params });
+    return this.request('POST', '/api/v1/orders/smart', {
+      body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
+    });
   }
 
   /**
@@ -1826,9 +1851,12 @@ export class PolyforgeClient {
   /**
    * Provide liquidity by placing two-sided quotes on a market token.
    */
-  async provideLiquidity(params: ProvideLiquidityParams): Promise<LpPosition> {
+  async provideLiquidity(params: ProvideLiquidityParams, idempotencyKey: string): Promise<LpPosition> {
     this.validateFinancialParam('amountUsdc', params.amountUsdc);
-    return this.request('POST', '/api/v1/lp/provide', { body: params });
+    return this.request('POST', '/api/v1/lp/provide', {
+      body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
+    });
   }
 
   // ── Rewards ─────────────────────────────────────────────────────────────

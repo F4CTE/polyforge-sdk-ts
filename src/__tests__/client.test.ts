@@ -226,7 +226,7 @@ describe('Platform contract compliance', () => {
       totalSize: 100,
       slices: 5,
       intervalMinutes: 15,
-    });
+    }, 'smart-key-123');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('intervalMinutes', 15);
     expect(body).not.toHaveProperty('intervalSeconds');
@@ -711,11 +711,12 @@ describe('ProvideLiquidityParams uses marketId, not tokenId/spread (#25)', () =>
 
   it('sends { marketId, tokenId, amountUsdc } matching platform ProvideLiquidityDto', async () => {
     const params: ProvideLiquidityParams = { marketId: 'mkt-1', tokenId: 'tok-1', amountUsdc: 100 };
-    await client.provideLiquidity(params);
+    await client.provideLiquidity(params, 'liquidity-key-123');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toEqual({ marketId: 'mkt-1', tokenId: 'tok-1', amountUsdc: 100 });
     expect(body).not.toHaveProperty('size');
     expect(body).not.toHaveProperty('spread');
+    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBe('liquidity-key-123');
   });
 });
 
@@ -992,7 +993,7 @@ describe('CreateConditionalOrderParams matches platform DTO (#49)', () => {
       size: 50,
       triggerPrice: 0.3,
     };
-    await client.createConditionalOrder(params);
+    await client.createConditionalOrder(params, 'conditional-key-123');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('tokenId', 'tok-1');
     expect(body).toHaveProperty('type', 'STOP_LOSS');
@@ -1016,7 +1017,7 @@ describe('CreateConditionalOrderParams matches platform DTO (#49)', () => {
       trailingPct: '5.0',
       expiresAt: '2026-05-01T00:00:00Z',
     };
-    await client.createConditionalOrder(params);
+    await client.createConditionalOrder(params, 'conditional-key-123');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('limitPrice', '0.55');
     expect(body).toHaveProperty('trailingPct', '5.0');
@@ -2714,10 +2715,11 @@ describe('Orders — bulk operations (#156)', () => {
     const stub = { results: [{ orderId: 'o-1', intentId: 'i-1', status: 'PENDING' }] };
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(stub), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     const orders = [{ marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY' as const, outcome: 'YES' as const, size: 10, price: 0.5 }];
-    await client.placeBatchOrders(orders);
+    await client.placeBatchOrders(orders, 'batch-key-123');
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toBe('/api/v1/orders/batch');
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBe('batch-key-123');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('orders');
     expect(Array.isArray(body.orders)).toBe(true);
@@ -2727,10 +2729,11 @@ describe('Orders — bulk operations (#156)', () => {
   it('placeOrder sends POST to /api/v1/orders/place with marketId', async () => {
     const stub = { orderId: 'o-1', intentId: 'i-1', status: 'PENDING' };
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(stub), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    await client.placeOrder({ marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 });
+    await client.placeOrder({ marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 }, 'order-key-123');
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toBe('/api/v1/orders/place');
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBe('order-key-123');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body.marketId).toBe('mkt-1');
     expect(body.tokenId).toBe('tok-1');
@@ -2746,6 +2749,158 @@ describe('Orders — bulk operations (#156)', () => {
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('orderIds');
     expect(body.orderIds).toEqual(['o-1', 'o-2']);
+  });
+});
+
+describe('Trading write idempotency (#208)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  const tradingWrites = [
+    {
+      name: 'placeOrder',
+      path: '/api/v1/orders/place',
+      call: (key: string) => client.placeOrder(
+        { marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 },
+        key,
+      ),
+    },
+    {
+      name: 'placeBatchOrders',
+      path: '/api/v1/orders/batch',
+      call: (key: string) => client.placeBatchOrders(
+        [{ marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 }],
+        key,
+      ),
+    },
+    {
+      name: 'closePosition',
+      path: '/api/v1/orders/close-position',
+      call: (key: string) => client.closePosition({ tokenId: 'tok-1', size: '10' }, key),
+    },
+    {
+      name: 'redeemPosition',
+      path: '/api/v1/orders/redeem',
+      call: (key: string) => client.redeemPosition({ positionId: 'pos-1' }, key),
+    },
+    {
+      name: 'createConditionalOrder',
+      path: '/api/v1/orders/conditional',
+      call: (key: string) => client.createConditionalOrder({
+        marketId: 'mkt-1',
+        tokenId: 'tok-1',
+        type: 'STOP_LOSS',
+        side: 'SELL',
+        outcome: 'YES',
+        size: 50,
+        triggerPrice: 0.3,
+      }, key),
+    },
+    {
+      name: 'placeSmartOrder',
+      path: '/api/v1/orders/smart',
+      call: (key: string) => client.placeSmartOrder({
+        type: 'TWAP',
+        tokenId: 'tok-1',
+        side: 'BUY',
+        outcome: 'YES',
+        totalSize: 100,
+        slices: 5,
+        intervalMinutes: 15,
+      }, key),
+    },
+    {
+      name: 'provideLiquidity',
+      path: '/api/v1/lp/provide',
+      call: (key: string) => client.provideLiquidity(
+        { marketId: 'mkt-1', tokenId: 'tok-1', amountUsdc: 100 },
+        key,
+      ),
+    },
+  ];
+  const unprotectedPositionWrites = [
+    {
+      name: 'splitPosition',
+      path: '/api/v1/orders/split',
+      params: { tokenId: 'tok-1', amount: '10' },
+      call: (params: SplitPositionParams) => client.splitPosition(params),
+    },
+    {
+      name: 'mergePosition',
+      path: '/api/v1/orders/merge',
+      params: { tokenId: 'tok-1', amount: '10' },
+      call: (params: MergePositionParams) => client.mergePosition(params),
+    },
+  ];
+
+  it.each(tradingWrites)('$name sends Idempotency-Key on the protected POST endpoint', async ({ path, call }) => {
+    await call('trade-key-123');
+
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe(path);
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBe('trade-key-123');
+  });
+
+  it.each(tradingWrites)('$name rejects a missing idempotencyKey before fetch', async ({ call }) => {
+    await expect(call(undefined as unknown as string)).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('idempotencyKey'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it.each(tradingWrites)('$name rejects an invalid idempotencyKey before fetch', async ({ call }) => {
+    await expect(call('short')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('idempotencyKey'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('keeps unprotected cancel endpoints free of Idempotency-Key', async () => {
+    await client.cancelOrder('order-1');
+    await client.cancelOrdersBulk(['order-1']);
+    await client.cancelConditionalOrder('conditional-1');
+    await client.cancelSmartOrder('smart-1');
+
+    for (const [, init] of fetchSpy.mock.calls) {
+      expect((init!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
+    }
+  });
+
+  it.each(unprotectedPositionWrites)('$name sends POST without Idempotency-Key until the API protects it', async ({ path, params, call }) => {
+    await call(params);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(new URL(fetchSpy.mock.calls[0][0] as string).pathname).toBe(path);
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
+  });
+
+  it.each(unprotectedPositionWrites)('$name forwards the position body without idempotency fields', async ({ params, call }) => {
+    await call(params);
+
+    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual(params);
+    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).not.toHaveProperty('idempotencyKey');
+  });
+
+  it.each(unprotectedPositionWrites)('$name ignores accidental extra key arguments instead of validating them', async ({ params, call }) => {
+    await (call as unknown as (requestParams: SplitPositionParams | MergePositionParams, key: string) => Promise<unknown>)(params, 'short');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
   });
 });
 
@@ -3024,7 +3179,7 @@ describe('redeemPosition return type (#152)', () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify(redeemResponse), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
-    const result = await client.redeemPosition({ positionId: 'pos-1' });
+    const result = await client.redeemPosition({ positionId: 'pos-1' }, 'redeem-key-123');
     expect(result).toHaveProperty('positionId', 'pos-1');
     expect(result).toHaveProperty('intentId', 'int-1');
     expect(result).not.toHaveProperty('orderId');
