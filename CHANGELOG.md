@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- `getMyFollowing(params?)` — `GET /api/v1/users/me/following`; lists users
+  followed by the authenticated user with normalized pagination. Adds exported
+  `FollowedUser` and `GetMyFollowingParams` types.
 - `getPlatformActions()` / `getActions()` — `GET /api/v1/actions`; fetches the
   public platform capability manifest for API/tooling discovery. Adds exported
   `ActionsSchema`, `ActionDefinition`, and `ActionParameter` types.

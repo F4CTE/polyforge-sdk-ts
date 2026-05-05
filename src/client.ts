@@ -120,7 +120,9 @@ import type {
   PublicProfile,
   UpdateProfileParams,
   ChangePasswordParams,
+  FollowedUser,
   FollowResult,
+  GetMyFollowingParams,
   UpdateSettingsProfileParams,
   NotificationSettings,
   UpdateNotificationSettingsParams,
@@ -1877,6 +1879,15 @@ export class PolyforgeClient {
   /** Follow or unfollow a user by username. Returns the new follow state. */
   async followUser(username: string): Promise<FollowResult> {
     return this.request('POST', `/api/v1/profile/${encodeURIComponent(username)}/follow`);
+  }
+
+  /** List users followed by the authenticated user. */
+  async getMyFollowing(params?: GetMyFollowingParams): Promise<PaginatedResponse<FollowedUser>> {
+    const response = await this.request<
+      PaginatedResponse<FollowedUser> | PlatformPaginatedResponse<FollowedUser>
+    >('GET', '/api/v1/users/me/following', { query: params as Record<string, unknown> });
+
+    return normalizePaginatedResponse(response);
   }
 
   // ── Settings ─────────────────────────────────────────────────────────────
