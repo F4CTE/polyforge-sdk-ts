@@ -31,6 +31,8 @@ export type {
   CreateConditionalOrderParams,
   CreateStrategyParams,
   DiscoverParams,
+  ImportStrategyBlock,
+  ImportStrategyBlocks,
   ImportStrategyParams,
   LeaderboardParams,
   ImportStrategyPayload,

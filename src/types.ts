@@ -343,13 +343,25 @@ export interface UpdateStrategyParams {
 export interface ImportStrategyPayload {
   name: string;
   description?: string;
-  triggers?: StrategyBlock[];
-  conditions?: StrategyBlock[];
-  actions?: StrategyBlock[];
-  safety?: StrategyBlock[];
-  logicBlocks?: StrategyBlock[];
-  calcBlocks?: StrategyBlock[];
-  marketId?: string;
+  execMode?: StrategyExecMode;
+  tickMs?: number;
+  visibility?: StrategyVisibility;
+  tags?: string[];
+  variables?: StrategyVariable[];
+  blocks?: ImportStrategyBlocks;
+  canvas?: Record<string, unknown>;
+}
+
+export interface ImportStrategyBlocks {
+  triggers?: ImportStrategyBlock[];
+  conditions?: ImportStrategyBlock[];
+  actions?: ImportStrategyBlock[];
+  safety?: ImportStrategyBlock[];
+}
+
+export interface ImportStrategyBlock {
+  type: string;
+  config?: Record<string, unknown>;
 }
 
 export interface ImportStrategyParams {
