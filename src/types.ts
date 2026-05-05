@@ -315,9 +315,9 @@ export interface CreateStrategyParams {
 }
 
 export interface MarketSlot {
-  slotId: string;
-  marketId: string;
-  tokenId?: string;
+  slot: string;
+  label?: string;
+  defaultMarketId?: string;
 }
 
 export interface UpdateStrategyParams {
