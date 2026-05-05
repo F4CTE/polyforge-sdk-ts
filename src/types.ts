@@ -1418,6 +1418,19 @@ export interface FollowResult {
   followersCount: number;
 }
 
+export interface FollowedUser {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
+export interface GetMyFollowingParams {
+  page?: number;
+  /** 1-100. Defaults to 20 server-side. */
+  limit?: number;
+}
+
 // ── Settings ────────────────────────────────────────────────────────────────
 
 export interface UpdateSettingsProfileParams {

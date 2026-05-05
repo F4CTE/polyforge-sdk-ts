@@ -4031,6 +4031,36 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
     expect(result).toEqual(payload);
   });
 
+  it('getMyFollowing GETs /users/me/following and normalizes platform pagination', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        data: [
+          {
+            id: 'user-2',
+            username: 'bob',
+            displayName: 'Bob',
+            avatarUrl: null,
+          },
+        ],
+        total: 1,
+        page: 2,
+        limit: 10,
+        totalPages: 1,
+      }),
+    );
+
+    const result = await client.getMyFollowing({ page: 2, limit: 10 });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const parsed = new URL(url);
+
+    expect(init.method).toBe('GET');
+    expect(parsed.pathname).toBe('/api/v1/users/me/following');
+    expect(parsed.searchParams.get('page')).toBe('2');
+    expect(parsed.searchParams.get('limit')).toBe('10');
+    expect(result.data[0].username).toBe('bob');
+    expect(result.pagination).toEqual({ total: 1, page: 2, limit: 10, totalPages: 1 });
+  });
+
   it('previewFees POSTs the body to /fees/preview', async () => {
     const responseBody = {
       polymarket: { venue: 'POLYMARKET', feeBps: 200, feeUsd: 1, totalCostUsd: 51, isMaker: false },
@@ -4284,6 +4314,7 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
     ['listJournal', (c) => c.listJournal()],
     ['listNotifications', (c) => c.listNotifications()],
     ['getMyReferrals', (c) => c.getMyReferrals()],
+    ['getMyFollowing', (c) => c.getMyFollowing()],
     ['previewFees', (c) =>
       c.previewFees({ tokenId: 't', side: 'BUY', size: 1, price: 0.5 })],
     ['getFeeSchedules', (c) => c.getFeeSchedules()],
