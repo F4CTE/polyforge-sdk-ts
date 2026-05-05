@@ -1162,6 +1162,25 @@ export interface Rebate {
   feesPaid: string;
 }
 
+export interface RewardsMarketDetail {
+  conditionId: string;
+  rate_per_day: string;
+  total_rewards: string;
+  remaining_reward_amount: string;
+  max_spread: string;
+  min_size: string;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface UserSponsoredMarkets {
+  markets: Array<Record<string, unknown>>;
+}
+
+export interface RewardsSponsorUrl {
+  url: string;
+}
+
 // ── Cross-Venue Arbitrage ──────────────────────────────────────────────────
 
 export interface CrossVenueOpportunity {
