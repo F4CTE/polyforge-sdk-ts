@@ -1438,8 +1438,9 @@ export class PolyforgeClient {
   async placeOrder(params: PlaceOrderParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
     this.validateFinancialParam('size', params.size);
     this.validateFinancialParam('price', params.price);
+    const { marketId: _marketId, ...body } = params as PlaceOrderParams & { marketId?: unknown };
     return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', {
-      body: params,
+      body,
       headers: this.idempotencyHeaders(idempotencyKey),
     });
   }
@@ -1455,8 +1456,12 @@ export class PolyforgeClient {
    * Place multiple orders in a single request (1–15 orders).
    */
   async placeBatchOrders(orders: PlaceOrderParams[], idempotencyKey: string): Promise<BatchPlaceOrdersResult> {
+    const bodyOrders = orders.map((order) => {
+      const { marketId: _marketId, ...body } = order as PlaceOrderParams & { marketId?: unknown };
+      return body;
+    });
     return this.request('POST', '/api/v1/orders/batch', {
-      body: { orders },
+      body: { orders: bodyOrders },
       headers: this.idempotencyHeaders(idempotencyKey),
     });
   }

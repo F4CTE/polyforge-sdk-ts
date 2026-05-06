@@ -93,6 +93,11 @@
   Many response payloads are intentionally weakly typed (`Record<string, unknown>` / `unknown[]`) because the upstream Kalshi proxies forward arbitrary JSON; the SDK mirrors controller fidelity rather than inventing strict types that would drift. All path segments are URL-encoded.
 
 ### Fixed
+- **BREAKING** `PlaceOrderParams`: remove `marketId` from direct order
+  payloads to match the platform `PlaceOrderDto`; `placeOrder()` and
+  `placeBatchOrders()` now strip legacy runtime `marketId` keys before
+  sending requests because the platform derives the market from `tokenId`
+  and rejects extra fields. (closes #203, regression of #142)
 - **`ImportStrategyParams` block nesting** — moved import block arrays under
   `strategy.blocks` and removed unsupported top-level `triggers`,
   `conditions`, `actions`, `safety`, `logicBlocks`, `calcBlocks`, and

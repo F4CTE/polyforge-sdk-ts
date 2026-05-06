@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -2745,7 +2745,7 @@ describe('Orders — bulk operations (#156)', () => {
 
   afterEach(() => { fetchSpy.mockRestore(); });
 
-  it('placeBatchOrders sends POST to /api/v1/orders/batch with orders array', async () => {
+  it('placeBatchOrders strips marketId from each order payload', async () => {
     const stub = { results: [{ orderId: 'o-1', intentId: 'i-1', status: 'PENDING' }] };
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(stub), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     const orders = [{ marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY' as const, outcome: 'YES' as const, size: 10, price: 0.5 }];
@@ -2758,18 +2758,20 @@ describe('Orders — bulk operations (#156)', () => {
     expect(body).toHaveProperty('orders');
     expect(Array.isArray(body.orders)).toBe(true);
     expect(body.orders[0].tokenId).toBe('tok-1');
+    expect(body.orders[0]).not.toHaveProperty('marketId');
   });
 
-  it('placeOrder sends POST to /api/v1/orders/place with marketId', async () => {
+  it('placeOrder strips marketId from the request body', async () => {
     const stub = { orderId: 'o-1', intentId: 'i-1', status: 'PENDING' };
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(stub), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    await client.placeOrder({ marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 }, 'order-key-123');
+    const legacyParams = { marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY' as const, outcome: 'YES' as const, size: 10, price: 0.5 };
+    await client.placeOrder(legacyParams, 'order-key-123');
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toBe('/api/v1/orders/place');
     expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
     expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBe('order-key-123');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body.marketId).toBe('mkt-1');
+    expect(body).not.toHaveProperty('marketId');
     expect(body.tokenId).toBe('tok-1');
   });
 
@@ -2806,7 +2808,7 @@ describe('Trading write idempotency (#208)', () => {
       name: 'placeOrder',
       path: '/api/v1/orders/place',
       call: (key: string) => client.placeOrder(
-        { marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 },
+        { marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 } as PlaceOrderParams & { marketId: string },
         key,
       ),
     },
@@ -2814,7 +2816,7 @@ describe('Trading write idempotency (#208)', () => {
       name: 'placeBatchOrders',
       path: '/api/v1/orders/batch',
       call: (key: string) => client.placeBatchOrders(
-        [{ marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 }],
+        [{ marketId: 'mkt-1', tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 } as PlaceOrderParams & { marketId: string }],
         key,
       ),
     },
