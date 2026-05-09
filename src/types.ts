@@ -1433,6 +1433,46 @@ export interface FollowResult {
   followersCount: number;
 }
 
+// ── Public User Profile Lookups ─────────────────────────────────────────────
+
+/** Single point on a public user's PnL curve. Date is `YYYY-MM-DD`. */
+export interface UserPerformancePoint {
+  date: string;
+  pnl: number;
+  cumPnl: number;
+}
+
+/** Public summary of one of a user's strategies. */
+export interface UserStrategySummary {
+  id: string;
+  name: string;
+  description: string;
+  winRate: number;
+  tradeCount: number;
+  priceUsdc: number;
+  forkCount: number;
+  likeCount: number;
+  isLiked: boolean;
+}
+
+/** Resolved-position activity entry shown on a user's profile. */
+export interface UserActivityEntry {
+  id: string;
+  marketQuestion: string;
+  outcome: string;
+  side: string;
+  size: number;
+  pnl: number;
+  resolvedAt: string;
+}
+
+/** Badge entry returned by the public-profile endpoint (id is the badge type). */
+export interface UserProfileBadge {
+  id: string;
+  unlockedAt: string;
+}
+
+/** Pared-down user record returned by `me/following`. */
 export interface FollowedUser {
   id: string;
   username: string;

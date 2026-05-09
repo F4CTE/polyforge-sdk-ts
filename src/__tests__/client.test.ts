@@ -5143,3 +5143,173 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
     expect(result.updated).toBe(3);
   });
 });
+
+// ── Public User Profile Lookups (POLA-1844) ─────────────────────────────────
+
+describe('Public user profile lookups', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+  });
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+
+  it('getUserPerformance unwraps {data} and forwards period as a query param', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: [{ date: '2026-04-01', pnl: 12.5, cumPnl: 12.5 }] }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const result = await client.getUserPerformance('alice', '7d');
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(init.method).toBe('GET');
+    expect(url).toContain('/api/v1/users/alice/performance');
+    expect(url).toContain('period=7d');
+    expect(result).toEqual([{ date: '2026-04-01', pnl: 12.5, cumPnl: 12.5 }]);
+  });
+
+  it('getUserPerformance defaults period to 30d', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await client.getUserPerformance('bob');
+    const [url] = fetchSpy.mock.calls[0] as [string];
+    expect(url).toContain('period=30d');
+  });
+
+  it('getUserStrategies unwraps {data} and forwards visibility/limit', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [{
+            id: 's1', name: 'Strat', description: 'd', winRate: 0,
+            tradeCount: 3, priceUsdc: 0, forkCount: 1, likeCount: 2, isLiked: false,
+          }],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const result = await client.getUserStrategies('alice', { visibility: 'PUBLIC', limit: 10 });
+    const [url] = fetchSpy.mock.calls[0] as [string];
+
+    expect(url).toContain('/api/v1/users/alice/strategies');
+    expect(url).toContain('visibility=PUBLIC');
+    expect(url).toContain('limit=10');
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('s1');
+  });
+
+  it('getUserStrategies omits query params when no options given', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await client.getUserStrategies('alice');
+    const [url] = fetchSpy.mock.calls[0] as [string];
+    expect(new URL(url).search).toBe('');
+  });
+
+  it('getUserActivity unwraps {data} and forwards limit', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [{
+            id: 'p1', marketQuestion: 'Will it rain?', outcome: 'YES',
+            side: 'YES', size: 100, pnl: 5, resolvedAt: '2026-04-01T00:00:00.000Z',
+          }],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const result = await client.getUserActivity('alice', { limit: 3 });
+    const [url] = fetchSpy.mock.calls[0] as [string];
+
+    expect(url).toContain('/api/v1/users/alice/activity');
+    expect(url).toContain('limit=3');
+    expect(result[0].id).toBe('p1');
+  });
+
+  it('getUserBadgesByUsername unwraps {data}', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: [{ id: 'EARLY_ADOPTER', unlockedAt: '2026-01-01T00:00:00.000Z' }] }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const result = await client.getUserBadgesByUsername('alice');
+    const [url] = fetchSpy.mock.calls[0] as [string];
+
+    expect(url).toContain('/api/v1/users/alice/badges');
+    expect(result).toEqual([{ id: 'EARLY_ADOPTER', unlockedAt: '2026-01-01T00:00:00.000Z' }]);
+  });
+
+  it('getMyFollowing returns full PaginatedResponse and forwards page/limit', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [{ id: 'u1', username: 'alice', displayName: 'Alice', avatarUrl: null }],
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+          hasNext: false,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const result = await client.getMyFollowing({ page: 1, limit: 20 });
+    const [url] = fetchSpy.mock.calls[0] as [string];
+
+    expect(url).toContain('/api/v1/users/me/following');
+    expect(url).toContain('page=1');
+    expect(url).toContain('limit=20');
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].username).toBe('alice');
+    expect(result.total).toBe(1);
+    expect(result.page).toBe(1);
+    expect(result.limit).toBe(20);
+    expect(result.totalPages).toBe(1);
+    expect(result.hasNext).toBe(false);
+  });
+
+  it('username path segment is URL-encoded', async () => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await client.getUserBadgesByUsername('john doe');
+    const [url] = fetchSpy.mock.calls[0] as [string];
+    expect(url).toContain('/api/v1/users/john%20doe/badges');
+  });
+
+  it.each([
+    ['getUserPerformance', (c: PolyforgeClient) => c.getUserPerformance('ghost')],
+    ['getUserStrategies', (c: PolyforgeClient) => c.getUserStrategies('ghost')],
+    ['getUserActivity', (c: PolyforgeClient) => c.getUserActivity('ghost')],
+    ['getUserBadgesByUsername', (c: PolyforgeClient) => c.getUserBadgesByUsername('ghost')],
+  ])('%s surfaces 404 NOT_FOUND as PolyforgeError', async (_name, call) => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ code: 'NOT_FOUND', message: 'User not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    await expect(call(client)).rejects.toMatchObject({
+      status: 404,
+      code: 'NOT_FOUND',
+    });
+  });
+});

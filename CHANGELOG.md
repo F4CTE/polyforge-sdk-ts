@@ -91,6 +91,14 @@
   - `lookupSportsCombo({ collectionTicker, selectedMarkets })` → `{ eventTicker, marketTicker } | null`
 
   Many response payloads are intentionally weakly typed (`Record<string, unknown>` / `unknown[]`) because the upstream Kalshi proxies forward arbitrary JSON; the SDK mirrors controller fidelity rather than inventing strict types that would drift. All path segments are URL-encoded.
+- **Public user profile lookups (POLA-1844)** — five endpoints backing the public profile / leaderboard UX:
+  - `getUserPerformance(username, period?)` → `UserPerformancePoint[]` (PnL curve, default `period="30d"`).
+  - `getUserStrategies(username, { visibility?, limit? }?)` → `UserStrategySummary[]` (visibility defaults to `PUBLIC`, server caps `limit` at 50).
+  - `getUserActivity(username, { limit? }?)` → `UserActivityEntry[]` (resolved positions, server caps `limit` at 50).
+  - `getUserBadgesByUsername(username)` → `UserProfileBadge[]`.
+  - `getMyFollowing({ page?, limit? }?)` → `PaginatedResponse<FollowedUser>` (authenticated users only).
+
+  All four public-profile endpoints throw a `PolyforgeError` with `status: 404` / `code: "NOT_FOUND"` when the username does not exist. The `username` path segment is URL-encoded.
 
 ### Fixed
 - **BREAKING** `PlaceOrderParams`: remove `marketId` from direct order
