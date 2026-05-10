@@ -1702,9 +1702,8 @@ export class PolyforgeClient {
    * Rate-limited to 5 requests per minute per user. Exceeding the limit returns
    * HTTP 429.
    *
-   * Returns `{ status: 'CLOSING', positionId }` immediately; the position
-   * transitions to `CLOSED` asynchronously. Poll `getArbPosition(id)` to
-   * confirm final status.
+   * Returns `{ status: 'CLOSING', positionId }`. Callers can poll
+   * `getArbPosition(id)` to inspect the current position status.
    */
   async closeArbPosition(id: string, idempotencyKey: string): Promise<ArbCloseResponse> {
     return this.request('POST', `/api/v1/arbitrage/positions/${encodeURIComponent(id)}/close`, {

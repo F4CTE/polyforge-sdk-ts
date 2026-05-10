@@ -8,8 +8,7 @@
   book as market-equivalent orders. `executeArb` and `closeArbPosition`
   docstrings now call out the 5 req/min/user rate limit (429), required
   `Idempotency-Key` header (8–128 chars), and `matchId` UUID validation (400
-  on non-UUID). The `closeArbPosition` docstring also documents the async
-  CLOSING → CLOSED lifecycle.
+  on non-UUID).
 
 ### Added
 - Rewards residual coverage: `getMarketRewardsDetail(marketId)` for
