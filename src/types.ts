@@ -1267,10 +1267,14 @@ export interface CreateArbitrageAlertParams {
 // ── Cross-Venue Arb Execution / Positions / Risk (POLA-1850) ────────────────
 //
 // Trading-impact surface: `executeArb` and `closeArbPosition` place real orders
-// on Polymarket and Kalshi. Backend error codes (VENUES_NOT_CONNECTED,
-// MATCH_NOT_FOUND, COMPARISON_UNAVAILABLE, SPREAD_TOO_LOW, TOKEN_RESOLUTION_FAILED,
-// ARB_POSITION_NOT_FOUND, INVALID_STATUS) are passed through verbatim via
-// PolyforgeError.code.
+// on Polymarket and Kalshi. Both endpoints are rate-limited to 5 requests per
+// minute per user (HTTP 429 on exceed). `closeArbPosition` uses sweep semantics:
+// GTC orders priced at extreme tick boundaries (0.001 SELL / 0.999 BUY) behave
+// as market-order sweeps — slippage is bounded only by venue depth, not by the
+// on-paper price. `matchId` is UUID-validated server-side. Backend error codes
+// (VENUES_NOT_CONNECTED, MATCH_NOT_FOUND, COMPARISON_UNAVAILABLE,
+// SPREAD_TOO_LOW, TOKEN_RESOLUTION_FAILED, ARB_POSITION_NOT_FOUND,
+// INVALID_STATUS) are passed through verbatim via `PolyforgeError.code`.
 
 export type ArbPositionStatus =
   | 'PENDING'

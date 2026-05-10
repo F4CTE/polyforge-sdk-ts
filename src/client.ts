@@ -1609,15 +1609,27 @@ export class PolyforgeClient {
   //
   // Trading-impact surface. `executeArb` and `closeArbPosition` place real
   // orders on Polymarket and Kalshi. The client never auto-retries — there is
-  // no retry layer; each request is a single attempt. Backend error codes
+  // no retry layer; each request is a single attempt. Both endpoints are rate-
+  // limited to 5 requests per minute per user; exceeding the limit returns HTTP
+  // 429. `executeArb` validates `matchId` as a UUID server-side — non-UUID
+  // values surface as `VALIDATION_ERROR` (400). Backend error codes
   // (VENUES_NOT_CONNECTED, MATCH_NOT_FOUND, COMPARISON_UNAVAILABLE,
   // SPREAD_TOO_LOW, TOKEN_RESOLUTION_FAILED, ARB_POSITION_NOT_FOUND,
   // INVALID_STATUS) surface verbatim on `PolyforgeError.code`.
 
   /**
    * Execute a cross-venue arbitrage trade (real orders on Polymarket and Kalshi).
-   * Pass a stable caller-generated `idempotencyKey` and reuse it when retrying
-   * the same execution attempt.
+   *
+   * Requires an `idempotencyKey` (8–128 chars). Pass a stable caller-generated
+   * key and reuse it when retrying the same execution attempt. The key is sent
+   * as the `Idempotency-Key` header.
+   *
+   * `matchId` must be a valid UUID — the server validates this and returns
+   * `VALIDATION_ERROR` (400) for non-UUID values.
+   *
+   * Rate-limited to 5 requests per minute per user. Exceeding the limit returns
+   * HTTP 429.
+   *
    * Validates `size` ∈ [1, 10000] and `maxSlippagePct` ∈ [0, 5] client-side
    * before the request, mirroring the server's class-validator bounds.
    */
@@ -1677,8 +1689,22 @@ export class PolyforgeClient {
 
   /**
    * Close an open cross-venue arbitrage position (real reverse orders).
-   * Pass a stable caller-generated `idempotencyKey` and reuse it when retrying
-   * the same close attempt.
+   *
+   * Sweep semantics: the close places GTC limit orders priced at extreme tick
+   * boundaries (0.001 SELL / 0.999 BUY) so they sweep the order book like
+   * market orders. Slippage is bounded only by venue depth at call time, not
+   * by the on-paper price. This is not a resting limit order.
+   *
+   * Requires an `idempotencyKey` (8–128 chars). Pass a stable caller-generated
+   * key and reuse it when retrying the same close attempt. The key is sent as
+   * the `Idempotency-Key` header.
+   *
+   * Rate-limited to 5 requests per minute per user. Exceeding the limit returns
+   * HTTP 429.
+   *
+   * Returns `{ status: 'CLOSING', positionId }` immediately; the position
+   * transitions to `CLOSED` asynchronously. Poll `getArbPosition(id)` to
+   * confirm final status.
    */
   async closeArbPosition(id: string, idempotencyKey: string): Promise<ArbCloseResponse> {
     return this.request('POST', `/api/v1/arbitrage/positions/${encodeURIComponent(id)}/close`, {
