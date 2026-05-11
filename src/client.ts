@@ -198,6 +198,7 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_STREAM_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours for long-lived SSE streams
 const MAX_SSE_BUFFER_SIZE = 1_048_576; // 1 MB — prevents memory exhaustion from unbounded SSE payloads
 const MAX_RESPONSE_BODY_SIZE = 10 * 1024 * 1024; // 10 MB — prevents OOM from oversized API responses
+const MAX_GDPR_EXPORT_SIZE = 500 * 1024 * 1024; // 500 MB — GDPR exports can legitimately be large
 
 function trimTrailingSlashes(value: string): string {
   let end = value.length;
@@ -450,26 +451,26 @@ export class PolyforgeClient {
    * Read response body as JSON with size guard.
    * Checks Content-Length first, then enforces the same limit while reading.
    */
-  private async safeJson<R>(response: Response, options?: { skipSizeGuard?: boolean }): Promise<R> {
+  private async safeJson<R>(response: Response, options?: { maxBodySize?: number }): Promise<R> {
     return JSON.parse(await this.readResponseText(response, options)) as R;
   }
 
-  private throwResponseBodyTooLarge(status: number, size: number): never {
+  private throwResponseBodyTooLarge(status: number, size: number, limit: number): never {
     throw new PolyforgeError({
       status,
       code: 'RESPONSE_BODY_TOO_LARGE',
-      message: `Response body too large (${size} bytes, limit ${MAX_RESPONSE_BODY_SIZE})`,
+      message: `Response body too large (${size} bytes, limit ${limit})`,
     });
   }
 
-  private async readResponseText(response: Response, options?: { skipSizeGuard?: boolean }): Promise<string> {
-    if (!(options?.skipSizeGuard)) {
-      const cl = response.headers.get('content-length');
-      if (cl) {
-        const size = parseInt(cl, 10);
-        if (!Number.isNaN(size) && size > MAX_RESPONSE_BODY_SIZE) {
-          this.throwResponseBodyTooLarge(response.status, size);
-        }
+  private async readResponseText(response: Response, options?: { maxBodySize?: number }): Promise<string> {
+    const limit = options?.maxBodySize ?? MAX_RESPONSE_BODY_SIZE;
+
+    const cl = response.headers.get('content-length');
+    if (cl) {
+      const size = parseInt(cl, 10);
+      if (!Number.isNaN(size) && size > limit) {
+        this.throwResponseBodyTooLarge(response.status, size, limit);
       }
     }
 
@@ -490,9 +491,9 @@ export class PolyforgeClient {
         }
 
         size += value.byteLength;
-        if (!(options?.skipSizeGuard) && size > MAX_RESPONSE_BODY_SIZE) {
+        if (size > limit) {
           await reader.cancel().catch(() => undefined);
-          this.throwResponseBodyTooLarge(response.status, size);
+          this.throwResponseBodyTooLarge(response.status, size, limit);
         }
 
         body += decoder.decode(value, { stream: true });
@@ -507,7 +508,7 @@ export class PolyforgeClient {
   private async request<T>(
     method: string,
     path: string,
-    options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string>; skipSizeGuard?: boolean },
+    options?: { body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string>; maxBodySize?: number },
   ): Promise<T> {
     const url = new URL(`${this.baseUrl}${path}`);
 
@@ -541,7 +542,7 @@ export class PolyforgeClient {
     if (!response.ok) {
       let errorBody: { code?: string; message?: string; requestId?: string; suggestion?: string } = {};
       try {
-        errorBody = await this.safeJson<typeof errorBody>(response);
+        errorBody = await this.safeJson<typeof errorBody>(response, { maxBodySize: options?.maxBodySize });
       } catch (e) {
         if (e instanceof PolyforgeError) throw e; // re-throw size guard errors
         // Body may not be JSON
@@ -561,7 +562,7 @@ export class PolyforgeClient {
       return undefined as T;
     }
 
-    return this.safeJson<T>(response, { skipSizeGuard: options?.skipSizeGuard });
+    return this.safeJson<T>(response, { maxBodySize: options?.maxBodySize });
   }
 
   private idempotencyHeaders(idempotencyKey: string): Record<string, string> {
@@ -589,7 +590,7 @@ export class PolyforgeClient {
   private async requestText(
     method: string,
     path: string,
-    options?: { query?: Record<string, unknown>; skipSizeGuard?: boolean },
+    options?: { query?: Record<string, unknown>; maxBodySize?: number },
   ): Promise<string> {
     const url = new URL(`${this.baseUrl}${path}`);
 
@@ -612,7 +613,7 @@ export class PolyforgeClient {
     if (!response.ok) {
       let errorBody: { code?: string; message?: string; requestId?: string; suggestion?: string } = {};
       try {
-        errorBody = await this.safeJson<typeof errorBody>(response);
+        errorBody = await this.safeJson<typeof errorBody>(response, { maxBodySize: options?.maxBodySize });
       } catch (e) {
         if (e instanceof PolyforgeError) throw e; // re-throw size guard errors
         // Body may not be JSON
@@ -627,7 +628,7 @@ export class PolyforgeClient {
       });
     }
 
-    return this.readResponseText(response, { skipSizeGuard: options?.skipSizeGuard });
+    return this.readResponseText(response, { maxBodySize: options?.maxBodySize });
   }
 
   // ── Markets ─────────────────────────────────────────────────────────────
@@ -973,11 +974,12 @@ export class PolyforgeClient {
   async exportPersonalData(format?: 'json'): Promise<PersonalDataExport>;
   async exportPersonalData(format: 'csv'): Promise<string>;
   async exportPersonalData(format: 'json' | 'csv'): Promise<PersonalDataExport | string>;
+  async exportPersonalData(format?: 'json' | 'csv'): Promise<PersonalDataExport | string>;
   async exportPersonalData(format: 'json' | 'csv' = 'json'): Promise<PersonalDataExport | string> {
     if (format === 'csv') {
-      return this.requestText('GET', '/api/v1/me/export', { query: { format: 'csv' }, skipSizeGuard: true });
+      return this.requestText('GET', '/api/v1/me/export', { query: { format: 'csv' }, maxBodySize: MAX_GDPR_EXPORT_SIZE });
     }
-    return this.request<PersonalDataExport>('GET', '/api/v1/me/export', { skipSizeGuard: true });
+    return this.request<PersonalDataExport>('GET', '/api/v1/me/export', { maxBodySize: MAX_GDPR_EXPORT_SIZE });
   }
 
   // ── Social & Signals ────────────────────────────────────────────────────
