@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Changed
+- **POLA-3691 compatibility audit** — re-verified all 21 endpoint paths
+  from GitHub issue #220 against platform NestJS controllers. All paths,
+  methods, and controller prefixes already match the platform. No code
+  changes required. Prior audits (POLA-3203, POLA-3679) reached the same
+  conclusion. 432 tests pass, typecheck clean.
 - **POLA-1956 docstring update** — `closeArbPosition` sweep semantics
   documented: GTC limit orders at 0.001/0.999 tick boundaries sweep the order
   book as market-equivalent orders. `executeArb` and `closeArbPosition`
