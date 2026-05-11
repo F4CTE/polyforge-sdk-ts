@@ -972,6 +972,7 @@ export class PolyforgeClient {
    */
   async exportPersonalData(format?: 'json'): Promise<PersonalDataExport>;
   async exportPersonalData(format: 'csv'): Promise<string>;
+  async exportPersonalData(format: 'json' | 'csv'): Promise<PersonalDataExport | string>;
   async exportPersonalData(format: 'json' | 'csv' = 'json'): Promise<PersonalDataExport | string> {
     if (format === 'csv') {
       return this.requestText('GET', '/api/v1/me/export', { query: { format: 'csv' }, skipSizeGuard: true });
