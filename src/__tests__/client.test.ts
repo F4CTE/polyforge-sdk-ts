@@ -4837,6 +4837,66 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
   });
 });
 
+// ── GDPR Personal Data Export (#222) ───────────────────────────────────────
+
+describe('GDPR Personal Data Export (#222)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('exportPersonalData (default JSON) calls GET /api/v1/me/export', async () => {
+    const exportData = {
+      generatedAt: '2026-05-11T00:00:00.000Z',
+      formatVersion: '2026-05-privacy-export-v1',
+      _meta: { truncatedCollections: [], maxRecordsPerCollection: 1000 },
+      account: { id: 'u-1', username: 'testuser' },
+      settings: {},
+      security: {},
+      trading: {},
+      communications: {},
+      social: {},
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(exportData), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.exportPersonalData();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/me/export');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result).toEqual(exportData);
+  });
+
+  it('exportPersonalData with format=csv calls GET /api/v1/me/export?format=csv and returns string', async () => {
+    const csvData = 'section,index,data_json\naccount,0,"{""id"":""u-1""}"';
+    fetchSpy.mockResolvedValueOnce(
+      new Response(csvData, { status: 200, headers: { 'Content-Type': 'text/csv' } }),
+    );
+    const result = await client.exportPersonalData('csv');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/me/export');
+    expect(url.searchParams.get('format')).toBe('csv');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result).toBe(csvData);
+  });
+
+  it('exportPersonalData CSV throws PolyforgeError on failure', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: 'UNAUTHORIZED', message: 'Invalid token' }), { status: 401, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await expect(client.exportPersonalData('csv')).rejects.toThrow('Invalid token');
+  });
+});
+
 // ── Cross-Venue Arb Execution / Positions / Risk (POLA-1850) ────────────────
 
 describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', () => {

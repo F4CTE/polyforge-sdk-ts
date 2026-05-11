@@ -1963,6 +1963,21 @@ export interface SportsComboLookupResult {
   marketTicker: string;
 }
 
+// ── GDPR Personal Data Export ───────────────────────────────────────────────
+
+/** Top-level JSON response shape for `GET /api/v1/me/export`. */
+export interface PersonalDataExport {
+  generatedAt: string;
+  formatVersion: string;
+  _meta: { truncatedCollections: string[]; maxRecordsPerCollection: number };
+  account: Record<string, unknown>;
+  settings: Record<string, unknown>;
+  security: Record<string, unknown>;
+  trading: Record<string, unknown>;
+  communications: Record<string, unknown>;
+  social: Record<string, unknown>;
+}
+
 // ── Client Options ──────────────────────────────────────────────────────────
 
 export interface PolyforgeClientOptions {

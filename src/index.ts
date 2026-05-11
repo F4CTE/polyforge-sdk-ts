@@ -55,6 +55,7 @@ export type {
   OrderType,
   PaginatedResponse,
   PaperSummary,
+  PersonalDataExport,
   PlaceOrderParams,
   RateListingParams,
   PlaceOrderResponse,

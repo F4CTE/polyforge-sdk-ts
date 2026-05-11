@@ -41,6 +41,7 @@ import type {
   Order,
   PaginatedResponse,
   PaperSummary,
+  PersonalDataExport,
   PlaceOrderParams,
   PlaceOrderResponse,
   PlaceSmartOrderParams,
@@ -952,6 +953,28 @@ export class PolyforgeClient {
    */
   async exportPortfolioCsv(): Promise<string> {
     return this.requestText('GET', '/api/v1/portfolio/export/csv');
+  }
+
+  // ── GDPR Personal Data Export ───────────────────────────────────────────
+
+  /**
+   * Export the authenticated user's personal data as required by GDPR.
+   *
+   * With `format: 'csv'`, returns the raw CSV string. With `format: 'json'`
+   * (the default), returns a parsed {@link PersonalDataExport} object
+   * organised into `account`, `settings`, `security`, `trading`,
+   * `communications`, and `social` sections.
+   *
+   * The server responds with a `Content-Disposition: attachment` header
+   * so the result is suitable for file download in either format.
+   */
+  async exportPersonalData(format?: 'json'): Promise<PersonalDataExport>;
+  async exportPersonalData(format: 'csv'): Promise<string>;
+  async exportPersonalData(format: 'json' | 'csv' = 'json'): Promise<PersonalDataExport | string> {
+    if (format === 'csv') {
+      return this.requestText('GET', '/api/v1/me/export', { query: { format: 'csv' } });
+    }
+    return this.request<PersonalDataExport>('GET', '/api/v1/me/export');
   }
 
   // ── Social & Signals ────────────────────────────────────────────────────
