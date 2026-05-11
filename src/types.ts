@@ -1969,7 +1969,7 @@ export interface SportsComboLookupResult {
 export interface PersonalDataExport {
   generatedAt: string;
   formatVersion: string;
-  _meta: { truncatedCollections: string[]; maxRecordsPerCollection: number };
+  _meta: { collectionsTruncated: string[]; maxRecordsPerCollection: number };
   account: Record<string, unknown>;
   settings: Record<string, unknown>;
   security: Record<string, unknown>;

@@ -4858,7 +4858,7 @@ describe('GDPR Personal Data Export (#222)', () => {
     const exportData = {
       generatedAt: '2026-05-11T00:00:00.000Z',
       formatVersion: '2026-05-privacy-export-v1',
-      _meta: { truncatedCollections: [], maxRecordsPerCollection: 1000 },
+      _meta: { collectionsTruncated: [], maxRecordsPerCollection: 1000 },
       account: { id: 'u-1', username: 'testuser' },
       settings: {},
       security: {},
