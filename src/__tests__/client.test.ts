@@ -2137,6 +2137,15 @@ describe('Strategy social + versioning endpoints (#54)', () => {
     expect(body).toEqual({ reason: 'MISLEADING' });
   });
 
+  it('reportStrategy sends INAPPROPRIATE directly', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ reportId: 'r-3' }), { status: 201, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.reportStrategy('s-1', 'INAPPROPRIATE');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toEqual({ reason: 'INAPPROPRIATE' });
+  });
+
   it('listStrategyVersions sends GET /api/v1/strategies/:id/versions', async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify([{ id: 'v-1', version: 1 }]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
