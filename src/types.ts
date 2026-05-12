@@ -89,10 +89,14 @@ export interface Strategy {
 }
 
 export interface StrategyVariable {
+  id: string;
   name: string;
-  type: 'number' | 'string' | 'boolean';
-  defaultValue?: string;
-  description?: string;
+  expression: string;
+}
+
+export interface ImportStrategyVariable {
+  name: string;
+  expression: string;
 }
 
 /** Response from strategy lifecycle operations (start/stop/pause/resume). */
@@ -346,7 +350,7 @@ export interface ImportStrategyPayload {
   tickMs?: number;
   visibility?: StrategyVisibility;
   tags?: string[];
-  variables?: StrategyVariable[];
+  variables?: ImportStrategyVariable[];
   blocks?: ImportStrategyBlocks;
   canvas?: Record<string, unknown>;
 }
@@ -1961,6 +1965,21 @@ export interface LookupSportsComboParams {
 export interface SportsComboLookupResult {
   eventTicker: string;
   marketTicker: string;
+}
+
+// ── GDPR Personal Data Export ───────────────────────────────────────────────
+
+/** Top-level JSON response shape for `GET /api/v1/me/export`. */
+export interface PersonalDataExport {
+  generatedAt: string;
+  formatVersion: string;
+  _meta: { collectionsTruncated: string[]; maxRecordsPerCollection: number };
+  account: Record<string, unknown>;
+  settings: Record<string, unknown>;
+  security: Record<string, unknown>;
+  trading: Record<string, unknown>;
+  communications: Record<string, unknown>;
+  social: Record<string, unknown>;
 }
 
 // ── Client Options ──────────────────────────────────────────────────────────

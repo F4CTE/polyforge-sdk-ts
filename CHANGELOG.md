@@ -16,6 +16,12 @@
   on non-UUID).
 
 ### Added
+- **GDPR personal data export** — `exportPersonalData(format?)` for
+  `GET /api/v1/me/export`. Returns a parsed `PersonalDataExport` object by
+  default (JSON) or a raw CSV string when `format: 'csv'` is passed. The
+  response is organised into `account`, `settings`, `security`, `trading`,
+  `communications`, and `social` sections. Adds exported `PersonalDataExport`
+  type. (closes #222)
 - Rewards residual coverage: `getMarketRewardsDetail(marketId)` for
   `GET /api/v1/rewards/market/:marketId`,
   `getUserSponsoredMarkets()` for
