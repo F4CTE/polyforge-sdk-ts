@@ -94,6 +94,11 @@ export interface StrategyVariable {
   expression: string;
 }
 
+export interface ImportStrategyVariable {
+  name: string;
+  expression: string;
+}
+
 /** Response from strategy lifecycle operations (start/stop/pause/resume). */
 export interface StrategyStatusResponse {
   status: StrategyStatus;
@@ -345,7 +350,7 @@ export interface ImportStrategyPayload {
   tickMs?: number;
   visibility?: StrategyVisibility;
   tags?: string[];
-  variables?: StrategyVariable[];
+  variables?: ImportStrategyVariable[];
   blocks?: ImportStrategyBlocks;
   canvas?: Record<string, unknown>;
 }
