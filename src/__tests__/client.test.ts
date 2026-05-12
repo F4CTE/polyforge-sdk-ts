@@ -835,6 +835,40 @@ describe('ImportStrategyParams matches platform DTO (#27)', () => {
     };
     expect(rejectedBlocks.triggers?.[0]?.type).toBe('PRICE_CROSSES_UP');
   });
+
+  it('sends import variables as { name, expression } without id (#226)', async () => {
+    const params: ImportStrategyParams = {
+      polyforge: '1.7.1',
+      strategy: {
+        name: 'Strategy with Variables',
+        variables: [
+          { name: 'threshold', expression: 'price * 2' },
+          { name: 'slippage', expression: '0.01' },
+        ],
+      },
+    };
+
+    await client.importStrategy(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.strategy.variables).toHaveLength(2);
+    expect(body.strategy.variables[0]).toEqual({ name: 'threshold', expression: 'price * 2' });
+    expect(body.strategy.variables[1]).toEqual({ name: 'slippage', expression: '0.01' });
+    expect(body.strategy.variables[0]).not.toHaveProperty('id');
+    expect(body.strategy.variables[0]).not.toHaveProperty('type');
+    expect(body.strategy.variables[0]).not.toHaveProperty('defaultValue');
+    expect(body.strategy.variables[0]).not.toHaveProperty('description');
+  });
+
+  it('ImportStrategyVariable rejects id field (#226)', () => {
+    const vars: import('../types').ImportStrategyVariable[] = [
+      { name: 'threshold', expression: 'price * 2' },
+      // @ts-expect-error ImportStrategyVariable must not have an id field
+      { id: 'v1', name: 'threshold', expression: 'price * 2' },
+    ];
+    expect(vars[0].name).toBe('threshold');
+    expect(vars[0].expression).toBe('price * 2');
+    expect((vars[0] as any).id).toBeUndefined();
+  });
 });
 
 describe('ClosePositionParams.size is string (#28)', () => {
