@@ -1029,9 +1029,8 @@ export class PolyforgeClient {
    * Report a strategy for violating guidelines.
    */
   async reportStrategy(id: string, reason: StrategyReportReason, description?: string): Promise<StrategyReportResult> {
-    const normalizedReason = reason === 'HARMFUL' ? 'INAPPROPRIATE' : reason;
     return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/report`, {
-      body: { reason: normalizedReason, ...(description !== undefined && { description }) },
+      body: { reason, ...(description !== undefined && { description }) },
     });
   }
 

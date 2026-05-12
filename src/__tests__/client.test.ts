@@ -2137,11 +2137,11 @@ describe('Strategy social + versioning endpoints (#54)', () => {
     expect(body).toEqual({ reason: 'MISLEADING' });
   });
 
-  it('reportStrategy maps HARMFUL to INAPPROPRIATE for platform compat', async () => {
+  it('reportStrategy sends INAPPROPRIATE directly', async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ reportId: 'r-3' }), { status: 201, headers: { 'Content-Type': 'application/json' } }),
     );
-    await client.reportStrategy('s-1', 'HARMFUL');
+    await client.reportStrategy('s-1', 'INAPPROPRIATE');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toEqual({ reason: 'INAPPROPRIATE' });
   });
