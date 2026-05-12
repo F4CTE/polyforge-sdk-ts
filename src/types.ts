@@ -89,10 +89,9 @@ export interface Strategy {
 }
 
 export interface StrategyVariable {
+  id: string;
   name: string;
-  type: 'number' | 'string' | 'boolean';
-  defaultValue?: string;
-  description?: string;
+  expression: string;
 }
 
 /** Response from strategy lifecycle operations (start/stop/pause/resume). */
