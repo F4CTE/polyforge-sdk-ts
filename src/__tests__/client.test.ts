@@ -1461,7 +1461,7 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
       logicBlocks: [],
       calcBlocks: [],
       tags: ['alpha', 'crypto'],
-      variables: [{ name: 'threshold', type: 'number', defaultValue: '0.5' }],
+      variables: [{ id: 'v1', name: 'threshold', expression: 'price * 2' }],
       canvas: { zoom: 1, offsetX: 0, offsetY: 0 },
       marketId: 'mkt-1',
       marketSlots: [{ slot: 'slot-1', label: 'Primary market', defaultMarketId: 'mkt-1' }],

@@ -39,6 +39,7 @@ export type {
   ImportStrategyParams,
   LeaderboardParams,
   ImportStrategyPayload,
+  ImportStrategyVariable,
   Market,
   MarketSearchResult,
   MarketSlot,

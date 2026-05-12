@@ -89,10 +89,14 @@ export interface Strategy {
 }
 
 export interface StrategyVariable {
+  id: string;
   name: string;
-  type: 'number' | 'string' | 'boolean';
-  defaultValue?: string;
-  description?: string;
+  expression: string;
+}
+
+export interface ImportStrategyVariable {
+  name: string;
+  expression: string;
 }
 
 /** Response from strategy lifecycle operations (start/stop/pause/resume). */
@@ -346,7 +350,7 @@ export interface ImportStrategyPayload {
   tickMs?: number;
   visibility?: StrategyVisibility;
   tags?: string[];
-  variables?: StrategyVariable[];
+  variables?: ImportStrategyVariable[];
   blocks?: ImportStrategyBlocks;
   canvas?: Record<string, unknown>;
 }
