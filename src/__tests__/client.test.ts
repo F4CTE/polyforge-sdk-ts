@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot, SmartOrder } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -240,6 +240,56 @@ describe('Platform contract compliance', () => {
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('intervalMinutes', 15);
     expect(body).not.toHaveProperty('intervalSeconds');
+  });
+
+  it('listSmartOrders returns bare SmartOrder[] from GET /api/v1/orders/smart (#234)', async () => {
+    const mockOrders: SmartOrder[] = [
+      {
+        id: 'smo-1',
+        type: 'TWAP',
+        status: 'ACTIVE',
+        marketId: 'mkt-1',
+        tokenId: 'tok-1',
+        outcome: 'YES',
+        side: 'BUY',
+        totalSize: '100',
+        config: { intervalMinutes: 15 },
+        slicesFilled: 2,
+        slicesTotal: 5,
+        nextExecuteAt: '2026-05-13T12:00:00Z',
+        completedAt: null,
+        createdAt: '2026-05-13T10:00:00Z',
+        orders: [
+          {
+            id: 'child-1',
+            status: 'filled',
+            fillSize: '20',
+            fillPrice: '0.55',
+            createdAt: '2026-05-13T10:05:00Z',
+          },
+        ],
+      },
+    ];
+
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify(mockOrders), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const result = await client.listSmartOrders();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(new URL(url).pathname).toBe('/api/v1/orders/smart');
+    expect(init.method).toBe('GET');
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('smo-1');
+    expect(result[0].type).toBe('TWAP');
+    expect(result[0].status).toBe('ACTIVE');
+    expect(result[0].orders).toHaveLength(1);
+    expect(result[0].orders[0].id).toBe('child-1');
   });
 
   it('WebhookEvent values use SCREAMING_SNAKE_CASE (#86)', async () => {
