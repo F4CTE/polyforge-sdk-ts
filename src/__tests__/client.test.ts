@@ -2882,21 +2882,23 @@ describe('Trading write idempotency (#208)', () => {
         key,
       ),
     },
-  ];
-  const unprotectedPositionWrites = [
     {
       name: 'splitPosition',
       path: '/api/v1/orders/split',
-      params: { tokenId: 'tok-1', amount: '10' },
-      call: (params: SplitPositionParams) => client.splitPosition(params),
+      call: (key: string) => client.splitPosition({ tokenId: 'tok-1', amount: '10' }, key),
     },
     {
       name: 'mergePosition',
       path: '/api/v1/orders/merge',
-      params: { tokenId: 'tok-1', amount: '10' },
-      call: (params: MergePositionParams) => client.mergePosition(params),
+      call: (key: string) => client.mergePosition({ tokenId: 'tok-1', amount: '10' }, key),
     },
   ];
+  const unprotectedPositionWrites: Array<{
+    name: string;
+    path: string;
+    params: SplitPositionParams | MergePositionParams;
+    call: (params: SplitPositionParams | MergePositionParams) => Promise<unknown>;
+  }> = [];
 
   it.each(tradingWrites)('$name sends Idempotency-Key on the protected POST endpoint', async ({ path, call }) => {
     await call('trade-key-123');

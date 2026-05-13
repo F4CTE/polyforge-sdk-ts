@@ -1527,19 +1527,27 @@ export class PolyforgeClient {
 
   /**
    * Split a position into smaller positions.
+   *
+   * Pass a stable caller-generated `idempotencyKey` and reuse it when retrying
+   * the same split request.
    */
-  async splitPosition(params: SplitPositionParams): Promise<PlaceOrderResponse> {
+  async splitPosition(params: SplitPositionParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
     return this.request('POST', '/api/v1/orders/split', {
       body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
     });
   }
 
   /**
    * Merge multiple positions into one.
+   *
+   * Pass a stable caller-generated `idempotencyKey` and reuse it when retrying
+   * the same merge request.
    */
-  async mergePosition(params: MergePositionParams): Promise<PlaceOrderResponse> {
+  async mergePosition(params: MergePositionParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
     return this.request('POST', '/api/v1/orders/merge', {
       body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
     });
   }
 
