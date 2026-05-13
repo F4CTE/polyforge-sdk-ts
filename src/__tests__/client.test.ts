@@ -1401,7 +1401,7 @@ describe('SplitPositionParams and MergePositionParams match platform (#24)', () 
 });
 
 describe('Strategy uses categorized block arrays (#31)', () => {
-  it('should have triggers/conditions/actions/safety/logicBlocks/calcBlocks instead of flat blocks', () => {
+    it('should have triggers/conditions/actions/safety/logicBlocks/calcBlocks instead of flat blocks', () => {
     const strat: Strategy = {
       id: 's-1',
       name: 'Test Strategy',
@@ -1417,6 +1417,7 @@ describe('Strategy uses categorized block arrays (#31)', () => {
       calcBlocks: [],
       tags: ['test'],
       variables: [],
+      kalshiSubaccount: 3,
       pnl: 0,
       tradeCount: 0,
       winRate: 0,
@@ -1429,6 +1430,34 @@ describe('Strategy uses categorized block arrays (#31)', () => {
     expect(strat.safety).toHaveLength(0);
     // Old flat blocks field must not exist
     expect((strat as any).blocks).toBeUndefined();
+  });
+
+  it('should accept kalshiSubaccount on Strategy response type (#240)', () => {
+    const strat: Strategy = {
+      id: 's-1',
+      name: 'Test',
+      status: 'IDLE',
+      visibility: 'PRIVATE',
+      execMode: 'TICK',
+      tickMs: 1000,
+      triggers: [],
+      conditions: [],
+      actions: [],
+      safety: [],
+      logicBlocks: [],
+      calcBlocks: [],
+      tags: [],
+      variables: [],
+      kalshiSubaccount: 5,
+      pnl: 0,
+      tradeCount: 0,
+      winRate: 0,
+      createdAt: '',
+      updatedAt: '',
+    };
+    expect(strat.kalshiSubaccount).toBe(5);
+    const json = JSON.parse(JSON.stringify(strat));
+    expect(json).toHaveProperty('kalshiSubaccount', 5);
   });
 });
 

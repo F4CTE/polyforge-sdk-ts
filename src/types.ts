@@ -81,6 +81,7 @@ export interface Strategy {
   variables: StrategyVariable[];
   canvas?: Record<string, unknown>;
   marketId?: string;
+  kalshiSubaccount?: number;
   pnl: number;
   tradeCount: number;
   winRate: number;
