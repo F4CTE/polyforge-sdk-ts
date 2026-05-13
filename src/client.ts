@@ -1251,7 +1251,7 @@ export class PolyforgeClient {
       query.page = params.page;
     }
 
-    return this.request('GET', '/api/v1/leaderboard', { query });
+    return this.request('GET', '/api/v1/accuracy/leaderboard', { query });
   }
 
   // ── Paper trading ─────────────────────────────────────────────────────────

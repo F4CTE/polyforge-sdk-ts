@@ -2414,7 +2414,7 @@ describe('Discover and Leaderboard (#66)', () => {
     expect(url.searchParams.get('period')).toBe('7d');
   });
 
-  it('getAccuracyLeaderboard sends paginated params to /api/v1/leaderboard', async () => {
+  it('getAccuracyLeaderboard sends paginated params to /api/v1/accuracy/leaderboard', async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -2444,7 +2444,7 @@ describe('Discover and Leaderboard (#66)', () => {
     const result = await client.getAccuracyLeaderboard(params);
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
 
-    expect(url.pathname).toBe('/api/v1/leaderboard');
+    expect(url.pathname).toBe('/api/v1/accuracy/leaderboard');
     expect(url.searchParams.get('period')).toBe('30d');
     expect(url.searchParams.get('limit')).toBe('25');
     expect(url.searchParams.get('page')).toBe('3');
