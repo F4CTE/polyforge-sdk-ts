@@ -379,6 +379,7 @@ export interface PlaceOrderParams {
   tokenId: string;
   side: 'BUY' | 'SELL';
   outcome: 'YES' | 'NO';
+  /** Order size in USDC. Must be a positive integer (>= 1). */
   size: number;
   price: number;
   orderType?: OrderType;
