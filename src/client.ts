@@ -1232,9 +1232,18 @@ export class PolyforgeClient {
   }
 
   /**
-   * Get the accuracy/leaderboard view.
+   * Get the accuracy leaderboard ranked by win-rate, augmented with trade-count
+   * and P&L fields. Rows include profile metadata (rank, userId, username,
+   * displayName, avatarUrl, pnl, winRate, tradeCount).
    *
-   * The API currently paginates this endpoint with `page` / `limit`; `offset`
+   * This hits `GET /api/v1/accuracy/leaderboard` and returns the
+   * {@link AccuracyLeaderboardEntry} shape. It is distinct from
+   * {@link getLeaderboard} (`GET /api/v1/leaderboard`, ranked by P&L only)
+   * and from the authenticated-user accuracy score returned by
+   * `GET /api/v1/accuracy` (see {@link getAccuracy} and
+   * {@link getAccuracyOverview}).
+   *
+   * The API paginates this endpoint with `page` / `limit`; `offset`
    * is converted to the corresponding page when supplied.
    */
   async getAccuracyLeaderboard(
@@ -1251,7 +1260,7 @@ export class PolyforgeClient {
       query.page = params.page;
     }
 
-    return this.request('GET', '/api/v1/leaderboard', { query });
+    return this.request('GET', '/api/v1/accuracy/leaderboard', { query });
   }
 
   // ── Paper trading ─────────────────────────────────────────────────────────
