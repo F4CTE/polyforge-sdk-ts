@@ -1232,9 +1232,13 @@ export class PolyforgeClient {
   }
 
   /**
-   * Get the accuracy/leaderboard view.
+   * Get the prediction accuracy leaderboard. This targets the platform
+   * leaderboard endpoint which returns accuracy-ranked rows (rank, userId,
+   * profile fields, pnl, winRate, tradeCount) — distinct from the P&L-only
+   * leaderboard and the authenticated-user accuracy score at `/api/v1/accuracy`.
+   * The companion `getAccuracy()` returns only the authenticated user's stats.
    *
-   * The API currently paginates this endpoint with `page` / `limit`; `offset`
+   * The API paginates this endpoint with `page` / `limit`; `offset`
    * is converted to the corresponding page when supplied.
    */
   async getAccuracyLeaderboard(
