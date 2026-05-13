@@ -1982,12 +1982,11 @@ export class PolyforgeClient {
     username: string,
     period: string = '30d',
   ): Promise<UserPerformancePoint[]> {
-    const res = await this.request<{ data: UserPerformancePoint[] }>(
+    return this.request<UserPerformancePoint[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/performance`,
       { query: { period } },
     );
-    return res.data;
   }
 
   /**
@@ -2001,12 +2000,11 @@ export class PolyforgeClient {
     const query: Record<string, string | number> = {};
     if (options.visibility !== undefined) query.visibility = options.visibility;
     if (options.limit !== undefined) query.limit = options.limit;
-    const res = await this.request<{ data: UserStrategySummary[] }>(
+    return this.request<UserStrategySummary[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/strategies`,
       Object.keys(query).length ? { query } : undefined,
     );
-    return res.data;
   }
 
   /**
@@ -2019,21 +2017,19 @@ export class PolyforgeClient {
   ): Promise<UserActivityEntry[]> {
     const query: Record<string, number> = {};
     if (options.limit !== undefined) query.limit = options.limit;
-    const res = await this.request<{ data: UserActivityEntry[] }>(
+    return this.request<UserActivityEntry[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/activity`,
       Object.keys(query).length ? { query } : undefined,
     );
-    return res.data;
   }
 
   /** Badges earned by a public user. */
   async getUserBadgesByUsername(username: string): Promise<UserProfileBadge[]> {
-    const res = await this.request<{ data: UserProfileBadge[] }>(
+    return this.request<UserProfileBadge[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/badges`,
     );
-    return res.data;
   }
 
   /** Paginated list of users the authenticated user follows. */

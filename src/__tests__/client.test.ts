@@ -5227,10 +5227,10 @@ describe('Public user profile lookups', () => {
     fetchSpy?.mockRestore();
   });
 
-  it('getUserPerformance unwraps {data} and forwards period as a query param', async () => {
+  it('getUserPerformance returns the performance array and forwards period as a query param', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({ data: [{ date: '2026-04-01', pnl: 12.5, cumPnl: 12.5 }] }),
+        JSON.stringify([{ date: '2026-04-01', pnl: 12.5, cumPnl: 12.5 }]),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
     );
@@ -5246,7 +5246,7 @@ describe('Public user profile lookups', () => {
 
   it('getUserPerformance defaults period to 30d', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await client.getUserPerformance('bob');
@@ -5254,15 +5254,13 @@ describe('Public user profile lookups', () => {
     expect(url).toContain('period=30d');
   });
 
-  it('getUserStrategies unwraps {data} and forwards visibility/limit', async () => {
+  it('getUserStrategies returns the strategies array and forwards visibility/limit', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({
-          data: [{
-            id: 's1', name: 'Strat', description: 'd', winRate: 0,
-            tradeCount: 3, priceUsdc: 0, forkCount: 1, likeCount: 2, isLiked: false,
-          }],
-        }),
+        JSON.stringify([{
+          id: 's1', name: 'Strat', description: 'd', winRate: 0,
+          tradeCount: 3, priceUsdc: 0, forkCount: 1, likeCount: 2, isLiked: false,
+        }]),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
     );
@@ -5279,7 +5277,7 @@ describe('Public user profile lookups', () => {
 
   it('getUserStrategies omits query params when no options given', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await client.getUserStrategies('alice');
@@ -5287,15 +5285,13 @@ describe('Public user profile lookups', () => {
     expect(new URL(url).search).toBe('');
   });
 
-  it('getUserActivity unwraps {data} and forwards limit', async () => {
+  it('getUserActivity returns the activity array and forwards limit', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({
-          data: [{
-            id: 'p1', marketQuestion: 'Will it rain?', outcome: 'YES',
-            side: 'YES', size: 100, pnl: 5, resolvedAt: '2026-04-01T00:00:00.000Z',
-          }],
-        }),
+        JSON.stringify([{
+          id: 'p1', marketQuestion: 'Will it rain?', outcome: 'YES',
+          side: 'YES', size: 100, pnl: 5, resolvedAt: '2026-04-01T00:00:00.000Z',
+        }]),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
     );
@@ -5308,10 +5304,10 @@ describe('Public user profile lookups', () => {
     expect(result[0].id).toBe('p1');
   });
 
-  it('getUserBadgesByUsername unwraps {data}', async () => {
+  it('getUserBadgesByUsername returns the badges array', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({ data: [{ id: 'EARLY_ADOPTER', unlockedAt: '2026-01-01T00:00:00.000Z' }] }),
+        JSON.stringify([{ id: 'EARLY_ADOPTER', unlockedAt: '2026-01-01T00:00:00.000Z' }]),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
     );
@@ -5355,7 +5351,7 @@ describe('Public user profile lookups', () => {
 
   it('username path segment is URL-encoded', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await client.getUserBadgesByUsername('john doe');
