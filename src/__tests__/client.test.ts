@@ -3567,12 +3567,12 @@ describe('Profile endpoints (POLA-780)', () => {
 
   it('updateProfileNotifications sends PATCH /api/v1/profile/notifications', async () => {
     fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
-    await client.updateProfileNotifications({ emailOnOrderFilled: true });
+    await client.updateProfileNotifications({ onOrderFilled: true });
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(new URL(url).pathname).toBe('/api/v1/profile/notifications');
     expect(init.method).toBe('PATCH');
     const body = JSON.parse(init.body as string);
-    expect(body.emailOnOrderFilled).toBe(true);
+    expect(body.onOrderFilled).toBe(true);
   });
 
   it('getPublicProfile calls GET /api/v1/profile/:username', async () => {

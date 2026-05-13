@@ -160,6 +160,8 @@ export type {
   UpdateSettingsProfileParams,
   NotificationSettings,
   UpdateNotificationSettingsParams,
+  ProfileNotificationPreferences,
+  UpdateProfileNotificationsParams,
   UpdateUserPreferencesParams,
   ChangePasswordSettingsParams,
   BetaUsage,
