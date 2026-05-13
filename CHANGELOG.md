@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Changed
+- **POLA-4423 endpoint fix** — `getAccuracyLeaderboard()` now routes to
+  `GET /api/v1/accuracy/leaderboard` (dedicated accuracy leaderboard) instead
+  of `GET /api/v1/leaderboard` (P&L-ranked leaderboard). Test assertion
+  updated to match. (closes #239)
 - **POLA-3691 compatibility audit** — re-verified all 21 endpoint paths
   from GitHub issue #220 against platform NestJS controllers. All paths,
   methods, and controller prefixes already match the platform. No code
