@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **#234** `listSmartOrders` return type: changed from `PaginatedResponse<SmartOrder>` to `SmartOrder[]` to match the platform response shape — `GET /api/v1/orders/smart` returns a bare array, not a paginated wrapper. (closes #234)
+
 ### Changed
 - **POLA-3691 compatibility audit** — re-verified all 21 endpoint paths
   from GitHub issue #220 against platform NestJS controllers. All paths,
