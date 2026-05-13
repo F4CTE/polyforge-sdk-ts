@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Changed
+- **POLA-4530 Webhook type fix** — `Webhook.enabled` renamed to `active` to
+  match the platform response shape. The API returns `active`, not `enabled`.
+  TypeScript consumers referencing `webhook.enabled` must use `webhook.active`
+  instead. (closes #232)
 - **POLA-3691 compatibility audit** — re-verified all 21 endpoint paths
   from GitHub issue #220 against platform NestJS controllers. All paths,
   methods, and controller prefixes already match the platform. No code
