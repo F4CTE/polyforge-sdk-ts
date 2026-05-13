@@ -16,6 +16,10 @@
   on non-UUID).
 
 ### Added
+- **`kalshiSubaccount` field** — added `kalshiSubaccount?: number` to
+  `CreateStrategyParams`, `UpdateStrategyParams`, and `Strategy` types.
+  Maps to Kalshi subaccount ID (0-99) on the wire as `kalshiSubaccount`.
+  (closes #240, POLA-4422)
 - **GDPR personal data export** — `exportPersonalData(format?)` for
   `GET /api/v1/me/export`. Returns a parsed `PersonalDataExport` object by
   default (JSON) or a raw CSV string when `format: 'csv'` is passed. The
