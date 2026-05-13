@@ -2804,6 +2804,86 @@ describe('Orders — bulk operations (#156)', () => {
     expect(body).toHaveProperty('orderIds');
     expect(body.orderIds).toEqual(['o-1', 'o-2']);
   });
+
+  it('placeOrder rejects fractional size', async () => {
+    await expect(client.placeOrder(
+      { tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1.5, price: 0.5 },
+      'key-1',
+    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be an integer' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('placeBatchOrders rejects fractional size', async () => {
+    await expect(client.placeBatchOrders(
+      [{ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1.5, price: 0.5 }],
+      'key-1',
+    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[0].size must be an integer' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('placeBatchOrders rejects fractional size in second order', async () => {
+    await expect(client.placeBatchOrders([
+      { tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1, price: 0.5 },
+      { tokenId: 'tok-2', side: 'SELL', outcome: 'NO', size: 2.3, price: 0.6 },
+    ], 'key-1')).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[1].size must be an integer' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('placeBatchOrders rejects zero size', async () => {
+    await expect(client.placeBatchOrders(
+      [{ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 0, price: 0.5 }],
+      'key-1',
+    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('placeBatchOrders rejects negative size', async () => {
+    await expect(client.placeBatchOrders(
+      [{ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: -1, price: 0.5 }],
+      'key-1',
+    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('placeBatchOrders rejects non-finite size', async () => {
+    await expect(client.placeBatchOrders(
+      [{ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: Number.NaN, price: 0.5 }],
+      'key-1',
+    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('placeBatchOrders rejects zero price', async () => {
+    await expect(client.placeBatchOrders(
+      [{ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0 }],
+      'key-1',
+    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('placeBatchOrders rejects negative price', async () => {
+    await expect(client.placeBatchOrders(
+      [{ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: -0.1 }],
+      'key-1',
+    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('placeBatchOrders rejects non-finite price', async () => {
+    await expect(client.placeBatchOrders(
+      [{ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: Number.NaN }],
+      'key-1',
+    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('placeBatchOrders rejects invalid size in second order (zero)', async () => {
+    await expect(client.placeBatchOrders([
+      { tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 10, price: 0.5 },
+      { tokenId: 'tok-2', side: 'SELL', outcome: 'NO', size: 0, price: 0.6 },
+    ], 'key-1')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe('Trading write idempotency (#208)', () => {
@@ -5380,5 +5460,116 @@ describe('Public user profile lookups', () => {
       status: 404,
       code: 'NOT_FOUND',
     });
+  });
+});
+
+describe('placeOrder size validation (#236)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ orderId: 'o-1', intentId: 'i-1', status: 'PENDING' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('accepts size >= 1 integer', async () => {
+    await client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1, price: 0.5 }, 'key-12345');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.size).toBe(1);
+  });
+
+  it('rejects size < 1', async () => {
+    await expect(
+      client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 0, price: 0.5 }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
+  });
+
+  it('rejects negative size', async () => {
+    await expect(
+      client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: -1, price: 0.5 }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
+  });
+
+  it('rejects fractional size', async () => {
+    await expect(
+      client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1.5, price: 0.5 }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be an integer' });
+  });
+
+  it('rejects fractional size < 1', async () => {
+    await expect(
+      client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 0.5, price: 0.5 }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
+  });
+
+  it('rejects NaN size', async () => {
+    await expect(
+      client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: NaN, price: 0.5 }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be a finite number' });
+  });
+
+  it('rejects Infinity size', async () => {
+    await expect(
+      client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: Infinity, price: 0.5 }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be a finite number' });
+  });
+});
+
+describe('placeBatchOrders size validation (#236)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ results: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('accepts size >= 1 integer for all orders', async () => {
+    await client.placeBatchOrders(
+      [
+        { tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1, price: 0.5 },
+        { tokenId: 'tok-2', side: 'SELL', outcome: 'NO', size: 50, price: 0.55 },
+      ],
+      'key-12345',
+    );
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects any order with size < 1', async () => {
+    await expect(
+      client.placeBatchOrders(
+        [
+          { tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1, price: 0.5 },
+          { tokenId: 'tok-2', side: 'SELL', outcome: 'NO', size: 0, price: 0.55 },
+        ],
+        'key-12345',
+      ),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[1].size must be >= 1' });
+  });
+
+  it('rejects any order with fractional size', async () => {
+    await expect(
+      client.placeBatchOrders(
+        [
+          { tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 2.5, price: 0.5 },
+        ],
+        'key-12345',
+      ),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[0].size must be an integer' });
   });
 });
