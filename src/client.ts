@@ -1232,14 +1232,15 @@ export class PolyforgeClient {
   }
 
   /**
-   * Get the platform leaderboard augmented with win-rate and trade-count
-   * fields. Rows are ranked by P&L and include profile metadata (rank,
-   * userId, username, displayName, avatarUrl, pnl, winRate, tradeCount).
+   * Get the accuracy leaderboard ranked by win-rate, augmented with trade-count
+   * and P&L fields. Rows include profile metadata (rank, userId, username,
+   * displayName, avatarUrl, pnl, winRate, tradeCount).
    *
-   * This hits the same endpoint as {@link getLeaderboard} (`GET /api/v1/leaderboard`),
-   * but returns the richer {@link AccuracyLeaderboardEntry} shape with win-rate
-   * and trade-count fields. It is distinct from the authenticated-user accuracy
-   * score returned by `GET /api/v1/accuracy` (see {@link getAccuracy} and
+   * This hits `GET /api/v1/accuracy/leaderboard` and returns the
+   * {@link AccuracyLeaderboardEntry} shape. It is distinct from
+   * {@link getLeaderboard} (`GET /api/v1/leaderboard`, ranked by P&L only)
+   * and from the authenticated-user accuracy score returned by
+   * `GET /api/v1/accuracy` (see {@link getAccuracy} and
    * {@link getAccuracyOverview}).
    *
    * The API paginates this endpoint with `page` / `limit`; `offset`
