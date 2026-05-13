@@ -1549,6 +1549,7 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
       canvas: { zoom: 1, offsetX: 0, offsetY: 0 },
       marketId: 'mkt-1',
       marketSlots: [{ slot: 'slot-1', label: 'Primary market', defaultMarketId: 'mkt-1' }],
+      kalshiSubaccount: 'sub-123',
     };
     await client.createStrategy(params);
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
@@ -1564,6 +1565,7 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
     expect(body).toHaveProperty('canvas');
     expect(body).toHaveProperty('marketSlots');
     expect(body.marketSlots).toEqual([{ slot: 'slot-1', label: 'Primary market', defaultMarketId: 'mkt-1' }]);
+    expect(body).toHaveProperty('kalshiSubaccount', 'sub-123');
     expect(JSON.stringify(body)).not.toContain('slotId');
     expect(JSON.stringify(body)).not.toContain('tokenId');
   });
