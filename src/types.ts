@@ -270,7 +270,7 @@ export interface Webhook {
   url: string;
   events: WebhookEvent[];
   secret: string;
-  enabled: boolean;
+  active: boolean;
   lastDeliveredAt?: string;
   createdAt: string;
 }
