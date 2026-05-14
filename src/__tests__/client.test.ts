@@ -5573,3 +5573,119 @@ describe('placeBatchOrders size validation (#236)', () => {
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[0].size must be an integer' });
   });
 });
+
+describe('placeSmartOrder totalSize validation (#236)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'so-1', status: 'ACTIVE' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it('accepts totalSize >= 1 integer', async () => {
+    await client.placeSmartOrder({
+      type: 'TWAP',
+      tokenId: 'tok-1',
+      side: 'BUY',
+      outcome: 'YES',
+      totalSize: 1,
+      slices: 5,
+      intervalMinutes: 15,
+    }, 'key-12345');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.totalSize).toBe(1);
+  });
+
+  it('rejects totalSize < 1', async () => {
+    await expect(
+      client.placeSmartOrder({
+        type: 'TWAP',
+        tokenId: 'tok-1',
+        side: 'BUY',
+        outcome: 'YES',
+        totalSize: 0,
+        slices: 5,
+        intervalMinutes: 15,
+      }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'totalSize must be >= 1' });
+  });
+
+  it('rejects negative totalSize', async () => {
+    await expect(
+      client.placeSmartOrder({
+        type: 'TWAP',
+        tokenId: 'tok-1',
+        side: 'BUY',
+        outcome: 'YES',
+        totalSize: -1,
+        slices: 5,
+        intervalMinutes: 15,
+      }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'totalSize must be >= 1' });
+  });
+
+  it('rejects fractional totalSize', async () => {
+    await expect(
+      client.placeSmartOrder({
+        type: 'TWAP',
+        tokenId: 'tok-1',
+        side: 'BUY',
+        outcome: 'YES',
+        totalSize: 1.5,
+        slices: 5,
+        intervalMinutes: 15,
+      }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'totalSize must be an integer' });
+  });
+
+  it('rejects fractional totalSize < 1', async () => {
+    await expect(
+      client.placeSmartOrder({
+        type: 'TWAP',
+        tokenId: 'tok-1',
+        side: 'BUY',
+        outcome: 'YES',
+        totalSize: 0.5,
+        slices: 5,
+        intervalMinutes: 15,
+      }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'totalSize must be >= 1' });
+  });
+
+  it('rejects NaN totalSize', async () => {
+    await expect(
+      client.placeSmartOrder({
+        type: 'TWAP',
+        tokenId: 'tok-1',
+        side: 'BUY',
+        outcome: 'YES',
+        totalSize: NaN,
+        slices: 5,
+        intervalMinutes: 15,
+      }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'totalSize must be a finite number' });
+  });
+
+  it('rejects Infinity totalSize', async () => {
+    await expect(
+      client.placeSmartOrder({
+        type: 'TWAP',
+        tokenId: 'tok-1',
+        side: 'BUY',
+        outcome: 'YES',
+        totalSize: Infinity,
+        slices: 5,
+        intervalMinutes: 15,
+      }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'totalSize must be a finite number' });
+  });
+});

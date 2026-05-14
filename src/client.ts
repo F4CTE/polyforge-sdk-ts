@@ -1790,7 +1790,15 @@ export class PolyforgeClient {
    * Place an advanced smart order (TWAP, DCA, BRACKET, or OCO).
    */
   async placeSmartOrder(params: PlaceSmartOrderParams, idempotencyKey: string): Promise<PlaceSmartOrderResponse> {
-    this.validateFinancialParam('totalSize', params.totalSize);
+    if (!Number.isFinite(params.totalSize)) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'totalSize must be a finite number' });
+    }
+    if (params.totalSize < 1) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'totalSize must be >= 1' });
+    }
+    if (!Number.isInteger(params.totalSize)) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'totalSize must be an integer' });
+    }
     return this.request('POST', '/api/v1/orders/smart', {
       body: params,
       headers: this.idempotencyHeaders(idempotencyKey),

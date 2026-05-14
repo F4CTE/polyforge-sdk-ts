@@ -495,6 +495,7 @@ export interface PlaceSmartOrderParams {
   tokenId: string;
   side: 'BUY' | 'SELL';
   outcome: 'YES' | 'NO';
+  /** Total order size in USDC. Must be a positive integer (>= 1). */
   totalSize: number;
   // TWAP / DCA
   slices?: number;
