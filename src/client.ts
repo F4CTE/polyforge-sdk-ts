@@ -436,12 +436,17 @@ export class PolyforgeClient {
 
   // ── Financial parameter validation ──────────────────────────────────────
 
-  private validateFinancialParam(name: string, value: number, allowZero = false): void {
+  private validateFinancialParam(name: string, value: number, allowZero = false, integerOnly = false): void {
     if (!Number.isFinite(value)) {
       throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `${name} must be a finite number` });
     }
     if (allowZero ? value < 0 : value <= 0) {
       throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `${name} must be ${allowZero ? 'non-negative' : 'positive'}` });
+    }
+    if (integerOnly) {
+      if (!Number.isInteger(value) || value < 1) {
+        throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `${name} must be an integer >= 1` });
+      }
     }
   }
 
@@ -1468,7 +1473,7 @@ export class PolyforgeClient {
    * the same order placement request.
    */
   async placeOrder(params: PlaceOrderParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
-    this.validateFinancialParam('size', params.size);
+    this.validateFinancialParam('size', params.size, false, true);
     this.validateFinancialParam('price', params.price);
     const { marketId: _marketId, ...body } = params as PlaceOrderParams & { marketId?: unknown };
     return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', {
@@ -1662,14 +1667,7 @@ export class PolyforgeClient {
    * before the request, mirroring the server's class-validator bounds.
    */
   async executeArb(params: ArbExecuteParams, idempotencyKey: string): Promise<ArbExecutionResult> {
-    this.validateFinancialParam('size', params.size);
-    if (params.size < 1) {
-      throw new PolyforgeError({
-        status: 0,
-        code: 'VALIDATION_ERROR',
-        message: 'size must be >= 1',
-      });
-    }
+    this.validateFinancialParam('size', params.size, false, true);
     if (params.size > 10000) {
       throw new PolyforgeError({
         status: 0,
@@ -1760,7 +1758,7 @@ export class PolyforgeClient {
    * Place an advanced smart order (TWAP, DCA, BRACKET, or OCO).
    */
   async placeSmartOrder(params: PlaceSmartOrderParams, idempotencyKey: string): Promise<PlaceSmartOrderResponse> {
-    this.validateFinancialParam('totalSize', params.totalSize);
+    this.validateFinancialParam('totalSize', params.totalSize, false, true);
     return this.request('POST', '/api/v1/orders/smart', {
       body: params,
       headers: this.idempotencyHeaders(idempotencyKey),
