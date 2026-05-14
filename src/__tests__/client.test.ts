@@ -3024,21 +3024,18 @@ describe('Trading write idempotency (#208)', () => {
         key,
       ),
     },
-  ];
-  const unprotectedPositionWrites = [
     {
       name: 'splitPosition',
       path: '/api/v1/orders/split',
-      params: { tokenId: 'tok-1', amount: '10' },
-      call: (params: SplitPositionParams) => client.splitPosition(params),
+      call: (key: string) => client.splitPosition({ tokenId: 'tok-1', amount: '10' }, key),
     },
     {
       name: 'mergePosition',
       path: '/api/v1/orders/merge',
-      params: { tokenId: 'tok-1', amount: '10' },
-      call: (params: MergePositionParams) => client.mergePosition(params),
+      call: (key: string) => client.mergePosition({ tokenId: 'tok-1', amount: '10' }, key),
     },
   ];
+  const unprotectedPositionWrites: { name: string; path: string; params: Record<string, string>; call: (...args: unknown[]) => Promise<unknown> }[] = [];
 
   it.each(tradingWrites)('$name sends Idempotency-Key on the protected POST endpoint', async ({ path, call }) => {
     await call('trade-key-123');
@@ -3093,7 +3090,7 @@ describe('Trading write idempotency (#208)', () => {
   });
 
   it.each(unprotectedPositionWrites)('$name ignores accidental extra key arguments instead of validating them', async ({ params, call }) => {
-    await (call as unknown as (requestParams: SplitPositionParams | MergePositionParams, key: string) => Promise<unknown>)(params, 'short');
+    await (call as unknown as (requestParams: SplitPositionParams | MergePositionParams, key: string) => Promise<unknown>)(params as unknown as SplitPositionParams, 'short');
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
