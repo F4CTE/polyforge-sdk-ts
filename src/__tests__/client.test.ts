@@ -242,6 +242,41 @@ describe('Platform contract compliance', () => {
     expect(body).not.toHaveProperty('intervalSeconds');
   });
 
+  it('listSmartOrders returns a bare SmartOrder[] not PaginatedResponse (#234)', async () => {
+    const payload: import('../types').SmartOrder[] = [
+      {
+        id: 'smart-1',
+        type: 'TWAP',
+        status: 'ACTIVE',
+        marketId: 'mkt-1',
+        tokenId: 'tok-1',
+        outcome: 'YES',
+        side: 'BUY',
+        totalSize: '100',
+        config: { slices: 5, intervalMinutes: 15 },
+        slicesFilled: 2,
+        slicesTotal: 5,
+        nextExecuteAt: '2026-05-14T18:00:00Z',
+        completedAt: null,
+        createdAt: '2026-05-14T17:00:00Z',
+        orders: [],
+      },
+    ];
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.listSmartOrders();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(new URL(url).pathname).toBe('/api/v1/orders/smart');
+    expect(init.method).toBe('GET');
+    expect(result).toEqual(payload);
+    expect(Array.isArray(result)).toBe(true);
+    expect(result[0].id).toBe('smart-1');
+    expect(result[0].type).toBe('TWAP');
+  });
+
   it('WebhookEvent values use SCREAMING_SNAKE_CASE (#86)', async () => {
     // Type-level test: these should compile without error
     const events: import('../types').WebhookEvent[] = [
