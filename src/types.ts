@@ -316,6 +316,7 @@ export interface CreateStrategyParams {
   canvas?: Record<string, unknown>;
   marketId?: string;
   marketSlots?: MarketSlot[];
+  kalshiSubaccount?: number;
 }
 
 export interface MarketSlot {

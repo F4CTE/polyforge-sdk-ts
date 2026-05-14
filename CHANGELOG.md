@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+- **Kalshi subaccount support** — `CreateStrategyParams` now accepts an optional
+  `kalshiSubaccount` field (number) for creating strategies associated with a
+  Kalshi subaccount. (closes #240)
+
 ### Changed
 - **POLA-4423 endpoint fix** — `getAccuracyLeaderboard()` now routes to
   `GET /api/v1/accuracy/leaderboard` (dedicated accuracy leaderboard) instead

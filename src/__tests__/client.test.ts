@@ -1484,6 +1484,22 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
     expect(JSON.stringify(body)).not.toContain('tokenId');
   });
 
+  it('should send kalshiSubaccount when provided (#240)', async () => {
+    const params: CreateStrategyParams = {
+      name: 'Kalshi Strategy',
+      kalshiSubaccount: 3,
+    };
+    await client.createStrategy(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).toHaveProperty('kalshiSubaccount', 3);
+  });
+
+  it('should omit kalshiSubaccount from request body when not provided (#240)', async () => {
+    await client.createStrategy({ name: 'No Subaccount' });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body).not.toHaveProperty('kalshiSubaccount');
+  });
+
   it('MarketSlot uses platform field names (#204)', () => {
     const slot: MarketSlot = {
       slot: 'leg1',
