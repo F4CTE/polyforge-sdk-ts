@@ -3,9 +3,9 @@
 ## [Unreleased]
 
 ### Added
-- **Kalshi subaccount support** — `CreateStrategyParams` now accepts an optional
-  `kalshiSubaccount` field (number) for creating strategies associated with a
-  Kalshi subaccount. (closes #240)
+- **Kalshi subaccount support** — `CreateStrategyParams` and `UpdateStrategyParams`
+  now accept an optional `kalshiSubaccount` field (number) for strategies
+  associated with a Kalshi subaccount. (closes #240)
 
 ### Changed
 - **POLA-4423 endpoint fix** — `getAccuracyLeaderboard()` now routes to

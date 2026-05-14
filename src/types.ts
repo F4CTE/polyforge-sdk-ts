@@ -342,6 +342,7 @@ export interface UpdateStrategyParams {
   canvas?: Record<string, unknown>;
   marketId?: string;
   marketSlots?: MarketSlot[];
+  kalshiSubaccount?: number;
 }
 
 export interface ImportStrategyPayload {
