@@ -2619,6 +2619,11 @@ describe('Batch API (#66)', () => {
     ];
     expect(validItems).toHaveLength(4);
     expect(new Set(validItems.map((i) => i.method))).toEqual(new Set(['GET', 'POST', 'PATCH', 'DELETE']));
+
+    // Type-level regression: PUT must NOT be accepted — @ts-expect-error fails if PUT is re-added
+    // @ts-expect-error: 'PUT' is not assignable to BatchRequestItem.method
+    const _putRejected: import('../types').BatchRequestItem = { id: 'rx', method: 'PUT', path: '/api/v1/test' };
+    void _putRejected;
   });
 });
 
