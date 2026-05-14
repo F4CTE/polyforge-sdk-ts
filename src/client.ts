@@ -1483,9 +1483,6 @@ export class PolyforgeClient {
     if (params.size < 1) {
       throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
     }
-    if (!Number.isInteger(params.size)) {
-      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'size must be an integer' });
-    }
     this.validateFinancialParam('price', params.price);
     const { marketId: _marketId, ...body } = params as PlaceOrderParams & { marketId?: unknown };
     return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', {
@@ -1512,9 +1509,6 @@ export class PolyforgeClient {
       }
       if (order.size < 1) {
         throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `orders[${i}].size must be >= 1` });
-      }
-      if (!Number.isInteger(order.size)) {
-        throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `orders[${i}].size must be an integer` });
       }
       this.validateFinancialParam('price', order.price);
     }
@@ -1795,9 +1789,6 @@ export class PolyforgeClient {
     }
     if (params.totalSize < 1) {
       throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'totalSize must be >= 1' });
-    }
-    if (!Number.isInteger(params.totalSize)) {
-      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'totalSize must be an integer' });
     }
     return this.request('POST', '/api/v1/orders/smart', {
       body: params,
