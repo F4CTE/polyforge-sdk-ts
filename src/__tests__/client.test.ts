@@ -2608,6 +2608,18 @@ describe('Batch API (#66)', () => {
     expect(res.results[0].id).toBe('req-1');
     expect(res.results[1].id).toBe('req-2');
   });
+
+  it('BatchRequestItem.method excludes PUT — platform only accepts GET/POST/PATCH/DELETE (#235)', async () => {
+    // Type-level: these must compile
+    const validItems: import('../types').BatchRequestItem[] = [
+      { id: 'r1', method: 'GET', path: '/api/v1/test' },
+      { id: 'r2', method: 'POST', path: '/api/v1/test' },
+      { id: 'r3', method: 'PATCH', path: '/api/v1/test' },
+      { id: 'r4', method: 'DELETE', path: '/api/v1/test' },
+    ];
+    expect(validItems).toHaveLength(4);
+    expect(new Set(validItems.map((i) => i.method))).toEqual(new Set(['GET', 'POST', 'PATCH', 'DELETE']));
+  });
 });
 
 describe('Marketplace seller CRUD (#66)', () => {
