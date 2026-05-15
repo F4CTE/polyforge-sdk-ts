@@ -1991,12 +1991,12 @@ export class PolyforgeClient {
     username: string,
     period: string = '30d',
   ): Promise<UserPerformancePoint[]> {
-    const res = await this.request<{ data: UserPerformancePoint[] }>(
+    const res = await this.request<UserPerformancePoint[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/performance`,
       { query: { period } },
     );
-    return res.data;
+    return res;
   }
 
   /**
@@ -2010,12 +2010,12 @@ export class PolyforgeClient {
     const query: Record<string, string | number> = {};
     if (options.visibility !== undefined) query.visibility = options.visibility;
     if (options.limit !== undefined) query.limit = options.limit;
-    const res = await this.request<{ data: UserStrategySummary[] }>(
+    const res = await this.request<UserStrategySummary[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/strategies`,
       Object.keys(query).length ? { query } : undefined,
     );
-    return res.data;
+    return res;
   }
 
   /**
@@ -2028,21 +2028,21 @@ export class PolyforgeClient {
   ): Promise<UserActivityEntry[]> {
     const query: Record<string, number> = {};
     if (options.limit !== undefined) query.limit = options.limit;
-    const res = await this.request<{ data: UserActivityEntry[] }>(
+    const res = await this.request<UserActivityEntry[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/activity`,
       Object.keys(query).length ? { query } : undefined,
     );
-    return res.data;
+    return res;
   }
 
   /** Badges earned by a public user. */
   async getUserBadgesByUsername(username: string): Promise<UserProfileBadge[]> {
-    const res = await this.request<{ data: UserProfileBadge[] }>(
+    const res = await this.request<UserProfileBadge[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/badges`,
     );
-    return res.data;
+    return res;
   }
 
   /** Paginated list of users the authenticated user follows. */
