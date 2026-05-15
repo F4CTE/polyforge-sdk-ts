@@ -134,6 +134,8 @@ import type {
   UpdateSettingsProfileParams,
   NotificationSettings,
   UpdateNotificationSettingsParams,
+  ProfileNotificationPreferences,
+  UpdateProfileNotificationsParams,
   UpdateUserPreferencesParams,
   ChangePasswordSettingsParams,
   BetaUsage,
@@ -1967,7 +1969,7 @@ export class PolyforgeClient {
   }
 
   /** Update the authenticated user's notification preferences (profile-level). */
-  async updateProfileNotifications(preferences: Record<string, boolean>): Promise<void> {
+  async updateProfileNotifications(preferences: UpdateProfileNotificationsParams): Promise<void> {
     return this.request('PATCH', '/api/v1/profile/notifications', { body: preferences });
   }
 
