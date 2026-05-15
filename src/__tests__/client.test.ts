@@ -835,6 +835,40 @@ describe('ImportStrategyParams matches platform DTO (#27)', () => {
     };
     expect(rejectedBlocks.triggers?.[0]?.type).toBe('PRICE_CROSSES_UP');
   });
+
+  it('sends import variables as { name, expression } without id (#226)', async () => {
+    const params: ImportStrategyParams = {
+      polyforge: '1.7.1',
+      strategy: {
+        name: 'Strategy with Variables',
+        variables: [
+          { name: 'threshold', expression: 'price * 2' },
+          { name: 'slippage', expression: '0.01' },
+        ],
+      },
+    };
+
+    await client.importStrategy(params);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.strategy.variables).toHaveLength(2);
+    expect(body.strategy.variables[0]).toEqual({ name: 'threshold', expression: 'price * 2' });
+    expect(body.strategy.variables[1]).toEqual({ name: 'slippage', expression: '0.01' });
+    expect(body.strategy.variables[0]).not.toHaveProperty('id');
+    expect(body.strategy.variables[0]).not.toHaveProperty('type');
+    expect(body.strategy.variables[0]).not.toHaveProperty('defaultValue');
+    expect(body.strategy.variables[0]).not.toHaveProperty('description');
+  });
+
+  it('ImportStrategyVariable rejects id field (#226)', () => {
+    const vars: import('../types').ImportStrategyVariable[] = [
+      { name: 'threshold', expression: 'price * 2' },
+      // @ts-expect-error ImportStrategyVariable must not have an id field
+      { id: 'v1', name: 'threshold', expression: 'price * 2' },
+    ];
+    expect(vars[0].name).toBe('threshold');
+    expect(vars[0].expression).toBe('price * 2');
+    expect((vars[0] as any).id).toBeUndefined();
+  });
 });
 
 describe('ClosePositionParams.size is string (#28)', () => {
@@ -5283,10 +5317,10 @@ describe('Public user profile lookups', () => {
     fetchSpy?.mockRestore();
   });
 
-  it('getUserPerformance unwraps {data} and forwards period as a query param', async () => {
+  it('getUserPerformance returns bare array and forwards period as a query param', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({ data: [{ date: '2026-04-01', pnl: 12.5, cumPnl: 12.5 }] }),
+        JSON.stringify([{ date: '2026-04-01', pnl: 12.5, cumPnl: 12.5 }]),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
     );
@@ -5302,7 +5336,7 @@ describe('Public user profile lookups', () => {
 
   it('getUserPerformance defaults period to 30d', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await client.getUserPerformance('bob');
@@ -5310,15 +5344,13 @@ describe('Public user profile lookups', () => {
     expect(url).toContain('period=30d');
   });
 
-  it('getUserStrategies unwraps {data} and forwards visibility/limit', async () => {
+  it('getUserStrategies returns bare array and forwards visibility/limit', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({
-          data: [{
-            id: 's1', name: 'Strat', description: 'd', winRate: 0,
-            tradeCount: 3, priceUsdc: 0, forkCount: 1, likeCount: 2, isLiked: false,
-          }],
-        }),
+        JSON.stringify([{
+          id: 's1', name: 'Strat', description: 'd', winRate: 0,
+          tradeCount: 3, priceUsdc: 0, forkCount: 1, likeCount: 2, isLiked: false,
+        }]),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
     );
@@ -5335,7 +5367,7 @@ describe('Public user profile lookups', () => {
 
   it('getUserStrategies omits query params when no options given', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await client.getUserStrategies('alice');
@@ -5343,15 +5375,13 @@ describe('Public user profile lookups', () => {
     expect(new URL(url).search).toBe('');
   });
 
-  it('getUserActivity unwraps {data} and forwards limit', async () => {
+  it('getUserActivity returns bare array and forwards limit', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({
-          data: [{
-            id: 'p1', marketQuestion: 'Will it rain?', outcome: 'YES',
-            side: 'YES', size: 100, pnl: 5, resolvedAt: '2026-04-01T00:00:00.000Z',
-          }],
-        }),
+        JSON.stringify([{
+          id: 'p1', marketQuestion: 'Will it rain?', outcome: 'YES',
+          side: 'YES', size: 100, pnl: 5, resolvedAt: '2026-04-01T00:00:00.000Z',
+        }]),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
     );
@@ -5364,10 +5394,10 @@ describe('Public user profile lookups', () => {
     expect(result[0].id).toBe('p1');
   });
 
-  it('getUserBadgesByUsername unwraps {data}', async () => {
+  it('getUserBadgesByUsername returns bare array', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({ data: [{ id: 'EARLY_ADOPTER', unlockedAt: '2026-01-01T00:00:00.000Z' }] }),
+        JSON.stringify([{ id: 'EARLY_ADOPTER', unlockedAt: '2026-01-01T00:00:00.000Z' }]),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
     );
@@ -5411,7 +5441,7 @@ describe('Public user profile lookups', () => {
 
   it('username path segment is URL-encoded', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await client.getUserBadgesByUsername('john doe');
