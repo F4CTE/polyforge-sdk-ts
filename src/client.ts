@@ -1479,7 +1479,12 @@ export class PolyforgeClient {
    * the same order placement request.
    */
   async placeOrder(params: PlaceOrderParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
-    this.validateFinancialParam('size', params.size);
+    if (!Number.isFinite(params.size)) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'size must be a finite number' });
+    }
+    if (params.size < 1) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
+    }
     this.validateFinancialParam('price', params.price);
     const { marketId: _marketId, ...body } = params as PlaceOrderParams & { marketId?: unknown };
     return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', {
@@ -1499,6 +1504,16 @@ export class PolyforgeClient {
    * Place multiple orders in a single request (1–15 orders).
    */
   async placeBatchOrders(orders: PlaceOrderParams[], idempotencyKey: string): Promise<BatchPlaceOrdersResult> {
+    for (let i = 0; i < orders.length; i++) {
+      const order = orders[i];
+      if (!Number.isFinite(order.size)) {
+        throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `orders[${i}].size must be a finite number` });
+      }
+      if (order.size < 1) {
+        throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `orders[${i}].size must be >= 1` });
+      }
+      this.validateFinancialParam('price', order.price);
+    }
     const bodyOrders = orders.map((order) => {
       const { marketId: _marketId, ...body } = order as PlaceOrderParams & { marketId?: unknown };
       return body;
@@ -1771,7 +1786,12 @@ export class PolyforgeClient {
    * Place an advanced smart order (TWAP, DCA, BRACKET, or OCO).
    */
   async placeSmartOrder(params: PlaceSmartOrderParams, idempotencyKey: string): Promise<PlaceSmartOrderResponse> {
-    this.validateFinancialParam('totalSize', params.totalSize);
+    if (!Number.isFinite(params.totalSize)) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'totalSize must be a finite number' });
+    }
+    if (params.totalSize < 1) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'totalSize must be >= 1' });
+    }
     return this.request('POST', '/api/v1/orders/smart', {
       body: params,
       headers: this.idempotencyHeaders(idempotencyKey),
