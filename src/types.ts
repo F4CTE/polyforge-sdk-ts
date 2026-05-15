@@ -1533,6 +1533,35 @@ export interface NotificationSettings {
 
 export type UpdateNotificationSettingsParams = Partial<NotificationSettings>;
 
+/**
+ * Notification preferences for `PATCH /api/v1/profile/notifications`.
+ *
+ * Mirrors the platform `UpdateProfileNotificationsDto`
+ * (`services/api-service/src/profile/dto/update-profile-notifications.dto.ts`):
+ * three channel toggles (`emailEnabled`, `telegramEnabled`, `discordEnabled`)
+ * plus per-event toggles and `onTicketReply`. The platform uses
+ * `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` and
+ * rejects unknown fields with HTTP 400 — keep this type in sync with the
+ * platform DTO. (closes #237)
+ */
+export interface ProfileNotificationPreferences {
+  emailEnabled?: boolean;
+  telegramEnabled?: boolean;
+  discordEnabled?: boolean;
+  onOrderFilled?: boolean;
+  onStrategyError?: boolean;
+  onBacktestComplete?: boolean;
+  onDailyLossLimit?: boolean;
+  onMarketResolved?: boolean;
+  onSomeoneForked?: boolean;
+  onSomeoneFollowed?: boolean;
+  onSomeoneLiked?: boolean;
+  onSomeoneCommented?: boolean;
+  onTicketReply?: boolean;
+}
+
+export type UpdateProfileNotificationsParams = Partial<ProfileNotificationPreferences>;
+
 export interface ChangePasswordSettingsParams {
   currentPassword: string;
   newPassword: string;
