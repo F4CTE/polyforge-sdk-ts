@@ -1234,9 +1234,18 @@ export class PolyforgeClient {
   }
 
   /**
-   * Get the accuracy/leaderboard view.
+   * Get the accuracy leaderboard ranked by win-rate, augmented with trade-count
+   * and P&L fields. Rows include profile metadata (rank, userId, username,
+   * displayName, avatarUrl, pnl, winRate, tradeCount).
    *
-   * The API currently paginates this endpoint with `page` / `limit`; `offset`
+   * This hits `GET /api/v1/accuracy/leaderboard` and returns the
+   * {@link AccuracyLeaderboardEntry} shape. It is distinct from
+   * {@link getLeaderboard} (`GET /api/v1/leaderboard`, ranked by P&L only)
+   * and from the authenticated-user accuracy score returned by
+   * `GET /api/v1/accuracy` (see {@link getAccuracy} and
+   * {@link getAccuracyOverview}).
+   *
+   * The API paginates this endpoint with `page` / `limit`; `offset`
    * is converted to the corresponding page when supplied.
    */
   async getAccuracyLeaderboard(
@@ -1253,7 +1262,7 @@ export class PolyforgeClient {
       query.page = params.page;
     }
 
-    return this.request('GET', '/api/v1/leaderboard', { query });
+    return this.request('GET', '/api/v1/accuracy/leaderboard', { query });
   }
 
   // ── Paper trading ─────────────────────────────────────────────────────────
@@ -1984,12 +1993,12 @@ export class PolyforgeClient {
     username: string,
     period: string = '30d',
   ): Promise<UserPerformancePoint[]> {
-    const res = await this.request<{ data: UserPerformancePoint[] }>(
+    const res = await this.request<UserPerformancePoint[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/performance`,
       { query: { period } },
     );
-    return res.data;
+    return res;
   }
 
   /**
@@ -2003,12 +2012,12 @@ export class PolyforgeClient {
     const query: Record<string, string | number> = {};
     if (options.visibility !== undefined) query.visibility = options.visibility;
     if (options.limit !== undefined) query.limit = options.limit;
-    const res = await this.request<{ data: UserStrategySummary[] }>(
+    const res = await this.request<UserStrategySummary[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/strategies`,
       Object.keys(query).length ? { query } : undefined,
     );
-    return res.data;
+    return res;
   }
 
   /**
@@ -2021,21 +2030,21 @@ export class PolyforgeClient {
   ): Promise<UserActivityEntry[]> {
     const query: Record<string, number> = {};
     if (options.limit !== undefined) query.limit = options.limit;
-    const res = await this.request<{ data: UserActivityEntry[] }>(
+    const res = await this.request<UserActivityEntry[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/activity`,
       Object.keys(query).length ? { query } : undefined,
     );
-    return res.data;
+    return res;
   }
 
   /** Badges earned by a public user. */
   async getUserBadgesByUsername(username: string): Promise<UserProfileBadge[]> {
-    const res = await this.request<{ data: UserProfileBadge[] }>(
+    const res = await this.request<UserProfileBadge[]>(
       'GET',
       `/api/v1/users/${encodeURIComponent(username)}/badges`,
     );
-    return res.data;
+    return res;
   }
 
   /** Paginated list of users the authenticated user follows. */
