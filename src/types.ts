@@ -81,6 +81,8 @@ export interface Strategy {
   variables: StrategyVariable[];
   canvas?: Record<string, unknown>;
   marketId?: string;
+  marketSlots?: MarketSlot[];
+  kalshiSubaccount?: number;
   pnl: number;
   tradeCount: number;
   winRate: number;
@@ -316,6 +318,7 @@ export interface CreateStrategyParams {
   canvas?: Record<string, unknown>;
   marketId?: string;
   marketSlots?: MarketSlot[];
+  kalshiSubaccount?: number;
 }
 
 export interface MarketSlot {
@@ -341,6 +344,7 @@ export interface UpdateStrategyParams {
   canvas?: Record<string, unknown>;
   marketId?: string;
   marketSlots?: MarketSlot[];
+  kalshiSubaccount?: number;
 }
 
 export interface ImportStrategyPayload {
