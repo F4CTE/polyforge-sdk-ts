@@ -3842,6 +3842,7 @@ describe('Settings endpoints (POLA-780)', () => {
       'pushOnStrategyError',
       'pushOnWhaleAlert',
       'pushOnPriceAlert',
+      'onTicketReply',
     ]) {
       expect(body).not.toHaveProperty(phantom);
     }

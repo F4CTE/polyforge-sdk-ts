@@ -1529,7 +1529,6 @@ export interface NotificationSettings {
   onSomeoneFollowed?: boolean;
   onSomeoneLiked?: boolean;
   onSomeoneCommented?: boolean;
-  onTicketReply?: boolean;
 }
 
 export type UpdateNotificationSettingsParams = Partial<NotificationSettings>;
@@ -1543,7 +1542,7 @@ export type UpdateNotificationSettingsParams = Partial<NotificationSettings>;
  * any unknown key — so this type must stay an exact mirror of the DTO.
  * (closes #237)
  */
-export type ProfileNotificationPreferences = Partial<NotificationSettings>;
+export type ProfileNotificationPreferences = Partial<NotificationSettings> & { onTicketReply?: boolean };
 
 export interface ChangePasswordSettingsParams {
   currentPassword: string;
