@@ -1544,6 +1544,9 @@ export type UpdateNotificationSettingsParams = Partial<NotificationSettings>;
  */
 export type ProfileNotificationPreferences = Partial<NotificationSettings> & { onTicketReply?: boolean };
 
+/** @deprecated Use {@link ProfileNotificationPreferences} instead. */
+export type UpdateProfileNotificationsParams = ProfileNotificationPreferences;
+
 export interface ChangePasswordSettingsParams {
   currentPassword: string;
   newPassword: string;
