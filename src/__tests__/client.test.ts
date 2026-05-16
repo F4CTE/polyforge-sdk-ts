@@ -3655,14 +3655,42 @@ describe('Profile endpoints (POLA-780)', () => {
     expect(body.newPassword).toBe('new456');
   });
 
-  it('updateProfileNotifications sends PATCH /api/v1/profile/notifications', async () => {
+  it('updateProfileNotifications sends PATCH /api/v1/profile/notifications with platform-whitelisted fields only', async () => {
     fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
-    await client.updateProfileNotifications({ onOrderFilled: true });
+    await client.updateProfileNotifications({
+      onOrderFilled: true,
+      onSomeoneFollowed: false,
+    });
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(new URL(url).pathname).toBe('/api/v1/profile/notifications');
     expect(init.method).toBe('PATCH');
     const body = JSON.parse(init.body as string);
-    expect(body.onOrderFilled).toBe(true);
+    expect(body).toEqual({
+      onOrderFilled: true,
+      onSomeoneFollowed: false,
+    });
+    // Regression guard for phantom emailOn* / pushOn* fields (#237):
+    // the platform DTO does not whitelist them, and forbidNonWhitelisted
+    // makes any payload containing them return HTTP 400.
+    for (const phantom of [
+      'emailOnOrderFilled',
+      'emailOnStrategyError',
+      'emailOnDailyLossLimit',
+      'emailOnMarketResolved',
+      'pushOnOrderFilled',
+      'pushOnStrategyError',
+      'pushOnWhaleAlert',
+      'pushOnPriceAlert',
+    ]) {
+      expect(body).not.toHaveProperty(phantom);
+    }
+    // Positive regression: onTicketReply is whitelisted in the platform DTO (#237).
+    // Send it explicitly to prove it reaches the wire intact.
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await client.updateProfileNotifications({ onTicketReply: true });
+    const [, init2] = fetchSpy.mock.calls[1] as [string, RequestInit];
+    const body2 = JSON.parse(init2.body as string);
+    expect(body2).toEqual({ onTicketReply: true });
   });
 
   it('getPublicProfile calls GET /api/v1/profile/:username', async () => {
