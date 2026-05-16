@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Changed
+- **#237: `updateProfileNotifications` type narrowed** — replaced
+  `Record<string, boolean>` with `ProfileNotificationPreferences`
+  (`Partial<NotificationSettings> & { onTicketReply?: boolean }`). The
+  platform's `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`
+  rejects unknown keys in `PATCH /api/v1/profile/notifications`, so the
+  parameter type must stay an exact mirror of the DTO. Adds regression
+  test guard against phantom `emailOn*` / `pushOn*` fields.
+  `onTicketReply` is added only to `ProfileNotificationPreferences`
+  (not `NotificationSettings`) because the settings DTO does not whitelist it.
 - **POLA-4423 endpoint fix** — `getAccuracyLeaderboard()` now routes to
   `GET /api/v1/accuracy/leaderboard` (dedicated accuracy leaderboard) instead
   of `GET /api/v1/leaderboard` (P&L-ranked leaderboard). Test assertion
