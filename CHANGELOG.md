@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Changed
+- **#234: `listSmartOrders` return type fixed** — changed from
+  `Promise<PaginatedResponse<SmartOrder>>` to `Promise<SmartOrder[]>`. The
+  platform's `GET /api/v1/orders/smart` returns a bare array, not a paginated
+  wrapper. Adds regression test verifying bare array return shape. (closes #234)
 - **#237: `updateProfileNotifications` type narrowed** — replaced
   `Record<string, boolean>` with `ProfileNotificationPreferences`
   (`Partial<NotificationSettings> & { onTicketReply?: boolean }`). The
