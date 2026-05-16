@@ -1800,7 +1800,7 @@ export class PolyforgeClient {
   /**
    * List your smart orders with child order progress.
    */
-  async listSmartOrders(): Promise<PaginatedResponse<SmartOrder>> {
+  async listSmartOrders(): Promise<SmartOrder[]> {
     return this.request('GET', '/api/v1/orders/smart');
   }
 
