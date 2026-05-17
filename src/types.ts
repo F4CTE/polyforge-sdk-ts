@@ -943,7 +943,7 @@ export interface PaperSummary {
 
 export interface BatchRequestItem {
   id: string;
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   body?: Record<string, unknown>;
 }
