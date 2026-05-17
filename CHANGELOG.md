@@ -137,6 +137,12 @@
   All four public-profile endpoints throw a `PolyforgeError` with `status: 404` / `code: "NOT_FOUND"` when the username does not exist. The `username` path segment is URL-encoded.
 
 ### Fixed
+- **`splitPosition` / `mergePosition` missing `Idempotency-Key` header** —
+  `splitPosition(params, idempotencyKey)` and `mergePosition(params, idempotencyKey)`
+  now accept a required `idempotencyKey: string` and pass the `Idempotency-Key`
+  header via `idempotencyHeaders()`, matching the pattern used by all other
+  protected write methods (`placeOrder`, `closePosition`, `executeArb`, etc.).
+  Regression of #208. (closes #231)
 - **BREAKING** `PlaceOrderParams`: remove `marketId` from direct order
   payloads to match the platform `PlaceOrderDto`; `placeOrder()` and
   `placeBatchOrders()` now strip legacy runtime `marketId` keys before

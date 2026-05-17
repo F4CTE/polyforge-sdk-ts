@@ -1552,19 +1552,29 @@ export class PolyforgeClient {
 
   /**
    * Split a position into smaller positions.
+   *
+   * Requires an `idempotencyKey` (8–128 chars). Pass a stable caller-generated
+   * key and reuse it when retrying the same split attempt. The key is sent as
+   * the `Idempotency-Key` header.
    */
-  async splitPosition(params: SplitPositionParams): Promise<PlaceOrderResponse> {
+  async splitPosition(params: SplitPositionParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
     return this.request('POST', '/api/v1/orders/split', {
       body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
     });
   }
 
   /**
    * Merge multiple positions into one.
+   *
+   * Requires an `idempotencyKey` (8–128 chars). Pass a stable caller-generated
+   * key and reuse it when retrying the same merge attempt. The key is sent as
+   * the `Idempotency-Key` header.
    */
-  async mergePosition(params: MergePositionParams): Promise<PlaceOrderResponse> {
+  async mergePosition(params: MergePositionParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
     return this.request('POST', '/api/v1/orders/merge', {
       body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
     });
   }
 
