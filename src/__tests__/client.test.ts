@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot } from '../types';
+import type { StrategyStatusResponse, StrategyHealth, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -225,6 +225,31 @@ describe('Platform contract compliance', () => {
     await client.startStrategy('strat-id', { mode: 'live', paperMode: true });
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toEqual({ mode: 'live' });
+  });
+
+  it('getStrategyHealth sends GET /api/v1/strategies/:id/health (#269)', async () => {
+    const payload: StrategyHealth = {
+      fillRate: null,
+      avgLatencyMs: 0,
+      errorCount24h: 0,
+      slippageBps: 0,
+      winRate: null,
+      totalPnl: null,
+      maxDrawdown: null,
+      totalOrders: 0,
+      filledOrders: 0,
+      lastUpdated: null,
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.getStrategyHealth('strat-id');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+
+    expect(url.pathname).toBe('/api/v1/strategies/strat-id/health');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result).toEqual(payload);
   });
 
   it('placeSmartOrder sends intervalMinutes not intervalSeconds (#88)', async () => {

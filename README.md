@@ -65,6 +65,7 @@ Kalshi-backed sports markets, events, milestones, and combo lookups. Many respon
 |--------|-------------|
 | `listStrategies(params?)` | List your strategies, optionally filter by status |
 | `getStrategy(id)` | Get a strategy by ID |
+| `getStrategyHealth(id)` | Get strategy execution health metrics |
 | `createStrategy(params)` | Create a blank strategy |
 | `createStrategyFromDescription(params)` | AI-generate a strategy from natural language |
 | `startStrategy(id, mode?)` | Start a strategy (`'live'` or `'paper'`) |

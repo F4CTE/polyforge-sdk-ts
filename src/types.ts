@@ -106,6 +106,20 @@ export interface StrategyStatusResponse {
   stoppedAt?: string;
 }
 
+/** Execution health metrics for a strategy. */
+export interface StrategyHealth {
+  fillRate: number | null;
+  avgLatencyMs: number;
+  errorCount24h: number;
+  slippageBps: number;
+  winRate: number | null;
+  totalPnl: number | null;
+  maxDrawdown: number | null;
+  totalOrders: number;
+  filledOrders: number;
+  lastUpdated: string | null;
+}
+
 export interface StrategyTemplate {
   id: string;
   name: string;
