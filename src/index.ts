@@ -98,6 +98,7 @@ export type {
   StrategyEventType,
   StrategyExecMode,
   StrategyExport,
+  StrategyHealth,
   StrategyLikeResult,
   StrategyReportReason,
   StrategyReportResult,

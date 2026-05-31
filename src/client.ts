@@ -67,6 +67,7 @@ import type {
   StrategyEvent,
   StrategyEventLogEntry,
   StrategyExport,
+  StrategyHealth,
   StrategyLikeResult,
   StrategyReportReason,
   StrategyReportResult,
@@ -739,6 +740,13 @@ export class PolyforgeClient {
    */
   async getStrategy(id: string): Promise<Strategy> {
     return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Get execution health metrics for a strategy.
+   */
+  async getStrategyHealth(id: string): Promise<StrategyHealth> {
+    return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}/health`);
   }
 
   /**
