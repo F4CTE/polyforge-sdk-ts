@@ -2276,6 +2276,32 @@ describe('Strategy social + versioning endpoints (#54)', () => {
     expect(url.pathname).toBe('/api/v1/strategies/s-1/event-log');
     expect(url.searchParams.has('limit')).toBe(false);
   });
+
+  it('getStrategyHealth sends GET /api/v1/strategies/:id/health', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          fillRate: null,
+          avgLatencyMs: 0,
+          errorCount24h: 0,
+          slippageBps: 0,
+          winRate: null,
+          totalPnl: null,
+          maxDrawdown: null,
+          totalOrders: 0,
+          filledOrders: 0,
+          lastUpdated: null,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const result = await client.getStrategyHealth('s-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/health');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+    expect(result.totalOrders).toBe(0);
+    expect(result.lastUpdated).toBeNull();
+  });
 });
 
 describe('SSE buffer size cap (#43)', () => {
