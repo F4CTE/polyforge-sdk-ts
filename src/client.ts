@@ -62,6 +62,9 @@ import type {
   SpreadResult,
   SplitPositionParams,
   Strategy,
+  StrategyCapabilities,
+  StrategyDesignPatterns,
+  StrategyExamples,
   StrategyChild,
   StrategyComment,
   StrategyEvent,
@@ -1314,6 +1317,23 @@ export class PolyforgeClient {
    */
   async getActions(): Promise<ActionsSchema> {
     return this.getPlatformActions();
+  }
+
+  // ── Strategy capability discovery ────────────────────────────────────────
+
+  /** Fetch available strategy block capabilities for AI/tooling discovery. */
+  async getStrategyCapabilities(): Promise<StrategyCapabilities> {
+    return this.request('GET', '/api/v1/strategies/capabilities');
+  }
+
+  /** Fetch platform-authored strategy design patterns for AI/tooling discovery. */
+  async getStrategyDesignPatterns(): Promise<StrategyDesignPatterns> {
+    return this.request('GET', '/api/v1/strategies/design-patterns');
+  }
+
+  /** Fetch example strategy definitions for AI/tooling discovery. */
+  async getStrategyExamples(): Promise<StrategyExamples> {
+    return this.request('GET', '/api/v1/strategies/examples');
   }
 
   // ── API Keys ────────────────────────────────────────────────────────────

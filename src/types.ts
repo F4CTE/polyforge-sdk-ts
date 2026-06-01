@@ -999,6 +999,61 @@ export interface ActionsSchema {
   actions: ActionDefinition[];
 }
 
+// ── Strategy capability discovery ───────────────────────────────────────────
+
+export type StrategyCapabilityCategory =
+  | 'triggers'
+  | 'conditions'
+  | 'actions'
+  | 'safety'
+  | 'logicBlocks'
+  | 'calcBlocks'
+  | string;
+
+export interface StrategyCapability {
+  type: string;
+  label?: string;
+  description?: string;
+  category?: StrategyCapabilityCategory;
+  configSchema?: Record<string, unknown>;
+  examples?: unknown[];
+  [key: string]: unknown;
+}
+
+export interface StrategyCapabilities {
+  version?: string;
+  capabilities: Record<string, StrategyCapability[]>;
+  [key: string]: unknown;
+}
+
+export interface StrategyDesignPattern {
+  name: string;
+  description?: string;
+  useCases?: string[];
+  blocks?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface StrategyDesignPatterns {
+  version?: string;
+  patterns: StrategyDesignPattern[];
+  [key: string]: unknown;
+}
+
+export interface StrategyExample {
+  name: string;
+  description?: string;
+  strategy?: Record<string, unknown>;
+  blocks?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface StrategyExamples {
+  version?: string;
+  examples: StrategyExample[];
+  [key: string]: unknown;
+}
+
 // ── Marketplace seller ──────────────────────────────────────────────────────
 
 export interface CreateListingParams {
