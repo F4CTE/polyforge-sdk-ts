@@ -1,6 +1,7 @@
 import { isIPv4, isIPv6, isIP } from 'node:net';
 import { resolve4, resolve6 } from 'node:dns/promises';
 import { PolyforgeError } from './errors.js';
+import { createRealtimeClient, PolyforgeRealtimeClient } from './realtime.js';
 import type {
   AccuracyScore,
   AccuracyLeaderboardEntry,
@@ -192,6 +193,7 @@ import type {
   SportsCombosPage,
   LookupSportsComboParams,
   SportsComboLookupResult,
+  PolyforgeRealtimeOptions,
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
@@ -434,6 +436,16 @@ export class PolyforgeClient {
    */
   async getHealthAuthenticated(): Promise<SystemHealthAuthenticated> {
     return this.request('GET', '/api/v1/status');
+  }
+
+  /**
+   * Create a WebSocket client for the authenticated `/ws` gateway.
+   *
+   * Call `connect()` on the returned client before subscribing or sending
+   * messages. The gateway token is derived from this client's `apiKey`.
+   */
+  connectRealtime(options?: PolyforgeRealtimeOptions): PolyforgeRealtimeClient {
+    return createRealtimeClient(this.baseUrl, this.apiKey, options);
   }
 
   // ── Financial parameter validation ──────────────────────────────────────

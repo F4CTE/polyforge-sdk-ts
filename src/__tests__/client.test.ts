@@ -18,6 +18,44 @@ const mockResolve6 = vi.mocked(resolve6);
 type PriceHistoryResolution = NonNullable<PriceHistoryParams['resolution']>;
 const supportedPriceHistoryResolutions: PriceHistoryResolution[] = ['1m', '1h', '1d'];
 
+class MockRealtimeSocket {
+  static instances: MockRealtimeSocket[] = [];
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSED = 3;
+
+  readonly sent: string[] = [];
+  readonly url: string;
+  readyState = MockRealtimeSocket.CONNECTING;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: unknown }) => void) | null = null;
+  onclose: ((event: { code: number; reason?: string }) => void) | null = null;
+  onerror: ((event: unknown) => void) | null = null;
+
+  constructor(url: string) {
+    this.url = url;
+    MockRealtimeSocket.instances.push(this);
+  }
+
+  send(data: string): void {
+    this.sent.push(data);
+  }
+
+  close(code = 1000, reason?: string): void {
+    this.readyState = MockRealtimeSocket.CLOSED;
+    this.onclose?.({ code, reason });
+  }
+
+  open(): void {
+    this.readyState = MockRealtimeSocket.OPEN;
+    this.onopen?.();
+  }
+
+  message(data: unknown): void {
+    this.onmessage?.({ data });
+  }
+}
+
 // @ts-expect-error The platform price-history endpoint rejects 5m.
 const unsupportedFiveMinutePriceHistoryResolution: PriceHistoryResolution = '5m';
 // @ts-expect-error The platform price-history endpoint rejects 15m.
@@ -151,6 +189,82 @@ describe('PolyforgeClient', () => {
       expect(() => new PolyforgeClient({ apiKey: 'k', apiUrl: 'https://api.example.com' }))
         .not.toThrow();
     });
+  });
+});
+
+describe('Realtime WebSocket client (#272)', () => {
+  beforeEach(() => {
+    MockRealtimeSocket.instances = [];
+  });
+
+  it('connectRealtime opens /ws with wss scheme and token query', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token', apiUrl: 'https://api.polyforge.app/api/v1' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
+    const connecting = realtime.connect();
+    const socket = MockRealtimeSocket.instances[0];
+
+    expect(socket).toBeDefined();
+    const url = new URL(socket.url);
+    expect(url.protocol).toBe('wss:');
+    expect(url.pathname).toBe('/ws');
+    expect(url.searchParams.get('token')).toBe('jwt-token');
+
+    socket.open();
+    await connecting;
+    expect(realtime.isConnected()).toBe(true);
+  });
+
+  it('sends typed subscription and ping messages', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token', apiUrl: 'http://localhost:3002' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
+    const connecting = realtime.connect();
+    const socket = MockRealtimeSocket.instances[0];
+    socket.open();
+    await connecting;
+
+    realtime.subscribePrices(['tok-1', 'tok-2']);
+    realtime.subscribeStrategy('strategy-1');
+    realtime.subscribeWhales();
+    realtime.ping();
+
+    expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+      { type: 'SUBSCRIBE_PRICES', tokenIds: ['tok-1', 'tok-2'] },
+      { type: 'SUBSCRIBE_STRATEGY', strategyId: 'strategy-1' },
+      { type: 'SUBSCRIBE_WHALES' },
+      { type: 'PING' },
+    ]);
+  });
+
+  it('emits server events and ignores heartbeat comments', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
+    const events: unknown[] = [];
+    realtime.onMessage((event) => events.push(event));
+    const connecting = realtime.connect();
+    const socket = MockRealtimeSocket.instances[0];
+    socket.open();
+    await connecting;
+
+    socket.message(': heartbeat');
+    socket.message(JSON.stringify({ type: 'PRICE_UPDATE', data: { tokenId: 'tok-1', price: 0.61, timestamp: 123 }, timestamp: 456 }));
+    await Promise.resolve();
+
+    expect(events).toEqual([
+      { type: 'PRICE_UPDATE', data: { tokenId: 'tok-1', price: 0.61, timestamp: 123 }, timestamp: 456 },
+    ]);
+  });
+
+  it('enforces the 200 token price subscription cap before sending', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
+    const connecting = realtime.connect();
+    const socket = MockRealtimeSocket.instances[0];
+    socket.open();
+    await connecting;
+
+    realtime.subscribePrices(Array.from({ length: 200 }, (_, i) => `tok-${i}`));
+    expect(() => realtime.subscribePrices(['tok-extra'])).toThrow('at most 200 token prices');
+    expect(socket.sent).toHaveLength(1);
   });
 });
 

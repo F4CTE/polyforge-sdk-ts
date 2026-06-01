@@ -468,6 +468,87 @@ export interface StrategyEvent {
   timestamp: number;
 }
 
+// ── WebSocket Gateway Events ─────────────────────────────────────────────────
+
+export type RealtimeClientMessage =
+  | { type: 'PING' }
+  | { type: 'SUBSCRIBE_PRICES'; tokenIds: string[] }
+  | { type: 'UNSUBSCRIBE_PRICES'; tokenIds: string[] }
+  | { type: 'SUBSCRIBE_STRATEGY'; strategyId: string }
+  | { type: 'UNSUBSCRIBE_STRATEGY'; strategyId: string }
+  | { type: 'SUBSCRIBE_WHALES' }
+  | { type: 'UNSUBSCRIBE_WHALES' };
+
+export type RealtimeEventType =
+  | 'AUTH_OK'
+  | 'PONG'
+  | 'PRICE_UPDATE'
+  | 'WHALE_TRADE'
+  | 'NEWS_SIGNAL'
+  | 'NOTIFICATION'
+  | 'MARKET_SETTLEMENT'
+  | 'ERROR'
+  | StrategyEventType;
+
+export interface RealtimePriceUpdate {
+  tokenId: string;
+  price: number;
+  timestamp: number;
+}
+
+export interface RealtimeMarketSettlement {
+  ticker: string;
+  settlementValue: string;
+  result: string | null;
+}
+
+export type RealtimeServerEvent =
+  | { type: 'AUTH_OK'; timestamp: number }
+  | { type: 'PONG'; timestamp: number }
+  | { type: 'PRICE_UPDATE'; data: RealtimePriceUpdate; timestamp: number }
+  | { type: 'WHALE_TRADE'; data: Record<string, unknown>; timestamp: number }
+  | { type: 'NEWS_SIGNAL'; data: Record<string, unknown>; timestamp: number }
+  | { type: 'NOTIFICATION'; data: Record<string, unknown>; timestamp: number }
+  | { type: 'MARKET_SETTLEMENT'; data: RealtimeMarketSettlement; timestamp: number }
+  | { type: 'ERROR'; message: string; timestamp?: number }
+  | { type: StrategyEventType; data: { strategyId?: string } & Record<string, unknown>; timestamp: number };
+
+export interface PolyforgeWebSocketLike {
+  readyState: number;
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+  addEventListener?(type: 'open', listener: () => void): void;
+  addEventListener?(type: 'message', listener: (event: { data: unknown }) => void): void;
+  addEventListener?(type: 'close', listener: (event: { code: number; reason?: string }) => void): void;
+  addEventListener?(type: 'error', listener: (event: unknown) => void): void;
+  onopen?: (() => void) | null;
+  onmessage?: ((event: { data: unknown }) => void) | null;
+  onclose?: ((event: { code: number; reason?: string }) => void) | null;
+  onerror?: ((event: unknown) => void) | null;
+}
+
+export interface PolyforgeWebSocketConstructor {
+  new (url: string): PolyforgeWebSocketLike;
+}
+
+export interface PolyforgeRealtimeOptions {
+  /** Override the computed `{apiUrl}/ws` endpoint. Mostly useful for tests. */
+  wsUrl?: string;
+  /** Optional WebSocket constructor for Node runtimes or tests. Defaults to globalThis.WebSocket. */
+  WebSocket?: PolyforgeWebSocketConstructor;
+  /** Whether non-terminal closes reconnect automatically. Defaults to true. */
+  reconnect?: boolean;
+  /** Initial reconnect delay in milliseconds. Defaults to 500. */
+  reconnectMinDelayMs?: number;
+  /** Maximum reconnect delay in milliseconds. Defaults to 10000. */
+  reconnectMaxDelayMs?: number;
+}
+
+export interface PolyforgeRealtimeConnectionOptions extends PolyforgeRealtimeOptions {
+  apiUrl: string;
+  token: string;
+}
+
 // ── Arbitrage ────────────────────────────────────────────────────────────────
 
 export interface ArbitrageOpportunity {
