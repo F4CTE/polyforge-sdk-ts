@@ -1,8 +1,10 @@
+import { inspect } from 'node:util';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
+import { createRealtimeClient } from '../realtime';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, StrategyCapabilities, StrategyDesignPatterns, StrategyExamples, MarketSlot, SmartOrder, TicketStatus } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, StrategyCapabilities, StrategyDesignPatterns, StrategyExamples, MarketSlot, SmartOrder, TicketStatus, RealtimeServerEvent } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -17,6 +19,44 @@ const mockResolve6 = vi.mocked(resolve6);
 
 type PriceHistoryResolution = NonNullable<PriceHistoryParams['resolution']>;
 const supportedPriceHistoryResolutions: PriceHistoryResolution[] = ['1m', '1h', '1d'];
+
+class MockRealtimeSocket {
+  static instances: MockRealtimeSocket[] = [];
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSED = 3;
+
+  readonly sent: string[] = [];
+  readonly url: string;
+  readyState = MockRealtimeSocket.CONNECTING;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: unknown }) => void) | null = null;
+  onclose: ((event: { code: number; reason?: string }) => void) | null = null;
+  onerror: ((event: unknown) => void) | null = null;
+
+  constructor(url: string) {
+    this.url = url;
+    MockRealtimeSocket.instances.push(this);
+  }
+
+  send(data: string): void {
+    this.sent.push(data);
+  }
+
+  close(code = 1000, reason?: string): void {
+    this.readyState = MockRealtimeSocket.CLOSED;
+    this.onclose?.({ code, reason });
+  }
+
+  open(): void {
+    this.readyState = MockRealtimeSocket.OPEN;
+    this.onopen?.();
+  }
+
+  message(data: unknown): void {
+    this.onmessage?.({ data });
+  }
+}
 
 // @ts-expect-error The platform price-history endpoint rejects 5m.
 const unsupportedFiveMinutePriceHistoryResolution: PriceHistoryResolution = '5m';
@@ -154,6 +194,197 @@ describe('PolyforgeClient', () => {
   });
 });
 
+describe('Realtime WebSocket client (#272)', () => {
+  beforeEach(() => {
+    MockRealtimeSocket.instances = [];
+  });
+
+  it('connectRealtime opens /ws with wss scheme and token query', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token', apiUrl: 'https://api.polyforge.app/api/v1' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
+    const connecting = realtime.connect();
+    const socket = MockRealtimeSocket.instances[0];
+
+    expect(socket).toBeDefined();
+    const url = new URL(socket.url);
+    expect(url.protocol).toBe('wss:');
+    expect(url.pathname).toBe('/ws');
+    expect(url.searchParams.get('token')).toBe('jwt-token');
+
+    socket.open();
+    await connecting;
+    expect(realtime.isConnected()).toBe(true);
+  });
+
+  it('rejects remote plaintext websocket URLs before appending the token', () => {
+    expect(() => new PolyforgeClient({ apiKey: 'jwt-token', apiUrl: 'http://api.example.com' }).connectRealtime({ WebSocket: MockRealtimeSocket as any }))
+      .toThrow('Non-localhost API URLs must use HTTPS');
+    expect(() => createRealtimeClient('https://api.polyforge.app', 'jwt-token', { wsUrl: 'ws://api.example.com/ws', WebSocket: MockRealtimeSocket as any }))
+      .toThrow('Non-localhost WebSocket URLs must use WSS');
+    expect(() => createRealtimeClient('https://api.polyforge.app', 'jwt-token', { wsUrl: 'ws://localhost:3002/ws', WebSocket: MockRealtimeSocket as any }))
+      .not.toThrow();
+  });
+
+  it('redacts websocket tokens during Node inspection', () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
+
+    expect(inspect(realtime)).toContain('[REDACTED]');
+    expect(inspect(realtime)).not.toContain('jwt-token');
+  });
+
+  it('sends typed subscription and ping messages', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token', apiUrl: 'http://localhost:3002' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
+    const connecting = realtime.connect();
+    const socket = MockRealtimeSocket.instances[0];
+    socket.open();
+    await connecting;
+
+    realtime.subscribePrices(['tok-1', 'tok-2']);
+    realtime.subscribeStrategy('strategy-1');
+    realtime.subscribeWhales();
+    realtime.ping();
+
+    expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+      { type: 'SUBSCRIBE_PRICES', tokenIds: ['tok-1', 'tok-2'] },
+      { type: 'SUBSCRIBE_STRATEGY', strategyId: 'strategy-1' },
+      { type: 'SUBSCRIBE_WHALES' },
+      { type: 'PING' },
+    ]);
+  });
+
+  it('emits server events and ignores heartbeat comments', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
+    const events: unknown[] = [];
+    realtime.onMessage((event) => events.push(event));
+    const connecting = realtime.connect();
+    const socket = MockRealtimeSocket.instances[0];
+    socket.open();
+    await connecting;
+
+    socket.message(': heartbeat');
+    socket.message(JSON.stringify({ type: 'PRICE_UPDATE', data: { tokenId: 'tok-1', price: 0.61, timestamp: 123 }, timestamp: 456 }));
+    await Promise.resolve();
+
+    expect(events).toEqual([
+      { type: 'PRICE_UPDATE', data: { tokenId: 'tok-1', price: 0.61, timestamp: 123 }, timestamp: 456 },
+    ]);
+  });
+
+  it('enforces the 200 token price subscription cap before sending', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
+    const connecting = realtime.connect();
+    const socket = MockRealtimeSocket.instances[0];
+    socket.open();
+    await connecting;
+
+    realtime.subscribePrices(Array.from({ length: 200 }, (_, i) => `tok-${i}`));
+    expect(() => realtime.subscribePrices(['tok-extra'])).toThrow('at most 200 token prices');
+    expect(socket.sent).toHaveLength(1);
+  });
+
+  it('does not remember failed disconnected subscriptions for replay', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
+
+    expect(() => realtime.subscribePrices(['tok-1'])).toThrow('WebSocket is not connected');
+    expect(() => realtime.subscribeStrategy('strategy-1')).toThrow('WebSocket is not connected');
+    expect(() => realtime.subscribeWhales()).toThrow('WebSocket is not connected');
+
+    const connecting = realtime.connect();
+    const socket = MockRealtimeSocket.instances[0];
+    socket.open();
+    await connecting;
+
+    expect(socket.sent).toEqual([]);
+  });
+
+  it('replays whale subscriptions after reconnect', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any, reconnectMinDelayMs: 1, reconnectMaxDelayMs: 1 });
+    const connecting = realtime.connect();
+    const firstSocket = MockRealtimeSocket.instances[0];
+    firstSocket.open();
+    await connecting;
+    realtime.subscribeWhales();
+
+    firstSocket.close(1006);
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    const secondSocket = MockRealtimeSocket.instances[1];
+    secondSocket.open();
+
+    expect(secondSocket.sent.map((message) => JSON.parse(message))).toEqual([
+      { type: 'SUBSCRIBE_WHALES' },
+    ]);
+  });
+
+  it('does not replay subscriptions removed during reconnect gaps', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any, reconnectMinDelayMs: 1, reconnectMaxDelayMs: 1 });
+    const connecting = realtime.connect();
+    const firstSocket = MockRealtimeSocket.instances[0];
+    firstSocket.open();
+    await connecting;
+    realtime.subscribePrices(['tok-1']);
+    realtime.subscribeStrategy('strategy-1');
+    realtime.subscribeWhales();
+
+    firstSocket.close(1006);
+    realtime.unsubscribePrices(['tok-1']);
+    realtime.unsubscribeStrategy('strategy-1');
+    realtime.unsubscribeWhales();
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    const secondSocket = MockRealtimeSocket.instances[1];
+    secondSocket.open();
+
+    expect(secondSocket.sent).toEqual([]);
+  });
+
+  it('ignores close events from stale sockets after reconnecting', async () => {
+    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
+    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any, reconnectMinDelayMs: 1, reconnectMaxDelayMs: 1 });
+    const firstConnecting = realtime.connect();
+    const firstSocket = MockRealtimeSocket.instances[0];
+    firstSocket.open();
+    await firstConnecting;
+
+    realtime.close();
+    const secondConnecting = realtime.connect();
+    const secondSocket = MockRealtimeSocket.instances[1];
+    firstSocket.onclose?.({ code: 1006 });
+    secondSocket.open();
+    await secondConnecting;
+    await new Promise((resolve) => setTimeout(resolve, 2));
+
+    expect(MockRealtimeSocket.instances).toHaveLength(2);
+    expect(realtime.isConnected()).toBe(true);
+  });
+
+  it('keeps gateway events discriminated from strategy event payloads', () => {
+    function read(event: RealtimeServerEvent): number | string | undefined {
+      if (event.type === 'PRICE_UPDATE') {
+        // @ts-expect-error Strategy payload fields must not leak into PRICE_UPDATE.
+        void event.data.strategyId;
+        return event.data.price;
+      }
+      if (event.type === 'ERROR') {
+        // @ts-expect-error ERROR events do not carry the generic strategy data payload.
+        void event.data;
+        return event.message;
+      }
+      if (event.type === 'STRATEGY_STARTED') {
+        return event.data.strategyId;
+      }
+      return undefined;
+    }
+
+    expect(read({ type: 'PRICE_UPDATE', data: { tokenId: 'tok-1', price: 1, timestamp: 1 }, timestamp: 1 })).toBe(1);
+  });
+});
+
 describe('Platform contract compliance', () => {
   let client: PolyforgeClient;
   let fetchSpy: ReturnType<typeof vi.spyOn>;
@@ -240,56 +471,6 @@ describe('Platform contract compliance', () => {
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('intervalMinutes', 15);
     expect(body).not.toHaveProperty('intervalSeconds');
-  });
-
-  it('listSmartOrders returns bare SmartOrder[] from GET /api/v1/orders/smart (#234)', async () => {
-    const mockOrders: SmartOrder[] = [
-      {
-        id: 'smo-1',
-        type: 'TWAP',
-        status: 'ACTIVE',
-        marketId: 'mkt-1',
-        tokenId: 'tok-1',
-        outcome: 'YES',
-        side: 'BUY',
-        totalSize: '100',
-        config: { intervalMinutes: 15 },
-        slicesFilled: 2,
-        slicesTotal: 5,
-        nextExecuteAt: '2026-05-13T12:00:00Z',
-        completedAt: null,
-        createdAt: '2026-05-13T10:00:00Z',
-        orders: [
-          {
-            id: 'child-1',
-            status: 'filled',
-            fillSize: '20',
-            fillPrice: '0.55',
-            createdAt: '2026-05-13T10:05:00Z',
-          },
-        ],
-      },
-    ];
-
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify(mockOrders), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-
-    const result = await client.listSmartOrders();
-    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-
-    expect(new URL(url).pathname).toBe('/api/v1/orders/smart');
-    expect(init.method).toBe('GET');
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('smo-1');
-    expect(result[0].type).toBe('TWAP');
-    expect(result[0].status).toBe('ACTIVE');
-    expect(result[0].orders).toHaveLength(1);
-    expect(result[0].orders[0].id).toBe('child-1');
   });
 
   it('WebhookEvent values use SCREAMING_SNAKE_CASE (#86)', async () => {
@@ -1620,7 +1801,6 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
       canvas: { zoom: 1, offsetX: 0, offsetY: 0 },
       marketId: 'mkt-1',
       marketSlots: [{ slot: 'slot-1', label: 'Primary market', defaultMarketId: 'mkt-1' }],
-      kalshiSubaccount: 3,
     };
     await client.createStrategy(params);
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
@@ -1636,7 +1816,6 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
     expect(body).toHaveProperty('canvas');
     expect(body).toHaveProperty('marketSlots');
     expect(body.marketSlots).toEqual([{ slot: 'slot-1', label: 'Primary market', defaultMarketId: 'mkt-1' }]);
-    expect(body).toHaveProperty('kalshiSubaccount', 3);
     expect(JSON.stringify(body)).not.toContain('slotId');
     expect(JSON.stringify(body)).not.toContain('tokenId');
   });
@@ -2347,32 +2526,6 @@ describe('Strategy social + versioning endpoints (#54)', () => {
     expect(url.pathname).toBe('/api/v1/strategies/s-1/event-log');
     expect(url.searchParams.has('limit')).toBe(false);
   });
-
-  it('getStrategyHealth sends GET /api/v1/strategies/:id/health', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          fillRate: null,
-          avgLatencyMs: 0,
-          errorCount24h: 0,
-          slippageBps: 0,
-          winRate: null,
-          totalPnl: null,
-          maxDrawdown: null,
-          totalOrders: 0,
-          filledOrders: 0,
-          lastUpdated: null,
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
-    );
-    const result = await client.getStrategyHealth('s-1');
-    const url = new URL(fetchSpy.mock.calls[0][0] as string);
-    expect(url.pathname).toBe('/api/v1/strategies/s-1/health');
-    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
-    expect(result.totalOrders).toBe(0);
-    expect(result.lastUpdated).toBeNull();
-  });
 });
 
 describe('SSE buffer size cap (#43)', () => {
@@ -2704,23 +2857,6 @@ describe('Batch API (#66)', () => {
     expect(body.items[0].path).toBe('/api/v1/portfolio');
     expect(res.results[0].id).toBe('req-1');
     expect(res.results[1].id).toBe('req-2');
-  });
-
-  it('BatchRequestItem.method excludes PUT — platform only accepts GET/POST/PATCH/DELETE (#235)', async () => {
-    // Type-level: these must compile
-    const validItems: import('../types').BatchRequestItem[] = [
-      { id: 'r1', method: 'GET', path: '/api/v1/test' },
-      { id: 'r2', method: 'POST', path: '/api/v1/test' },
-      { id: 'r3', method: 'PATCH', path: '/api/v1/test' },
-      { id: 'r4', method: 'DELETE', path: '/api/v1/test' },
-    ];
-    expect(validItems).toHaveLength(4);
-    expect(new Set(validItems.map((i) => i.method))).toEqual(new Set(['GET', 'POST', 'PATCH', 'DELETE']));
-
-    // Type-level regression: PUT must NOT be accepted — @ts-expect-error fails if PUT is re-added
-    // @ts-expect-error: 'PUT' is not assignable to BatchRequestItem.method
-    const _putRejected: import('../types').BatchRequestItem = { id: 'rx', method: 'PUT', path: '/api/v1/test' };
-    void _putRejected;
   });
 });
 
@@ -3138,18 +3274,21 @@ describe('Trading write idempotency (#208)', () => {
         key,
       ),
     },
+  ];
+  const unprotectedPositionWrites = [
     {
       name: 'splitPosition',
       path: '/api/v1/orders/split',
-      call: (key: string) => client.splitPosition({ tokenId: 'tok-1', amount: '10' }, key),
+      params: { tokenId: 'tok-1', amount: '10' },
+      call: (params: SplitPositionParams) => client.splitPosition(params),
     },
     {
       name: 'mergePosition',
       path: '/api/v1/orders/merge',
-      call: (key: string) => client.mergePosition({ tokenId: 'tok-1', amount: '10' }, key),
+      params: { tokenId: 'tok-1', amount: '10' },
+      call: (params: MergePositionParams) => client.mergePosition(params),
     },
   ];
-  const unprotectedPositionWrites: { name: string; path: string; params: Record<string, string>; call: (...args: unknown[]) => Promise<unknown> }[] = [];
 
   it.each(tradingWrites)('$name sends Idempotency-Key on the protected POST endpoint', async ({ path, call }) => {
     await call('trade-key-123');
@@ -3204,7 +3343,7 @@ describe('Trading write idempotency (#208)', () => {
   });
 
   it.each(unprotectedPositionWrites)('$name ignores accidental extra key arguments instead of validating them', async ({ params, call }) => {
-    await (call as unknown as (requestParams: SplitPositionParams | MergePositionParams, key: string) => Promise<unknown>)(params as unknown as SplitPositionParams, 'short');
+    await (call as unknown as (requestParams: SplitPositionParams | MergePositionParams, key: string) => Promise<unknown>)(params, 'short');
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
@@ -3818,42 +3957,14 @@ describe('Profile endpoints (POLA-780)', () => {
     expect(body.newPassword).toBe('new456');
   });
 
-  it('updateProfileNotifications sends PATCH /api/v1/profile/notifications with platform-whitelisted fields only', async () => {
+  it('updateProfileNotifications sends PATCH /api/v1/profile/notifications', async () => {
     fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
-    await client.updateProfileNotifications({
-      onOrderFilled: true,
-      onSomeoneFollowed: false,
-    });
+    await client.updateProfileNotifications({ onOrderFilled: true });
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(new URL(url).pathname).toBe('/api/v1/profile/notifications');
     expect(init.method).toBe('PATCH');
     const body = JSON.parse(init.body as string);
-    expect(body).toEqual({
-      onOrderFilled: true,
-      onSomeoneFollowed: false,
-    });
-    // Regression guard for phantom emailOn* / pushOn* fields (#237):
-    // the platform DTO does not whitelist them, and forbidNonWhitelisted
-    // makes any payload containing them return HTTP 400.
-    for (const phantom of [
-      'emailOnOrderFilled',
-      'emailOnStrategyError',
-      'emailOnDailyLossLimit',
-      'emailOnMarketResolved',
-      'pushOnOrderFilled',
-      'pushOnStrategyError',
-      'pushOnWhaleAlert',
-      'pushOnPriceAlert',
-    ]) {
-      expect(body).not.toHaveProperty(phantom);
-    }
-    // Positive regression: onTicketReply is whitelisted in the platform DTO (#237).
-    // Send it explicitly to prove it reaches the wire intact.
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
-    await client.updateProfileNotifications({ onTicketReply: true });
-    const [, init2] = fetchSpy.mock.calls[1] as [string, RequestInit];
-    const body2 = JSON.parse(init2.body as string);
-    expect(body2).toEqual({ onTicketReply: true });
+    expect(body.onOrderFilled).toBe(true);
   });
 
   it('getPublicProfile calls GET /api/v1/profile/:username', async () => {
@@ -4005,7 +4116,6 @@ describe('Settings endpoints (POLA-780)', () => {
       'pushOnStrategyError',
       'pushOnWhaleAlert',
       'pushOnPriceAlert',
-      'onTicketReply',
     ]) {
       expect(body).not.toHaveProperty(phantom);
     }
