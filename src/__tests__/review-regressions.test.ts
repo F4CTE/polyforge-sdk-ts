@@ -1,11 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PolyforgeClient } from '../client';
-import type { BatchRequestItem, SmartOrder } from '../types';
+import type { BatchRequestItem, CreateStrategyParams, SmartOrder, StrategyHealth, UpdateStrategyParams } from '../types';
 
 describe('PR #277 review regressions', () => {
   it('keeps getStrategyHealth on the public client', async () => {
+    const health: StrategyHealth = {
+      fillRate: null,
+      avgLatencyMs: 0,
+      errorCount24h: 0,
+      slippageBps: 0,
+      winRate: null,
+      totalPnl: null,
+      maxDrawdown: null,
+      totalOrders: 0,
+      filledOrders: 0,
+      lastUpdated: null,
+    };
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ status: 'RUNNING' }), {
+      new Response(JSON.stringify(health), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -13,10 +25,11 @@ describe('PR #277 review regressions', () => {
 
     try {
       const client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
-      await client.getStrategyHealth('strategy-1');
+      const result: StrategyHealth = await client.getStrategyHealth('strategy-1');
 
       expect(new URL(fetchSpy.mock.calls[0][0] as string).pathname).toBe('/api/v1/strategies/strategy-1/health');
       expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+      expect(result.totalOrders).toBe(0);
     } finally {
       fetchSpy.mockRestore();
     }
@@ -49,5 +62,13 @@ describe('PR #277 review regressions', () => {
 
     expect(item.method).toBe('POST');
     expect(unsupported.method).toBe('PUT');
+  });
+
+  it('keeps kalshiSubaccount accepted by strategy create and update payloads', () => {
+    const createParams: CreateStrategyParams = { name: 'Subaccount strategy', kalshiSubaccount: 3 };
+    const updateParams: UpdateStrategyParams = { kalshiSubaccount: 4 };
+
+    expect(createParams.kalshiSubaccount).toBe(3);
+    expect(updateParams.kalshiSubaccount).toBe(4);
   });
 });

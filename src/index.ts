@@ -90,6 +90,7 @@ export type {
   RewardsSponsorUrl,
   RiskSettings,
   RunBacktestParams,
+  StrategyHealth,
   SystemHealthAuthenticated,
   SystemHealthPublic,
   SpreadResult,
