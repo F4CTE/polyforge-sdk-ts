@@ -3,21 +3,7 @@
 ## [Unreleased]
 
 ### Changed
-- **POLA-9875 compatibility fix** — `TicketStatus` now matches platform support
-  ticket states: `OPEN`, `AWAITING_USER`, `AWAITING_ADMIN`, and `CLOSED`.
-- **#234: `listSmartOrders` return type fixed** — changed from
-  `Promise<PaginatedResponse<SmartOrder>>` to `Promise<SmartOrder[]>`. The
-  platform's `GET /api/v1/orders/smart` returns a bare array, not a paginated
-  wrapper. Adds regression test verifying bare array return shape. (closes #234)
-- **#237: `updateProfileNotifications` type narrowed** — replaced
-  `Record<string, boolean>` with `ProfileNotificationPreferences`
-  (`Partial<NotificationSettings> & { onTicketReply?: boolean }`). The
-  platform's `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`
-  rejects unknown keys in `PATCH /api/v1/profile/notifications`, so the
-  parameter type must stay an exact mirror of the DTO. Adds regression
-  test guard against phantom `emailOn*` / `pushOn*` fields.
-  `onTicketReply` is added only to `ProfileNotificationPreferences`
-  (not `NotificationSettings`) because the settings DTO does not whitelist it.
+
 - **POLA-4423 endpoint fix** — `getAccuracyLeaderboard()` now routes to
   `GET /api/v1/accuracy/leaderboard` (dedicated accuracy leaderboard) instead
   of `GET /api/v1/leaderboard` (P&L-ranked leaderboard). Test assertion
@@ -35,6 +21,10 @@
   on non-UUID).
 
 ### Added
+- **POLA-9910 WebSocket gateway client** — adds `PolyforgeRealtimeClient` and
+  `createRealtimeClient()` for authenticated `/ws` subscriptions, including
+  price ticks, strategy events, whale trades, reconnect replay, token redaction,
+  and browser/Node-compatible WebSocket injection.
 - **GDPR personal data export** — `exportPersonalData(format?)` for
   `GET /api/v1/me/export`. Returns a parsed `PersonalDataExport` object by
   default (JSON) or a raw CSV string when `format: 'csv'` is passed. The
@@ -144,12 +134,6 @@
   All four public-profile endpoints throw a `PolyforgeError` with `status: 404` / `code: "NOT_FOUND"` when the username does not exist. The `username` path segment is URL-encoded.
 
 ### Fixed
-- **`splitPosition` / `mergePosition` missing `Idempotency-Key` header** —
-  `splitPosition(params, idempotencyKey)` and `mergePosition(params, idempotencyKey)`
-  now accept a required `idempotencyKey: string` and pass the `Idempotency-Key`
-  header via `idempotencyHeaders()`, matching the pattern used by all other
-  protected write methods (`placeOrder`, `closePosition`, `executeArb`, etc.).
-  Regression of #208. (closes #231)
 - **BREAKING** `PlaceOrderParams`: remove `marketId` from direct order
   payloads to match the platform `PlaceOrderDto`; `placeOrder()` and
   `placeBatchOrders()` now strip legacy runtime `marketId` keys before

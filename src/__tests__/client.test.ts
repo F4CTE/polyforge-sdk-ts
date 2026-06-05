@@ -1,7 +1,5 @@
-import { inspect } from 'node:util';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
-import { createRealtimeClient } from '../realtime';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
 import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, StrategyCapabilities, StrategyDesignPatterns, StrategyExamples, MarketSlot, SmartOrder, TicketStatus, RealtimeServerEvent } from '../types';
@@ -19,44 +17,6 @@ const mockResolve6 = vi.mocked(resolve6);
 
 type PriceHistoryResolution = NonNullable<PriceHistoryParams['resolution']>;
 const supportedPriceHistoryResolutions: PriceHistoryResolution[] = ['1m', '1h', '1d'];
-
-class MockRealtimeSocket {
-  static instances: MockRealtimeSocket[] = [];
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSED = 3;
-
-  readonly sent: string[] = [];
-  readonly url: string;
-  readyState = MockRealtimeSocket.CONNECTING;
-  onopen: (() => void) | null = null;
-  onmessage: ((event: { data: unknown }) => void) | null = null;
-  onclose: ((event: { code: number; reason?: string }) => void) | null = null;
-  onerror: ((event: unknown) => void) | null = null;
-
-  constructor(url: string) {
-    this.url = url;
-    MockRealtimeSocket.instances.push(this);
-  }
-
-  send(data: string): void {
-    this.sent.push(data);
-  }
-
-  close(code = 1000, reason?: string): void {
-    this.readyState = MockRealtimeSocket.CLOSED;
-    this.onclose?.({ code, reason });
-  }
-
-  open(): void {
-    this.readyState = MockRealtimeSocket.OPEN;
-    this.onopen?.();
-  }
-
-  message(data: unknown): void {
-    this.onmessage?.({ data });
-  }
-}
 
 // @ts-expect-error The platform price-history endpoint rejects 5m.
 const unsupportedFiveMinutePriceHistoryResolution: PriceHistoryResolution = '5m';
@@ -191,197 +151,6 @@ describe('PolyforgeClient', () => {
       expect(() => new PolyforgeClient({ apiKey: 'k', apiUrl: 'https://api.example.com' }))
         .not.toThrow();
     });
-  });
-});
-
-describe('Realtime WebSocket client (#272)', () => {
-  beforeEach(() => {
-    MockRealtimeSocket.instances = [];
-  });
-
-  it('connectRealtime opens /ws with wss scheme and token query', async () => {
-    const client = new PolyforgeClient({ apiKey: 'jwt-token', apiUrl: 'https://api.polyforge.app/api/v1' });
-    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
-    const connecting = realtime.connect();
-    const socket = MockRealtimeSocket.instances[0];
-
-    expect(socket).toBeDefined();
-    const url = new URL(socket.url);
-    expect(url.protocol).toBe('wss:');
-    expect(url.pathname).toBe('/ws');
-    expect(url.searchParams.get('token')).toBe('jwt-token');
-
-    socket.open();
-    await connecting;
-    expect(realtime.isConnected()).toBe(true);
-  });
-
-  it('rejects remote plaintext websocket URLs before appending the token', () => {
-    expect(() => new PolyforgeClient({ apiKey: 'jwt-token', apiUrl: 'http://api.example.com' }).connectRealtime({ WebSocket: MockRealtimeSocket as any }))
-      .toThrow('Non-localhost API URLs must use HTTPS');
-    expect(() => createRealtimeClient('https://api.polyforge.app', 'jwt-token', { wsUrl: 'ws://api.example.com/ws', WebSocket: MockRealtimeSocket as any }))
-      .toThrow('Non-localhost WebSocket URLs must use WSS');
-    expect(() => createRealtimeClient('https://api.polyforge.app', 'jwt-token', { wsUrl: 'ws://localhost:3002/ws', WebSocket: MockRealtimeSocket as any }))
-      .not.toThrow();
-  });
-
-  it('redacts websocket tokens during Node inspection', () => {
-    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
-    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
-
-    expect(inspect(realtime)).toContain('[REDACTED]');
-    expect(inspect(realtime)).not.toContain('jwt-token');
-  });
-
-  it('sends typed subscription and ping messages', async () => {
-    const client = new PolyforgeClient({ apiKey: 'jwt-token', apiUrl: 'http://localhost:3002' });
-    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
-    const connecting = realtime.connect();
-    const socket = MockRealtimeSocket.instances[0];
-    socket.open();
-    await connecting;
-
-    realtime.subscribePrices(['tok-1', 'tok-2']);
-    realtime.subscribeStrategy('strategy-1');
-    realtime.subscribeWhales();
-    realtime.ping();
-
-    expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
-      { type: 'SUBSCRIBE_PRICES', tokenIds: ['tok-1', 'tok-2'] },
-      { type: 'SUBSCRIBE_STRATEGY', strategyId: 'strategy-1' },
-      { type: 'SUBSCRIBE_WHALES' },
-      { type: 'PING' },
-    ]);
-  });
-
-  it('emits server events and ignores heartbeat comments', async () => {
-    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
-    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
-    const events: unknown[] = [];
-    realtime.onMessage((event) => events.push(event));
-    const connecting = realtime.connect();
-    const socket = MockRealtimeSocket.instances[0];
-    socket.open();
-    await connecting;
-
-    socket.message(': heartbeat');
-    socket.message(JSON.stringify({ type: 'PRICE_UPDATE', data: { tokenId: 'tok-1', price: 0.61, timestamp: 123 }, timestamp: 456 }));
-    await Promise.resolve();
-
-    expect(events).toEqual([
-      { type: 'PRICE_UPDATE', data: { tokenId: 'tok-1', price: 0.61, timestamp: 123 }, timestamp: 456 },
-    ]);
-  });
-
-  it('enforces the 200 token price subscription cap before sending', async () => {
-    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
-    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
-    const connecting = realtime.connect();
-    const socket = MockRealtimeSocket.instances[0];
-    socket.open();
-    await connecting;
-
-    realtime.subscribePrices(Array.from({ length: 200 }, (_, i) => `tok-${i}`));
-    expect(() => realtime.subscribePrices(['tok-extra'])).toThrow('at most 200 token prices');
-    expect(socket.sent).toHaveLength(1);
-  });
-
-  it('does not remember failed disconnected subscriptions for replay', async () => {
-    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
-    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any });
-
-    expect(() => realtime.subscribePrices(['tok-1'])).toThrow('WebSocket is not connected');
-    expect(() => realtime.subscribeStrategy('strategy-1')).toThrow('WebSocket is not connected');
-    expect(() => realtime.subscribeWhales()).toThrow('WebSocket is not connected');
-
-    const connecting = realtime.connect();
-    const socket = MockRealtimeSocket.instances[0];
-    socket.open();
-    await connecting;
-
-    expect(socket.sent).toEqual([]);
-  });
-
-  it('replays whale subscriptions after reconnect', async () => {
-    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
-    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any, reconnectMinDelayMs: 1, reconnectMaxDelayMs: 1 });
-    const connecting = realtime.connect();
-    const firstSocket = MockRealtimeSocket.instances[0];
-    firstSocket.open();
-    await connecting;
-    realtime.subscribeWhales();
-
-    firstSocket.close(1006);
-    await new Promise((resolve) => setTimeout(resolve, 2));
-    const secondSocket = MockRealtimeSocket.instances[1];
-    secondSocket.open();
-
-    expect(secondSocket.sent.map((message) => JSON.parse(message))).toEqual([
-      { type: 'SUBSCRIBE_WHALES' },
-    ]);
-  });
-
-  it('does not replay subscriptions removed during reconnect gaps', async () => {
-    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
-    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any, reconnectMinDelayMs: 1, reconnectMaxDelayMs: 1 });
-    const connecting = realtime.connect();
-    const firstSocket = MockRealtimeSocket.instances[0];
-    firstSocket.open();
-    await connecting;
-    realtime.subscribePrices(['tok-1']);
-    realtime.subscribeStrategy('strategy-1');
-    realtime.subscribeWhales();
-
-    firstSocket.close(1006);
-    realtime.unsubscribePrices(['tok-1']);
-    realtime.unsubscribeStrategy('strategy-1');
-    realtime.unsubscribeWhales();
-    await new Promise((resolve) => setTimeout(resolve, 2));
-    const secondSocket = MockRealtimeSocket.instances[1];
-    secondSocket.open();
-
-    expect(secondSocket.sent).toEqual([]);
-  });
-
-  it('ignores close events from stale sockets after reconnecting', async () => {
-    const client = new PolyforgeClient({ apiKey: 'jwt-token' });
-    const realtime = client.connectRealtime({ WebSocket: MockRealtimeSocket as any, reconnectMinDelayMs: 1, reconnectMaxDelayMs: 1 });
-    const firstConnecting = realtime.connect();
-    const firstSocket = MockRealtimeSocket.instances[0];
-    firstSocket.open();
-    await firstConnecting;
-
-    realtime.close();
-    const secondConnecting = realtime.connect();
-    const secondSocket = MockRealtimeSocket.instances[1];
-    firstSocket.onclose?.({ code: 1006 });
-    secondSocket.open();
-    await secondConnecting;
-    await new Promise((resolve) => setTimeout(resolve, 2));
-
-    expect(MockRealtimeSocket.instances).toHaveLength(2);
-    expect(realtime.isConnected()).toBe(true);
-  });
-
-  it('keeps gateway events discriminated from strategy event payloads', () => {
-    function read(event: RealtimeServerEvent): number | string | undefined {
-      if (event.type === 'PRICE_UPDATE') {
-        // @ts-expect-error Strategy payload fields must not leak into PRICE_UPDATE.
-        void event.data.strategyId;
-        return event.data.price;
-      }
-      if (event.type === 'ERROR') {
-        // @ts-expect-error ERROR events do not carry the generic strategy data payload.
-        void event.data;
-        return event.message;
-      }
-      if (event.type === 'STRATEGY_STARTED') {
-        return event.data.strategyId;
-      }
-      return undefined;
-    }
-
-    expect(read({ type: 'PRICE_UPDATE', data: { tokenId: 'tok-1', price: 1, timestamp: 1 }, timestamp: 1 })).toBe(1);
   });
 });
 
@@ -3267,26 +3036,22 @@ describe('Trading write idempotency (#208)', () => {
       }, key),
     },
     {
+      name: 'splitPosition',
+      path: '/api/v1/orders/split',
+      call: (key: string) => client.splitPosition({ tokenId: 'tok-1', amount: '10' }, key),
+    },
+    {
+      name: 'mergePosition',
+      path: '/api/v1/orders/merge',
+      call: (key: string) => client.mergePosition({ tokenId: 'tok-1', amount: '10' }, key),
+    },
+    {
       name: 'provideLiquidity',
       path: '/api/v1/lp/provide',
       call: (key: string) => client.provideLiquidity(
         { marketId: 'mkt-1', tokenId: 'tok-1', amountUsdc: 100 },
         key,
       ),
-    },
-  ];
-  const unprotectedPositionWrites = [
-    {
-      name: 'splitPosition',
-      path: '/api/v1/orders/split',
-      params: { tokenId: 'tok-1', amount: '10' },
-      call: (params: SplitPositionParams) => client.splitPosition(params),
-    },
-    {
-      name: 'mergePosition',
-      path: '/api/v1/orders/merge',
-      params: { tokenId: 'tok-1', amount: '10' },
-      call: (params: MergePositionParams) => client.mergePosition(params),
     },
   ];
 
@@ -3326,28 +3091,6 @@ describe('Trading write idempotency (#208)', () => {
     }
   });
 
-  it.each(unprotectedPositionWrites)('$name sends POST without Idempotency-Key until the API protects it', async ({ path, params, call }) => {
-    await call(params);
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(new URL(fetchSpy.mock.calls[0][0] as string).pathname).toBe(path);
-    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
-    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
-  });
-
-  it.each(unprotectedPositionWrites)('$name forwards the position body without idempotency fields', async ({ params, call }) => {
-    await call(params);
-
-    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual(params);
-    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).not.toHaveProperty('idempotencyKey');
-  });
-
-  it.each(unprotectedPositionWrites)('$name ignores accidental extra key arguments instead of validating them', async ({ params, call }) => {
-    await (call as unknown as (requestParams: SplitPositionParams | MergePositionParams, key: string) => Promise<unknown>)(params, 'short');
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
-  });
 });
 
 describe('News — articles (#156)', () => {

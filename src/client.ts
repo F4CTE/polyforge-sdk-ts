@@ -1,7 +1,6 @@
 import { isIPv4, isIPv6, isIP } from 'node:net';
 import { resolve4, resolve6 } from 'node:dns/promises';
 import { PolyforgeError } from './errors.js';
-import { createRealtimeClient, PolyforgeRealtimeClient } from './realtime.js';
 import type {
   AccuracyScore,
   AccuracyLeaderboardEntry,
@@ -196,7 +195,6 @@ import type {
   SportsCombosPage,
   LookupSportsComboParams,
   SportsComboLookupResult,
-  PolyforgeRealtimeOptions,
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
@@ -439,16 +437,6 @@ export class PolyforgeClient {
    */
   async getHealthAuthenticated(): Promise<SystemHealthAuthenticated> {
     return this.request('GET', '/api/v1/status');
-  }
-
-  /**
-   * Create a WebSocket client for the authenticated `/ws` gateway.
-   *
-   * Call `connect()` on the returned client before subscribing or sending
-   * messages. The gateway token is derived from this client's `apiKey`.
-   */
-  connectRealtime(options?: PolyforgeRealtimeOptions): PolyforgeRealtimeClient {
-    return createRealtimeClient(this.baseUrl, this.apiKey, options);
   }
 
   // ── Financial parameter validation ──────────────────────────────────────
@@ -755,6 +743,13 @@ export class PolyforgeClient {
    */
   async getStrategy(id: string): Promise<Strategy> {
     return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Get strategy health and runtime status.
+   */
+  async getStrategyHealth(id: string): Promise<StrategyStatusResponse> {
+    return this.request('GET', `/api/v1/strategies/${encodeURIComponent(id)}/health`);
   }
 
   /**
@@ -1586,18 +1581,20 @@ export class PolyforgeClient {
   /**
    * Split a position into smaller positions.
    */
-  async splitPosition(params: SplitPositionParams): Promise<PlaceOrderResponse> {
+  async splitPosition(params: SplitPositionParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
     return this.request('POST', '/api/v1/orders/split', {
       body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
     });
   }
 
   /**
    * Merge multiple positions into one.
    */
-  async mergePosition(params: MergePositionParams): Promise<PlaceOrderResponse> {
+  async mergePosition(params: MergePositionParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
     return this.request('POST', '/api/v1/orders/merge', {
       body: params,
+      headers: this.idempotencyHeaders(idempotencyKey),
     });
   }
 
@@ -1833,7 +1830,7 @@ export class PolyforgeClient {
   /**
    * List your smart orders with child order progress.
    */
-  async listSmartOrders(): Promise<PaginatedResponse<SmartOrder>> {
+  async listSmartOrders(): Promise<SmartOrder[]> {
     return this.request('GET', '/api/v1/orders/smart');
   }
 

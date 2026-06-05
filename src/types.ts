@@ -443,9 +443,7 @@ export type KnownStrategyEventType =
   | 'BACKTEST_COMPLETED'
   | 'BACKTEST_FAILED';
 
-export type StrategyEventType =
-  | KnownStrategyEventType
-  | (string & {}); // Allows unknown server event types while preserving autocomplete
+export type StrategyEventType = KnownStrategyEventType | (string & {}); // Allows unknown server event types while preserving autocomplete
 
 /**
  * Set of known strategy event types for runtime validation.
@@ -1024,7 +1022,7 @@ export interface PaperSummary {
 
 export interface BatchRequestItem {
   id: string;
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   body?: Record<string, unknown>;
 }

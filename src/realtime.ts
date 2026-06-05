@@ -44,13 +44,16 @@ function toWebSocketUrl(apiUrl: string, token: string, override?: string): strin
 }
 
 function isLocalWebSocketHost(hostname: string): boolean {
-  const host = hostname.replace(/^\[|\]$/g, '').replace(/\.+$/, '').toLowerCase();
+  const host = hostname.replace(/^[[]|[]]$/g, '').replace(/\.+$/, '').toLowerCase();
+
   if (host === 'localhost' || host === 'localhost.localdomain' || host === '0.0.0.0' || host === '::1') {
     return true;
   }
+
   if (/^127(?:\.\d{1,3}){3}$/.test(host)) {
     return true;
   }
+
   return host.endsWith('.localhost');
 }
 
@@ -63,6 +66,7 @@ function getDefaultWebSocketConstructor(): PolyforgeWebSocketConstructor {
       message: 'No WebSocket implementation is available. Pass options.WebSocket in this runtime.',
     });
   }
+
   return ctor;
 }
 
@@ -92,6 +96,7 @@ async function messageDataToString(data: unknown): Promise<string> {
   if (data && typeof data === 'object' && 'text' in data && typeof data.text === 'function') {
     return (await (data as { text(): Promise<string> }).text());
   }
+
   return String(data);
 }
 
@@ -120,6 +125,8 @@ export class PolyforgeRealtimeClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private closedByUser = false;
   private connecting: Promise<void> | null = null;
+  private connectResolve: (() => void) | null = null;
+  private connectReject: ((reason?: unknown) => void) | null = null;
 
   constructor(options: PolyforgeRealtimeConnectionOptions) {
     this.url = toWebSocketUrl(options.apiUrl, options.token, options.wsUrl);
@@ -132,7 +139,10 @@ export class PolyforgeRealtimeClient {
   toJSON(): Record<string, unknown> {
     const redacted = new URL(this.url);
     redacted.searchParams.set('token', '[REDACTED]');
-    return { url: redacted.toString().replace('token=%5BREDACTED%5D', 'token=[REDACTED]'), connected: this.isConnected() };
+    return {
+      url: redacted.toString().replace('token=%5BREDACTED%5D', 'token=[REDACTED]'),
+      connected: this.isConnected(),
+    };
   }
 
   [inspect.custom](): Record<string, unknown> {
@@ -148,17 +158,34 @@ export class PolyforgeRealtimeClient {
     if (this.connecting) return this.connecting;
 
     this.closedByUser = false;
+
     this.connecting = new Promise((resolve, reject) => {
       let settled = false;
       const socket = new this.WebSocket(this.url);
-      this.socket = socket;
+      this.connectResolve = () => {
+        if (settled) return;
+        settled = true;
+        this.connectResolve = null;
+        this.connectReject = null;
+        this.connecting = null;
+        resolve();
+      };
+      this.connectReject = (error?: unknown) => {
+        if (settled) return;
+        settled = true;
+        this.connectResolve = null;
+        this.connectReject = null;
+        this.connecting = null;
+        reject(error);
+      };
 
       addSocketListener(socket, 'open', () => {
         if (socket !== this.socket) return;
-        settled = true;
+        this.connectResolve?.();
+        this.connectResolve = null;
+        this.connectReject = null;
         this.connecting = null;
         this.reconnectAttempts = 0;
-        resolve();
         this.replaySubscriptions();
       });
       addSocketListener(socket, 'message', (event) => {
@@ -168,11 +195,7 @@ export class PolyforgeRealtimeClient {
       addSocketListener(socket, 'error', (event) => {
         if (socket !== this.socket) return;
         this.emitError(event);
-        if (!settled) {
-          settled = true;
-          this.connecting = null;
-          reject(event);
-        }
+        this.connectReject?.(event);
       });
       addSocketListener(socket, 'close', (event) => {
         if (socket !== this.socket) return;
@@ -180,20 +203,18 @@ export class PolyforgeRealtimeClient {
         const code = closeEvent?.code ?? 1006;
         const reason = closeEvent?.reason;
         const terminal = TERMINAL_CLOSE_CODES.has(code);
-        this.connecting = null;
+        this.connectReject?.(new PolyforgeError({
+          status: 0,
+          code: 'WEBSOCKET_CLOSED',
+          message: reason ? `WebSocket closed before opening (${code}): ${reason}` : `WebSocket closed before opening (${code})`,
+        }));
         this.emitClose({ code, reason, terminal });
-        if (!settled) {
-          settled = true;
-          reject(new PolyforgeError({
-            status: 0,
-            code: 'WEBSOCKET_CLOSED',
-            message: reason ? `WebSocket closed before opening (${code}): ${reason}` : `WebSocket closed before opening (${code})`,
-          }));
-        }
         if (!this.closedByUser && this.reconnect && !terminal) {
           this.scheduleReconnect();
         }
       });
+
+      this.socket = socket;
     });
 
     return this.connecting;
@@ -201,12 +222,29 @@ export class PolyforgeRealtimeClient {
 
   close(code?: number, reason?: string): void {
     this.closedByUser = true;
+
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    this.socket?.close(code, reason);
+
+    const pendingReject = this.connectReject;
+    this.connectReject = null;
+    this.connectResolve = null;
+    this.connecting = null;
+
+    pendingReject?.(new PolyforgeError({
+      status: 0,
+      code: 'WEBSOCKET_CLOSED',
+      message: reason ? `WebSocket connect cancelled (${code ?? 1000}): ${reason}` : `WebSocket connect cancelled (${code ?? 1000})`,
+    }));
+
+    const socket = this.socket;
     this.socket = null;
+
+    if (socket) {
+      socket.close(code, reason);
+    }
   }
 
   onMessage(listener: RealtimeListener): () => void {
@@ -231,7 +269,9 @@ export class PolyforgeRealtimeClient {
   subscribePrices(tokenIds: string[]): void {
     this.assertTokenSubscriptions(tokenIds);
     this.send({ type: 'SUBSCRIBE_PRICES', tokenIds });
-    for (const tokenId of tokenIds) this.priceSubscriptions.add(tokenId);
+    for (const tokenId of tokenIds) {
+      this.priceSubscriptions.add(tokenId);
+    }
   }
 
   unsubscribePrices(tokenIds: string[]): void {
@@ -248,6 +288,7 @@ export class PolyforgeRealtimeClient {
         message: `A WebSocket connection can subscribe to at most ${MAX_STRATEGY_SUBSCRIPTIONS} strategies`,
       });
     }
+
     this.send({ type: 'SUBSCRIBE_STRATEGY', strategyId });
     this.strategySubscriptions.add(strategyId);
   }
@@ -276,6 +317,7 @@ export class PolyforgeRealtimeClient {
         message: 'WebSocket is not connected; call connect() before sending messages',
       });
     }
+
     this.socket.send(JSON.stringify(message));
   }
 
@@ -288,12 +330,15 @@ export class PolyforgeRealtimeClient {
     this.assertTokenIds(tokenIds);
 
     if (!subscribe) {
-      for (const tokenId of tokenIds) this.priceSubscriptions.delete(tokenId);
+      for (const tokenId of tokenIds) {
+        this.priceSubscriptions.delete(tokenId);
+      }
     }
   }
 
   private assertTokenSubscriptions(tokenIds: string[]): void {
     this.assertTokenIds(tokenIds);
+
     const next = new Set([...this.priceSubscriptions, ...tokenIds]);
     if (next.size > MAX_PRICE_SUBSCRIPTIONS) {
       throw new PolyforgeError({
@@ -312,7 +357,10 @@ export class PolyforgeRealtimeClient {
         message: 'tokenIds must be a non-empty array',
       });
     }
-    for (const tokenId of tokenIds) this.assertSubscriptionId('tokenId', tokenId);
+
+    for (const tokenId of tokenIds) {
+      this.assertSubscriptionId('tokenId', tokenId);
+    }
   }
 
   private assertSubscriptionId(name: string, value: string): void {
@@ -329,9 +377,11 @@ export class PolyforgeRealtimeClient {
     if (this.priceSubscriptions.size > 0) {
       this.send({ type: 'SUBSCRIBE_PRICES', tokenIds: [...this.priceSubscriptions] });
     }
+
     for (const strategyId of this.strategySubscriptions) {
       this.send({ type: 'SUBSCRIBE_STRATEGY', strategyId });
     }
+
     if (this.whaleSubscribed) {
       this.send({ type: 'SUBSCRIBE_WHALES' });
     }
@@ -340,7 +390,10 @@ export class PolyforgeRealtimeClient {
   private async handleMessage(data: unknown): Promise<void> {
     let raw = await messageDataToString(data);
     raw = raw.trim();
-    if (!raw || raw.startsWith(':')) return;
+
+    if (!raw || raw.startsWith(':')) {
+      return;
+    }
 
     try {
       const parsed = JSON.parse(raw) as RealtimeServerEvent;
@@ -353,10 +406,12 @@ export class PolyforgeRealtimeClient {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
+
     const delay = Math.min(
       this.reconnectMaxDelayMs,
       this.reconnectMinDelayMs * 2 ** this.reconnectAttempts,
     );
+
     this.reconnectAttempts += 1;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
