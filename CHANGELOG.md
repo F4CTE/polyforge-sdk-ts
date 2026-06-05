@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Changed
+- **POLA-9875 compatibility fix** — `TicketStatus` now matches platform support
+  ticket states: `OPEN`, `AWAITING_USER`, `AWAITING_ADMIN`, and `CLOSED`.
 - **#234: `listSmartOrders` return type fixed** — changed from
   `Promise<PaginatedResponse<SmartOrder>>` to `Promise<SmartOrder[]>`. The
   platform's `GET /api/v1/orders/smart` returns a bare array, not a paginated

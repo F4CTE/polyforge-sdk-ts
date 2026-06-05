@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot, SmartOrder } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot, SmartOrder, TicketStatus } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -3983,6 +3983,8 @@ describe('Support ticket endpoints (POLA-780)', () => {
   let client: PolyforgeClient;
   let fetchSpy: ReturnType<typeof vi.spyOn>;
 
+  const platformTicketStatuses: TicketStatus[] = ['OPEN', 'AWAITING_USER', 'AWAITING_ADMIN', 'CLOSED'];
+
   const mockTicket = {
     id: 'ticket-1', subject: 'Cannot withdraw funds', category: 'TECHNICAL',
     priority: 'HIGH', status: 'OPEN',
@@ -3998,6 +4000,10 @@ describe('Support ticket endpoints (POLA-780)', () => {
   });
 
   afterEach(() => { fetchSpy.mockRestore(); });
+
+  it('accepts all platform support ticket statuses', () => {
+    expect(platformTicketStatuses).toHaveLength(4);
+  });
 
   it('createTicket sends POST /api/v1/tickets with subject, body, category', async () => {
     fetchSpy.mockResolvedValueOnce(
