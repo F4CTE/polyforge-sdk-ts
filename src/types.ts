@@ -1602,7 +1602,7 @@ export interface UpdateUserPreferencesParams {
 
 export type TicketCategory = 'GENERAL' | 'BILLING' | 'TECHNICAL' | 'ACCOUNT' | 'BUG' | 'FEATURE_REQUEST';
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type TicketStatus = 'OPEN' | 'AWAITING_USER' | 'AWAITING_ADMIN' | 'CLOSED';
 
 export interface CreateTicketParams {
   subject: string;
