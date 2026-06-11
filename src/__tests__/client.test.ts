@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot, SmartOrder, TicketStatus } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, StrategyCapabilities, StrategyDesignPatterns, StrategyExamples, MarketSlot, SmartOrder, TicketStatus } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -356,6 +356,77 @@ describe('Platform contract compliance', () => {
     expect(new URL(url).pathname).toBe('/api/v1/actions');
     expect(init.method).toBe('GET');
     expect(result.actions).toEqual([]);
+  });
+
+  it('getStrategyCapabilities calls the strategy capabilities endpoint', async () => {
+    const payload: StrategyCapabilities = {
+      version: '1.0',
+      capabilities: {
+        triggers: [
+          {
+            type: 'PRICE_ABOVE',
+            label: 'Price above',
+            category: 'triggers',
+            configSchema: { threshold: { type: 'number' } },
+          },
+        ],
+      },
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.getStrategyCapabilities();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(new URL(url).pathname).toBe('/api/v1/strategies/capabilities');
+    expect(init.method).toBe('GET');
+    expect(result.capabilities.triggers[0].type).toBe('PRICE_ABOVE');
+  });
+
+  it('getStrategyDesignPatterns calls the strategy design patterns endpoint', async () => {
+    const payload: StrategyDesignPatterns = {
+      version: '1.0',
+      patterns: [
+        {
+          name: 'Mean reversion',
+          useCases: ['range-bound markets'],
+          blocks: { triggers: ['PRICE_BELOW'] },
+        },
+      ],
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.getStrategyDesignPatterns();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(new URL(url).pathname).toBe('/api/v1/strategies/design-patterns');
+    expect(init.method).toBe('GET');
+    expect(result.patterns[0].name).toBe('Mean reversion');
+  });
+
+  it('getStrategyExamples calls the strategy examples endpoint', async () => {
+    const payload: StrategyExamples = {
+      version: '1.0',
+      examples: [
+        {
+          name: 'BTC momentum',
+          strategy: { name: 'BTC momentum', visibility: 'PUBLIC' },
+        },
+      ],
+    };
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const result = await client.getStrategyExamples();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+
+    expect(new URL(url).pathname).toBe('/api/v1/strategies/examples');
+    expect(init.method).toBe('GET');
+    expect(result.examples[0].strategy?.name).toBe('BTC momentum');
   });
 });
 

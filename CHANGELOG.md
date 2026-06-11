@@ -54,6 +54,11 @@
 - `getPlatformActions()` / `getActions()` — `GET /api/v1/actions`; fetches the
   public platform capability manifest for API/tooling discovery. Adds exported
   `ActionsSchema`, `ActionDefinition`, and `ActionParameter` types.
+- `getStrategyCapabilities()`, `getStrategyDesignPatterns()`, and
+  `getStrategyExamples()` for strategy capability discovery endpoints under
+  `/api/v1/strategies/*`. Adds exported `StrategyCapabilities`,
+  `StrategyCapability`, `StrategyDesignPatterns`, `StrategyDesignPattern`,
+  `StrategyExamples`, and `StrategyExample` types. (closes #271)
 - **POLA-1913 SDK polish** — added paginated `getAccuracyLeaderboard(params?)`,
   public/authenticated health types and methods, `getMyPreferences()` /
   `updateMyPreferences()` for venue preferences, and renamed combo lookup to
