@@ -139,6 +139,7 @@ import type {
   NotificationSettings,
   UpdateNotificationSettingsParams,
   ProfileNotificationPreferences,
+  UpdateProfileNotificationsParams,
   UpdateUserPreferencesParams,
   ChangePasswordSettingsParams,
   BetaUsage,
@@ -1580,10 +1581,6 @@ export class PolyforgeClient {
 
   /**
    * Split a position into smaller positions.
-   *
-   * Requires an `idempotencyKey` (8–128 chars). Pass a stable caller-generated
-   * key and reuse it when retrying the same split attempt. The key is sent as
-   * the `Idempotency-Key` header.
    */
   async splitPosition(params: SplitPositionParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
     return this.request('POST', '/api/v1/orders/split', {
@@ -1594,10 +1591,6 @@ export class PolyforgeClient {
 
   /**
    * Merge multiple positions into one.
-   *
-   * Requires an `idempotencyKey` (8–128 chars). Pass a stable caller-generated
-   * key and reuse it when retrying the same merge attempt. The key is sent as
-   * the `Idempotency-Key` header.
    */
   async mergePosition(params: MergePositionParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
     return this.request('POST', '/api/v1/orders/merge', {
@@ -2026,7 +2019,7 @@ export class PolyforgeClient {
   }
 
   /** Update the authenticated user's notification preferences (profile-level). */
-  async updateProfileNotifications(preferences: ProfileNotificationPreferences): Promise<void> {
+  async updateProfileNotifications(preferences: UpdateProfileNotificationsParams): Promise<void> {
     return this.request('PATCH', '/api/v1/profile/notifications', { body: preferences });
   }
 

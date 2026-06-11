@@ -443,7 +443,7 @@ export interface MergePositionParams {
 // ── Strategy Events (SSE) ────────────────────────────────────────────────────
 
 /** Event type fired over the strategy SSE stream. */
-export type StrategyEventType =
+export type KnownStrategyEventType =
   | 'CONNECTED'
   | 'STRATEGY_STARTED'
   | 'STRATEGY_STOPPED'
@@ -459,8 +459,9 @@ export type StrategyEventType =
   | 'ORDER_ERROR'
   | 'BACKTEST_PROGRESS'
   | 'BACKTEST_COMPLETED'
-  | 'BACKTEST_FAILED'
-  | (string & {}); // Allows unknown server event types while preserving autocomplete
+  | 'BACKTEST_FAILED';
+
+export type StrategyEventType = KnownStrategyEventType | (string & {}); // Allows unknown server event types while preserving autocomplete
 
 /**
  * Set of known strategy event types for runtime validation.
@@ -484,6 +485,88 @@ export interface StrategyEvent {
   data: Record<string, unknown> | null;
   /** Unix ms timestamp when the event was emitted server-side. */
   timestamp: number;
+}
+
+// ── WebSocket Gateway Events ─────────────────────────────────────────────────
+
+export type RealtimeClientMessage =
+  | { type: 'PING' }
+  | { type: 'SUBSCRIBE_PRICES'; tokenIds: string[] }
+  | { type: 'UNSUBSCRIBE_PRICES'; tokenIds: string[] }
+  | { type: 'SUBSCRIBE_STRATEGY'; strategyId: string }
+  | { type: 'UNSUBSCRIBE_STRATEGY'; strategyId: string }
+  | { type: 'SUBSCRIBE_WHALES' }
+  | { type: 'UNSUBSCRIBE_WHALES' };
+
+export type RealtimeGatewayEventType =
+  | 'AUTH_OK'
+  | 'PONG'
+  | 'PRICE_UPDATE'
+  | 'WHALE_TRADE'
+  | 'NEWS_SIGNAL'
+  | 'NOTIFICATION'
+  | 'MARKET_SETTLEMENT'
+  | 'ERROR';
+
+export type RealtimeEventType = RealtimeGatewayEventType | KnownStrategyEventType;
+
+export interface RealtimePriceUpdate {
+  tokenId: string;
+  price: number;
+  timestamp: number;
+}
+
+export interface RealtimeMarketSettlement {
+  ticker: string;
+  settlementValue: string;
+  result: string | null;
+}
+
+export type RealtimeServerEvent =
+  | { type: 'AUTH_OK'; timestamp: number }
+  | { type: 'PONG'; timestamp: number }
+  | { type: 'PRICE_UPDATE'; data: RealtimePriceUpdate; timestamp: number }
+  | { type: 'WHALE_TRADE'; data: Record<string, unknown>; timestamp: number }
+  | { type: 'NEWS_SIGNAL'; data: Record<string, unknown>; timestamp: number }
+  | { type: 'NOTIFICATION'; data: Record<string, unknown>; timestamp: number }
+  | { type: 'MARKET_SETTLEMENT'; data: RealtimeMarketSettlement; timestamp: number }
+  | { type: 'ERROR'; message: string; timestamp?: number }
+  | { type: KnownStrategyEventType; data: { strategyId?: string } & Record<string, unknown>; timestamp: number };
+
+export interface PolyforgeWebSocketLike {
+  readyState: number;
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+  addEventListener?(type: 'open', listener: () => void): void;
+  addEventListener?(type: 'message', listener: (event: { data: unknown }) => void): void;
+  addEventListener?(type: 'close', listener: (event: { code: number; reason?: string }) => void): void;
+  addEventListener?(type: 'error', listener: (event: unknown) => void): void;
+  onopen?: (() => void) | null;
+  onmessage?: ((event: { data: unknown }) => void) | null;
+  onclose?: ((event: { code: number; reason?: string }) => void) | null;
+  onerror?: ((event: unknown) => void) | null;
+}
+
+export interface PolyforgeWebSocketConstructor {
+  new (url: string): PolyforgeWebSocketLike;
+}
+
+export interface PolyforgeRealtimeOptions {
+  /** Override the computed `{apiUrl}/ws` endpoint. Mostly useful for tests. */
+  wsUrl?: string;
+  /** Optional WebSocket constructor for Node runtimes or tests. Defaults to globalThis.WebSocket. */
+  WebSocket?: PolyforgeWebSocketConstructor;
+  /** Whether non-terminal closes reconnect automatically. Defaults to true. */
+  reconnect?: boolean;
+  /** Initial reconnect delay in milliseconds. Defaults to 500. */
+  reconnectMinDelayMs?: number;
+  /** Maximum reconnect delay in milliseconds. Defaults to 10000. */
+  reconnectMaxDelayMs?: number;
+}
+
+export interface PolyforgeRealtimeConnectionOptions extends PolyforgeRealtimeOptions {
+  apiUrl: string;
+  token: string;
 }
 
 // ── Arbitrage ────────────────────────────────────────────────────────────────
@@ -1607,18 +1690,33 @@ export interface NotificationSettings {
 export type UpdateNotificationSettingsParams = Partial<NotificationSettings>;
 
 /**
- * Profile notification preferences as sent to `PATCH /api/v1/profile/notifications`.
+ * Notification preferences for `PATCH /api/v1/profile/notifications`.
  *
- * Uses the same set of whitelisted fields as `NotificationSettings`
- * (`onXxx` per-event toggles + channel toggles). The platform's global
- * `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` rejects
- * any unknown key — so this type must stay an exact mirror of the DTO.
- * (closes #237)
+ * Mirrors the platform `UpdateProfileNotificationsDto`
+ * (`services/api-service/src/profile/dto/update-profile-notifications.dto.ts`):
+ * three channel toggles (`emailEnabled`, `telegramEnabled`, `discordEnabled`)
+ * plus per-event toggles and `onTicketReply`. The platform uses
+ * `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` and
+ * rejects unknown fields with HTTP 400 — keep this type in sync with the
+ * platform DTO. (closes #237)
  */
-export type ProfileNotificationPreferences = Partial<NotificationSettings> & { onTicketReply?: boolean };
+export interface ProfileNotificationPreferences {
+  emailEnabled?: boolean;
+  telegramEnabled?: boolean;
+  discordEnabled?: boolean;
+  onOrderFilled?: boolean;
+  onStrategyError?: boolean;
+  onBacktestComplete?: boolean;
+  onDailyLossLimit?: boolean;
+  onMarketResolved?: boolean;
+  onSomeoneForked?: boolean;
+  onSomeoneFollowed?: boolean;
+  onSomeoneLiked?: boolean;
+  onSomeoneCommented?: boolean;
+  onTicketReply?: boolean;
+}
 
-/** @deprecated Use {@link ProfileNotificationPreferences} instead. */
-export type UpdateProfileNotificationsParams = ProfileNotificationPreferences;
+export type UpdateProfileNotificationsParams = Partial<ProfileNotificationPreferences>;
 
 export interface ChangePasswordSettingsParams {
   currentPassword: string;

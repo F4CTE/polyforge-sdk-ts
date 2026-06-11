@@ -3,8 +3,6 @@
 ## [Unreleased]
 
 ### Changed
-- **POLA-9875 compatibility fix** — `TicketStatus` now matches platform support
-  ticket states: `OPEN`, `AWAITING_USER`, `AWAITING_ADMIN`, and `CLOSED`.
 - **#234: `listSmartOrders` return type fixed** — changed from
   `Promise<PaginatedResponse<SmartOrder>>` to `Promise<SmartOrder[]>`. The
   platform's `GET /api/v1/orders/smart` returns a bare array, not a paginated
@@ -35,6 +33,10 @@
   on non-UUID).
 
 ### Added
+- **POLA-9910 WebSocket gateway client** — adds `PolyforgeRealtimeClient` and
+  `createRealtimeClient()` for authenticated `/ws` subscriptions, including
+  price ticks, strategy events, whale trades, reconnect replay, token redaction,
+  and browser/Node-compatible WebSocket injection.
 - **GDPR personal data export** — `exportPersonalData(format?)` for
   `GET /api/v1/me/export`. Returns a parsed `PersonalDataExport` object by
   default (JSON) or a raw CSV string when `format: 'csv'` is passed. The

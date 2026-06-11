@@ -1,5 +1,6 @@
 export { PolyforgeClient } from './client.js';
 export { PolyforgeError } from './errors.js';
+export { PolyforgeRealtimeClient, createRealtimeClient } from './realtime.js';
 export { KNOWN_STRATEGY_EVENTS } from './types.js';
 export type {
   AiQueryResponse,
@@ -71,7 +72,17 @@ export type {
   PriceHistoryParams,
   PortfolioPnlParams,
   Position,
+  PolyforgeRealtimeConnectionOptions,
+  PolyforgeRealtimeOptions,
+  PolyforgeWebSocketConstructor,
+  PolyforgeWebSocketLike,
   Rebate,
+  RealtimeClientMessage,
+  RealtimeEventType,
+  RealtimeGatewayEventType,
+  RealtimeMarketSettlement,
+  RealtimePriceUpdate,
+  RealtimeServerEvent,
   RewardsMarketDetail,
   RedeemPositionParams,
   RedeemPositionResponse,
@@ -79,6 +90,7 @@ export type {
   RewardsSponsorUrl,
   RiskSettings,
   RunBacktestParams,
+  StrategyHealth,
   SystemHealthAuthenticated,
   SystemHealthPublic,
   SpreadResult,
@@ -105,7 +117,6 @@ export type {
   StrategyEventType,
   StrategyExecMode,
   StrategyExport,
-  StrategyHealth,
   StrategyLikeResult,
   StrategyReportReason,
   StrategyReportResult,

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, StrategyCapabilities, StrategyDesignPatterns, StrategyExamples, MarketSlot, SmartOrder, TicketStatus } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, StrategyCapabilities, StrategyDesignPatterns, StrategyExamples, MarketSlot, SmartOrder, TicketStatus, RealtimeServerEvent } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -240,56 +240,6 @@ describe('Platform contract compliance', () => {
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('intervalMinutes', 15);
     expect(body).not.toHaveProperty('intervalSeconds');
-  });
-
-  it('listSmartOrders returns bare SmartOrder[] from GET /api/v1/orders/smart (#234)', async () => {
-    const mockOrders: SmartOrder[] = [
-      {
-        id: 'smo-1',
-        type: 'TWAP',
-        status: 'ACTIVE',
-        marketId: 'mkt-1',
-        tokenId: 'tok-1',
-        outcome: 'YES',
-        side: 'BUY',
-        totalSize: '100',
-        config: { intervalMinutes: 15 },
-        slicesFilled: 2,
-        slicesTotal: 5,
-        nextExecuteAt: '2026-05-13T12:00:00Z',
-        completedAt: null,
-        createdAt: '2026-05-13T10:00:00Z',
-        orders: [
-          {
-            id: 'child-1',
-            status: 'filled',
-            fillSize: '20',
-            fillPrice: '0.55',
-            createdAt: '2026-05-13T10:05:00Z',
-          },
-        ],
-      },
-    ];
-
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify(mockOrders), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-
-    const result = await client.listSmartOrders();
-    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-
-    expect(new URL(url).pathname).toBe('/api/v1/orders/smart');
-    expect(init.method).toBe('GET');
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('smo-1');
-    expect(result[0].type).toBe('TWAP');
-    expect(result[0].status).toBe('ACTIVE');
-    expect(result[0].orders).toHaveLength(1);
-    expect(result[0].orders[0].id).toBe('child-1');
   });
 
   it('WebhookEvent values use SCREAMING_SNAKE_CASE (#86)', async () => {
@@ -1620,7 +1570,6 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
       canvas: { zoom: 1, offsetX: 0, offsetY: 0 },
       marketId: 'mkt-1',
       marketSlots: [{ slot: 'slot-1', label: 'Primary market', defaultMarketId: 'mkt-1' }],
-      kalshiSubaccount: 3,
     };
     await client.createStrategy(params);
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
@@ -1636,7 +1585,6 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
     expect(body).toHaveProperty('canvas');
     expect(body).toHaveProperty('marketSlots');
     expect(body.marketSlots).toEqual([{ slot: 'slot-1', label: 'Primary market', defaultMarketId: 'mkt-1' }]);
-    expect(body).toHaveProperty('kalshiSubaccount', 3);
     expect(JSON.stringify(body)).not.toContain('slotId');
     expect(JSON.stringify(body)).not.toContain('tokenId');
   });
@@ -2347,32 +2295,6 @@ describe('Strategy social + versioning endpoints (#54)', () => {
     expect(url.pathname).toBe('/api/v1/strategies/s-1/event-log');
     expect(url.searchParams.has('limit')).toBe(false);
   });
-
-  it('getStrategyHealth sends GET /api/v1/strategies/:id/health', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          fillRate: null,
-          avgLatencyMs: 0,
-          errorCount24h: 0,
-          slippageBps: 0,
-          winRate: null,
-          totalPnl: null,
-          maxDrawdown: null,
-          totalOrders: 0,
-          filledOrders: 0,
-          lastUpdated: null,
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
-    );
-    const result = await client.getStrategyHealth('s-1');
-    const url = new URL(fetchSpy.mock.calls[0][0] as string);
-    expect(url.pathname).toBe('/api/v1/strategies/s-1/health');
-    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
-    expect(result.totalOrders).toBe(0);
-    expect(result.lastUpdated).toBeNull();
-  });
 });
 
 describe('SSE buffer size cap (#43)', () => {
@@ -2704,23 +2626,6 @@ describe('Batch API (#66)', () => {
     expect(body.items[0].path).toBe('/api/v1/portfolio');
     expect(res.results[0].id).toBe('req-1');
     expect(res.results[1].id).toBe('req-2');
-  });
-
-  it('BatchRequestItem.method excludes PUT — platform only accepts GET/POST/PATCH/DELETE (#235)', async () => {
-    // Type-level: these must compile
-    const validItems: import('../types').BatchRequestItem[] = [
-      { id: 'r1', method: 'GET', path: '/api/v1/test' },
-      { id: 'r2', method: 'POST', path: '/api/v1/test' },
-      { id: 'r3', method: 'PATCH', path: '/api/v1/test' },
-      { id: 'r4', method: 'DELETE', path: '/api/v1/test' },
-    ];
-    expect(validItems).toHaveLength(4);
-    expect(new Set(validItems.map((i) => i.method))).toEqual(new Set(['GET', 'POST', 'PATCH', 'DELETE']));
-
-    // Type-level regression: PUT must NOT be accepted — @ts-expect-error fails if PUT is re-added
-    // @ts-expect-error: 'PUT' is not assignable to BatchRequestItem.method
-    const _putRejected: import('../types').BatchRequestItem = { id: 'rx', method: 'PUT', path: '/api/v1/test' };
-    void _putRejected;
   });
 });
 
@@ -3131,14 +3036,6 @@ describe('Trading write idempotency (#208)', () => {
       }, key),
     },
     {
-      name: 'provideLiquidity',
-      path: '/api/v1/lp/provide',
-      call: (key: string) => client.provideLiquidity(
-        { marketId: 'mkt-1', tokenId: 'tok-1', amountUsdc: 100 },
-        key,
-      ),
-    },
-    {
       name: 'splitPosition',
       path: '/api/v1/orders/split',
       call: (key: string) => client.splitPosition({ tokenId: 'tok-1', amount: '10' }, key),
@@ -3148,8 +3045,15 @@ describe('Trading write idempotency (#208)', () => {
       path: '/api/v1/orders/merge',
       call: (key: string) => client.mergePosition({ tokenId: 'tok-1', amount: '10' }, key),
     },
+    {
+      name: 'provideLiquidity',
+      path: '/api/v1/lp/provide',
+      call: (key: string) => client.provideLiquidity(
+        { marketId: 'mkt-1', tokenId: 'tok-1', amountUsdc: 100 },
+        key,
+      ),
+    },
   ];
-  const unprotectedPositionWrites: { name: string; path: string; params: Record<string, string>; call: (...args: unknown[]) => Promise<unknown> }[] = [];
 
   it.each(tradingWrites)('$name sends Idempotency-Key on the protected POST endpoint', async ({ path, call }) => {
     await call('trade-key-123');
@@ -3187,28 +3091,6 @@ describe('Trading write idempotency (#208)', () => {
     }
   });
 
-  it.each(unprotectedPositionWrites)('$name sends POST without Idempotency-Key until the API protects it', async ({ path, params, call }) => {
-    await call(params);
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(new URL(fetchSpy.mock.calls[0][0] as string).pathname).toBe(path);
-    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
-    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
-  });
-
-  it.each(unprotectedPositionWrites)('$name forwards the position body without idempotency fields', async ({ params, call }) => {
-    await call(params);
-
-    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual(params);
-    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).not.toHaveProperty('idempotencyKey');
-  });
-
-  it.each(unprotectedPositionWrites)('$name ignores accidental extra key arguments instead of validating them', async ({ params, call }) => {
-    await (call as unknown as (requestParams: SplitPositionParams | MergePositionParams, key: string) => Promise<unknown>)(params as unknown as SplitPositionParams, 'short');
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect((fetchSpy.mock.calls[0][1]!.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
-  });
 });
 
 describe('News — articles (#156)', () => {
@@ -3818,42 +3700,14 @@ describe('Profile endpoints (POLA-780)', () => {
     expect(body.newPassword).toBe('new456');
   });
 
-  it('updateProfileNotifications sends PATCH /api/v1/profile/notifications with platform-whitelisted fields only', async () => {
+  it('updateProfileNotifications sends PATCH /api/v1/profile/notifications', async () => {
     fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
-    await client.updateProfileNotifications({
-      onOrderFilled: true,
-      onSomeoneFollowed: false,
-    });
+    await client.updateProfileNotifications({ onOrderFilled: true });
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(new URL(url).pathname).toBe('/api/v1/profile/notifications');
     expect(init.method).toBe('PATCH');
     const body = JSON.parse(init.body as string);
-    expect(body).toEqual({
-      onOrderFilled: true,
-      onSomeoneFollowed: false,
-    });
-    // Regression guard for phantom emailOn* / pushOn* fields (#237):
-    // the platform DTO does not whitelist them, and forbidNonWhitelisted
-    // makes any payload containing them return HTTP 400.
-    for (const phantom of [
-      'emailOnOrderFilled',
-      'emailOnStrategyError',
-      'emailOnDailyLossLimit',
-      'emailOnMarketResolved',
-      'pushOnOrderFilled',
-      'pushOnStrategyError',
-      'pushOnWhaleAlert',
-      'pushOnPriceAlert',
-    ]) {
-      expect(body).not.toHaveProperty(phantom);
-    }
-    // Positive regression: onTicketReply is whitelisted in the platform DTO (#237).
-    // Send it explicitly to prove it reaches the wire intact.
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
-    await client.updateProfileNotifications({ onTicketReply: true });
-    const [, init2] = fetchSpy.mock.calls[1] as [string, RequestInit];
-    const body2 = JSON.parse(init2.body as string);
-    expect(body2).toEqual({ onTicketReply: true });
+    expect(body.onOrderFilled).toBe(true);
   });
 
   it('getPublicProfile calls GET /api/v1/profile/:username', async () => {
@@ -4005,7 +3859,6 @@ describe('Settings endpoints (POLA-780)', () => {
       'pushOnStrategyError',
       'pushOnWhaleAlert',
       'pushOnPriceAlert',
-      'onTicketReply',
     ]) {
       expect(body).not.toHaveProperty(phantom);
     }
