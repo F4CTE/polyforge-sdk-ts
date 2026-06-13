@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
+import { inspect } from 'node:util';
+import { PolyforgeClient, PolyforgeRealtimeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, MarketSlot, RealtimeEvent, RealtimeEventHandler } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -24,6 +25,55 @@ const unsupportedFiveMinutePriceHistoryResolution: PriceHistoryResolution = '5m'
 const unsupportedFifteenMinutePriceHistoryResolution: PriceHistoryResolution = '15m';
 void unsupportedFiveMinutePriceHistoryResolution;
 void unsupportedFifteenMinutePriceHistoryResolution;
+
+class MockWebSocket {
+  static instances: MockWebSocket[] = [];
+
+  readonly sent: string[] = [];
+  readonly listeners = new Map<string, Array<(event: unknown) => void>>();
+  readyState = 0;
+
+  constructor(readonly url: string) {
+    MockWebSocket.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: (event: unknown) => void): void {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+  }
+
+  removeEventListener(type: string, listener: (event: unknown) => void): void {
+    this.listeners.set(type, (this.listeners.get(type) ?? []).filter((item) => item !== listener));
+  }
+
+  send(data: string): void {
+    this.sent.push(data);
+  }
+
+  close(): void {
+    this.readyState = 3;
+    this.dispatch('close', {});
+  }
+
+  open(): void {
+    this.readyState = 1;
+    this.dispatch('open', {});
+  }
+
+  message(data: unknown): void {
+    this.dispatch('message', { data });
+  }
+
+  serverClose(): void {
+    this.readyState = 3;
+    this.dispatch('close', {});
+  }
+
+  private dispatch(type: string, event: unknown): void {
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener(event);
+    }
+  }
+}
 
 describe('PolyforgeClient', () => {
   describe('constructor', () => {
@@ -150,6 +200,134 @@ describe('PolyforgeClient', () => {
     it('should allow HTTPS for any host', () => {
       expect(() => new PolyforgeClient({ apiKey: 'k', apiUrl: 'https://api.example.com' }))
         .not.toThrow();
+    });
+  });
+
+  describe('realtime WebSocket gateway', () => {
+    beforeEach(() => {
+      MockWebSocket.instances = [];
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('creates a redacted realtime client and keeps the token out of the WebSocket URL', () => {
+      const client = new PolyforgeClient({
+        apiKey: 'secret-token',
+        apiUrl: 'https://api.polyforge.app',
+        realtime: { WebSocket: MockWebSocket },
+      });
+
+      const realtime = client.realtime();
+      realtime.subscribePriceTicks('tok-1');
+      const socket = MockWebSocket.instances[0];
+      socket.open();
+
+      expect(realtime).toBeInstanceOf(PolyforgeRealtimeClient);
+      expect(socket.url).toBe('wss://api.polyforge.app/ws');
+      expect(socket.url).not.toContain('secret-token');
+      expect(JSON.stringify(realtime)).not.toContain('secret-token');
+      expect(inspect(realtime)).not.toContain('secret-token');
+      expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([
+        { type: 'auth', token: 'secret-token' },
+        { type: 'subscribe', channel: 'price_ticks', params: { tokenId: 'tok-1' } },
+      ]);
+    });
+
+    it('replays active subscriptions after reconnect and does not replay unsubscribed ones', async () => {
+      vi.useFakeTimers();
+      const client = new PolyforgeClient({
+        apiKey: 'secret-token',
+        apiUrl: 'https://api.polyforge.app',
+        realtime: { WebSocket: MockWebSocket, reconnectDelayMs: 100 },
+      });
+      const realtime = client.realtime();
+
+      realtime.subscribePriceTicks({ marketId: 'mkt-1', tokenId: 'tok-1' });
+      const unsubscribeWhales = realtime.subscribeWhaleTrades({ walletAddress: '0xabc' });
+      const firstSocket = MockWebSocket.instances[0];
+      firstSocket.open();
+      unsubscribeWhales();
+
+      firstSocket.serverClose();
+      await vi.advanceTimersByTimeAsync(100);
+      const secondSocket = MockWebSocket.instances[1];
+      secondSocket.open();
+
+      expect(firstSocket.sent.map((frame) => JSON.parse(frame))).toEqual([
+        { type: 'auth', token: 'secret-token' },
+        { type: 'subscribe', channel: 'price_ticks', params: { marketId: 'mkt-1', tokenId: 'tok-1' } },
+        { type: 'subscribe', channel: 'whale_trades', params: { walletAddress: '0xabc' } },
+        { type: 'unsubscribe', channel: 'whale_trades', params: { walletAddress: '0xabc' } },
+      ]);
+      expect(secondSocket.sent.map((frame) => JSON.parse(frame))).toEqual([
+        { type: 'auth', token: 'secret-token' },
+        { type: 'subscribe', channel: 'price_ticks', params: { marketId: 'mkt-1', tokenId: 'tok-1' } },
+      ]);
+    });
+
+    it('dispatches discriminated realtime events for prices, whales, broadcasts, and errors', () => {
+      const client = new PolyforgeClient({
+        apiKey: 'secret-token',
+        apiUrl: 'http://localhost:3002/api',
+        realtime: { WebSocket: MockWebSocket },
+      });
+      const realtime = client.realtime();
+      const events: RealtimeEvent[] = [];
+      const handler: RealtimeEventHandler = (event) => {
+        if (event.type === 'price_tick') {
+          expect(event.data.tokenId).toBe('tok-1');
+        }
+        if (event.type === 'whale_trade') {
+          expect(event.data.wallet).toBe('0xwhale');
+        }
+        if (event.type === 'broadcast') {
+          expect(event.data.message).toBe('maintenance');
+        }
+        events.push(event);
+      };
+
+      realtime.onEvent(handler);
+      realtime.connect();
+      const socket = MockWebSocket.instances[0];
+      socket.open();
+      socket.message(JSON.stringify({
+        type: 'price_tick',
+        channel: 'price_ticks',
+        data: { tokenId: 'tok-1', price: '0.51', timestamp: 123 },
+      }));
+      socket.message(JSON.stringify({
+        type: 'whale_trade',
+        channel: 'whale_trades',
+        data: {
+          id: 'wt-1',
+          marketId: 'mkt-1',
+          marketName: 'BTC',
+          side: 'BUY',
+          size: 100,
+          usdValue: 1_000,
+          wallet: '0xwhale',
+          timestamp: '2026-06-04T00:00:00.000Z',
+        },
+      }));
+      socket.message(JSON.stringify({
+        type: 'broadcast',
+        channel: 'broadcasts',
+        data: { message: 'maintenance' },
+      }));
+      socket.message(JSON.stringify({
+        type: 'error',
+        code: 'BAD_SUBSCRIPTION',
+        message: 'invalid channel',
+      }));
+
+      expect(events.map((event) => event.type)).toEqual([
+        'price_tick',
+        'whale_trade',
+        'broadcast',
+        'error',
+      ]);
     });
   });
 });

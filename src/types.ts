@@ -468,6 +468,109 @@ export interface StrategyEvent {
   timestamp: number;
 }
 
+// ── Realtime Gateway (WebSocket) ────────────────────────────────────────────
+
+export type RealtimeChannel =
+  | 'price_ticks'
+  | 'whale_trades'
+  | 'broadcasts'
+  | (string & {});
+
+export interface RealtimeSubscriptionParams {
+  marketId?: string;
+  tokenId?: string;
+  walletAddress?: string;
+  [key: string]: unknown;
+}
+
+export interface RealtimeSubscription {
+  channel: RealtimeChannel;
+  params?: RealtimeSubscriptionParams;
+}
+
+export interface RealtimePriceTick {
+  marketId?: string;
+  tokenId: string;
+  price: string | number;
+  timestamp: string | number;
+  [key: string]: unknown;
+}
+
+export interface RealtimeConnectedEvent {
+  type: 'connected';
+  connectionId?: string;
+  timestamp?: string | number;
+}
+
+export interface RealtimeSubscribedEvent {
+  type: 'subscribed';
+  channel: RealtimeChannel;
+  params?: RealtimeSubscriptionParams;
+}
+
+export interface RealtimeUnsubscribedEvent {
+  type: 'unsubscribed';
+  channel: RealtimeChannel;
+  params?: RealtimeSubscriptionParams;
+}
+
+export interface RealtimePriceTickEvent {
+  type: 'price_tick';
+  channel?: 'price_ticks';
+  data: RealtimePriceTick;
+}
+
+export interface RealtimeWhaleTradeEvent {
+  type: 'whale_trade';
+  channel?: 'whale_trades';
+  data: WhaleTrade;
+}
+
+export interface RealtimeBroadcastEvent {
+  type: 'broadcast';
+  channel?: 'broadcasts';
+  data: Record<string, unknown>;
+}
+
+export interface RealtimeErrorEvent {
+  type: 'error';
+  code?: string;
+  message: string;
+  data?: unknown;
+}
+
+export type RealtimeEvent =
+  | RealtimeConnectedEvent
+  | RealtimeSubscribedEvent
+  | RealtimeUnsubscribedEvent
+  | RealtimePriceTickEvent
+  | RealtimeWhaleTradeEvent
+  | RealtimeBroadcastEvent
+  | RealtimeErrorEvent;
+
+export type RealtimeEventHandler = (event: RealtimeEvent) => void;
+
+export interface RealtimeWebSocketLike {
+  readonly readyState: number;
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+  addEventListener(type: string, listener: (event: unknown) => void): void;
+  removeEventListener?(type: string, listener: (event: unknown) => void): void;
+}
+
+export type RealtimeWebSocketConstructor = new (url: string) => RealtimeWebSocketLike;
+
+export interface PolyforgeRealtimeOptions {
+  /** Automatically reconnect after unexpected socket closes (default: true). */
+  autoReconnect?: boolean;
+  /** Initial reconnect delay in milliseconds (default: 1000). */
+  reconnectDelayMs?: number;
+  /** Maximum reconnect delay in milliseconds (default: 30000). */
+  maxReconnectDelayMs?: number;
+  /** Injectable WebSocket constructor for Node runtimes and tests. */
+  WebSocket?: RealtimeWebSocketConstructor;
+}
+
 // ── Arbitrage ────────────────────────────────────────────────────────────────
 
 export interface ArbitrageOpportunity {
@@ -2022,4 +2125,6 @@ export interface PolyforgeClientOptions {
   timeout?: number;
   /** Timeout for SSE streams in milliseconds (default: 24 hours). */
   streamTimeout?: number;
+  /** Default options for realtime WebSocket clients created by `client.realtime()`. */
+  realtime?: PolyforgeRealtimeOptions;
 }

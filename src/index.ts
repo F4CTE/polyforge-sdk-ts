@@ -1,4 +1,4 @@
-export { PolyforgeClient } from './client.js';
+export { PolyforgeClient, PolyforgeRealtimeClient } from './client.js';
 export { PolyforgeError } from './errors.js';
 export { KNOWN_STRATEGY_EVENTS } from './types.js';
 export type {
@@ -65,6 +65,7 @@ export type {
   PolymarketPortfolioEntry,
   Portfolio,
   PolyforgeClientOptions,
+  PolyforgeRealtimeOptions,
   PortfolioPnl,
   PriceCandle,
   PriceHistoryEntry,
@@ -75,6 +76,21 @@ export type {
   RewardsMarketDetail,
   RedeemPositionParams,
   RedeemPositionResponse,
+  RealtimeBroadcastEvent,
+  RealtimeChannel,
+  RealtimeConnectedEvent,
+  RealtimeErrorEvent,
+  RealtimeEvent,
+  RealtimeEventHandler,
+  RealtimePriceTick,
+  RealtimePriceTickEvent,
+  RealtimeSubscribedEvent,
+  RealtimeSubscription,
+  RealtimeSubscriptionParams,
+  RealtimeUnsubscribedEvent,
+  RealtimeWhaleTradeEvent,
+  RealtimeWebSocketConstructor,
+  RealtimeWebSocketLike,
   RewardsMarket,
   RewardsSponsorUrl,
   RiskSettings,

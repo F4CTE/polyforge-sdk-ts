@@ -51,11 +51,19 @@ import type {
   PolymarketPortfolioEntry,
   Portfolio,
   PolyforgeClientOptions,
+  PolyforgeRealtimeOptions,
   PortfolioReview,
   ProvideLiquidityParams,
   RateListingParams,
   RedeemPositionParams,
   RedeemPositionResponse,
+  RealtimeChannel,
+  RealtimeEvent,
+  RealtimeEventHandler,
+  RealtimeSubscription,
+  RealtimeSubscriptionParams,
+  RealtimeWebSocketConstructor,
+  RealtimeWebSocketLike,
   SmartOrder,
   SystemHealthAuthenticated,
   SystemHealthPublic,
@@ -369,6 +377,296 @@ export async function validateWebhookUrl(url: string): Promise<void> {
   }
 }
 
+const WS_CONNECTING = 0;
+const WS_OPEN = 1;
+
+function buildRealtimeUrl(apiUrl: string): string {
+  const url = new URL(apiUrl);
+  url.protocol = url.protocol === 'http:' ? 'ws:' : 'wss:';
+  const basePath = url.pathname === '/' ? '' : trimTrailingSlashes(url.pathname);
+  url.pathname = `${basePath}/ws`;
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+}
+
+function normalizeSubscriptionParams(
+  params?: RealtimeSubscriptionParams,
+): RealtimeSubscriptionParams | undefined {
+  if (!params || Object.keys(params).length === 0) return undefined;
+  return params;
+}
+
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, stableValue(item)]),
+    );
+  }
+  return value;
+}
+
+function subscriptionKey(subscription: RealtimeSubscription): string {
+  return JSON.stringify({
+    channel: subscription.channel,
+    params: stableValue(subscription.params ?? {}),
+  });
+}
+
+function messageDataToString(data: unknown): string | undefined {
+  if (typeof data === 'string') return data;
+  if (data instanceof Uint8Array) return new TextDecoder().decode(data);
+  if (data instanceof ArrayBuffer) return new TextDecoder().decode(new Uint8Array(data));
+  return undefined;
+}
+
+function toRealtimeEvent(value: unknown): RealtimeEvent | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const event = value as { type?: unknown };
+  if (typeof event.type !== 'string') return undefined;
+
+  switch (event.type) {
+    case 'connected':
+    case 'subscribed':
+    case 'unsubscribed':
+    case 'price_tick':
+    case 'whale_trade':
+    case 'broadcast':
+    case 'error':
+      return value as RealtimeEvent;
+    default:
+      console.warn(`[polyforge-sdk] Unknown realtime event type: "${event.type}"`);
+      return undefined;
+  }
+}
+
+export class PolyforgeRealtimeClient {
+  private readonly url: string;
+  private readonly apiKey: string;
+  private readonly autoReconnect: boolean;
+  private readonly initialReconnectDelayMs: number;
+  private readonly maxReconnectDelayMs: number;
+  private readonly WebSocket: RealtimeWebSocketConstructor;
+  private readonly subscriptions = new Map<string, RealtimeSubscription>();
+  private readonly handlers = new Set<RealtimeEventHandler>();
+
+  private socket: RealtimeWebSocketLike | undefined;
+  private reconnectDelayMs: number;
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private closedByUser = false;
+
+  constructor(params: {
+    apiUrl: string;
+    apiKey: string;
+    options?: PolyforgeRealtimeOptions;
+  }) {
+    const globalWebSocket = (globalThis as typeof globalThis & {
+      WebSocket?: RealtimeWebSocketConstructor;
+    }).WebSocket;
+    const WebSocketCtor = params.options?.WebSocket ?? globalWebSocket;
+
+    if (!WebSocketCtor) {
+      throw new PolyforgeError({
+        status: 0,
+        code: 'REALTIME_UNAVAILABLE',
+        message: 'No WebSocket implementation is available in this runtime',
+      });
+    }
+
+    this.url = buildRealtimeUrl(params.apiUrl);
+    this.apiKey = params.apiKey;
+    this.autoReconnect = params.options?.autoReconnect ?? true;
+    this.initialReconnectDelayMs = params.options?.reconnectDelayMs ?? 1_000;
+    this.maxReconnectDelayMs = params.options?.maxReconnectDelayMs ?? 30_000;
+    this.reconnectDelayMs = this.initialReconnectDelayMs;
+    this.WebSocket = WebSocketCtor;
+  }
+
+  /** Prevent API keys from leaking via JSON.stringify(realtime). */
+  toJSON(): Record<string, unknown> {
+    return {
+      url: this.url,
+      subscriptions: Array.from(this.subscriptions.values()),
+    };
+  }
+
+  /** Prevent API keys from leaking via util.inspect(realtime) or console.log(realtime). */
+  [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return `PolyforgeRealtimeClient { url: '${this.url}', subscriptions: ${this.subscriptions.size}, apiKey: '[REDACTED]' }`;
+  }
+
+  connect(): void {
+    if (this.socket?.readyState === WS_OPEN || this.socket?.readyState === WS_CONNECTING) {
+      return;
+    }
+
+    this.closedByUser = false;
+    this.clearReconnectTimer();
+
+    let socket: RealtimeWebSocketLike;
+    try {
+      socket = new this.WebSocket(this.url);
+    } catch (err) {
+      throw new PolyforgeError({
+        status: 0,
+        code: 'REALTIME_CONNECTION_FAILED',
+        message: err instanceof Error ? err.message : 'Failed to open realtime WebSocket',
+      });
+    }
+
+    this.socket = socket;
+    socket.addEventListener('open', () => this.handleOpen(socket));
+    socket.addEventListener('message', (event) => this.handleMessage(event));
+    socket.addEventListener('error', () => {
+      this.emit({
+        type: 'error',
+        code: 'REALTIME_SOCKET_ERROR',
+        message: 'Realtime WebSocket emitted an error',
+      });
+    });
+    socket.addEventListener('close', () => this.handleClose(socket));
+  }
+
+  close(code?: number, reason?: string): void {
+    this.closedByUser = true;
+    this.clearReconnectTimer();
+    this.socket?.close(code, reason);
+    this.socket = undefined;
+  }
+
+  onEvent(handler: RealtimeEventHandler): () => void {
+    this.handlers.add(handler);
+    return () => {
+      this.handlers.delete(handler);
+    };
+  }
+
+  subscribe(
+    channelOrSubscription: RealtimeChannel | RealtimeSubscription,
+    params?: RealtimeSubscriptionParams,
+  ): () => void {
+    const subscription = typeof channelOrSubscription === 'string'
+      ? { channel: channelOrSubscription, params: normalizeSubscriptionParams(params) }
+      : {
+          channel: channelOrSubscription.channel,
+          params: normalizeSubscriptionParams(channelOrSubscription.params),
+        };
+    this.subscriptions.set(subscriptionKey(subscription), subscription);
+    this.connect();
+    this.sendWhenOpen({ type: 'subscribe', ...subscription });
+    return () => this.unsubscribe(subscription);
+  }
+
+  unsubscribe(
+    channelOrSubscription: RealtimeChannel | RealtimeSubscription,
+    params?: RealtimeSubscriptionParams,
+  ): void {
+    const subscription = typeof channelOrSubscription === 'string'
+      ? { channel: channelOrSubscription, params: normalizeSubscriptionParams(params) }
+      : {
+          channel: channelOrSubscription.channel,
+          params: normalizeSubscriptionParams(channelOrSubscription.params),
+        };
+    this.subscriptions.delete(subscriptionKey(subscription));
+    this.sendWhenOpen({ type: 'unsubscribe', ...subscription });
+  }
+
+  subscribePriceTicks(params: RealtimeSubscriptionParams | string = {}): () => void {
+    return this.subscribe(
+      'price_ticks',
+      typeof params === 'string' ? { tokenId: params } : params,
+    );
+  }
+
+  subscribeWhaleTrades(params?: RealtimeSubscriptionParams): () => void {
+    return this.subscribe('whale_trades', params);
+  }
+
+  subscribeBroadcasts(params?: RealtimeSubscriptionParams): () => void {
+    return this.subscribe('broadcasts', params);
+  }
+
+  private handleOpen(socket: RealtimeWebSocketLike): void {
+    if (this.socket !== socket) return;
+    this.reconnectDelayMs = this.initialReconnectDelayMs;
+    this.sendJson(socket, { type: 'auth', token: this.apiKey });
+    for (const subscription of this.subscriptions.values()) {
+      this.sendJson(socket, { type: 'subscribe', ...subscription });
+    }
+  }
+
+  private handleMessage(event: unknown): void {
+    const rawData = event && typeof event === 'object' && 'data' in event
+      ? (event as { data: unknown }).data
+      : event;
+    const raw = messageDataToString(rawData);
+    if (!raw) return;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return;
+    }
+
+    const realtimeEvent = toRealtimeEvent(parsed);
+    if (realtimeEvent) this.emit(realtimeEvent);
+  }
+
+  private handleClose(socket: RealtimeWebSocketLike): void {
+    if (this.socket === socket) {
+      this.socket = undefined;
+    }
+    if (!this.closedByUser && this.autoReconnect) {
+      this.scheduleReconnect();
+    }
+  }
+
+  private scheduleReconnect(): void {
+    this.clearReconnectTimer();
+    const delay = this.reconnectDelayMs;
+    this.reconnectDelayMs = Math.min(this.reconnectDelayMs * 2, this.maxReconnectDelayMs);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      this.connect();
+    }, delay);
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
+  }
+
+  private sendWhenOpen(message: Record<string, unknown>): void {
+    if (this.socket?.readyState === WS_OPEN) {
+      this.sendJson(this.socket, message);
+    }
+  }
+
+  private sendJson(socket: RealtimeWebSocketLike, message: Record<string, unknown>): void {
+    try {
+      socket.send(JSON.stringify(message));
+    } catch {
+      this.emit({
+        type: 'error',
+        code: 'REALTIME_SEND_FAILED',
+        message: 'Failed to send realtime WebSocket message',
+      });
+    }
+  }
+
+  private emit(event: RealtimeEvent): void {
+    for (const handler of this.handlers) {
+      handler(event);
+    }
+  }
+}
+
 /**
  * Polyforge REST API client.
  *
@@ -383,6 +681,7 @@ export class PolyforgeClient {
   private readonly apiKey: string;
   private readonly timeout: number;
   private readonly streamTimeout: number;
+  private readonly realtimeOptions: PolyforgeRealtimeOptions | undefined;
 
   constructor(options: PolyforgeClientOptions) {
     if (!options.apiKey) {
@@ -392,6 +691,7 @@ export class PolyforgeClient {
     this.apiKey = options.apiKey;
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
     this.streamTimeout = options.streamTimeout ?? DEFAULT_STREAM_TIMEOUT_MS;
+    this.realtimeOptions = options.realtime;
 
     // Reject non-HTTPS URLs for non-local hosts to prevent credential leakage.
     // Cover all loopback representations: IPv4, IPv6, and common aliases.
@@ -420,6 +720,15 @@ export class PolyforgeClient {
   /** Prevent API key from leaking via util.inspect(client) or console.log(client). */
   [Symbol.for('nodejs.util.inspect.custom')](): string {
     return `PolyforgeClient { baseUrl: '${this.baseUrl}', apiKey: '[REDACTED]' }`;
+  }
+
+  /** Create a realtime WebSocket gateway client for price ticks, whale trades, and broadcasts. */
+  realtime(options?: PolyforgeRealtimeOptions): PolyforgeRealtimeClient {
+    return new PolyforgeRealtimeClient({
+      apiUrl: this.baseUrl,
+      apiKey: this.apiKey,
+      options: { ...this.realtimeOptions, ...options },
+    });
   }
 
   /** Get the public API health payload. Public health excludes operational metrics. */
