@@ -215,6 +215,8 @@ export type {
   MarketHistoryEntry,
   MarketHistory,
   MarketSentimentReport,
+  MarketSentimentVote,
+  VoteMarketSentimentParams,
   ListComboCollectionsParams,
   ComboCollection,
   ComboCollectionsPage,
