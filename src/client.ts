@@ -1,6 +1,7 @@
 import { isIPv4, isIPv6, isIP } from 'node:net';
 import { resolve4, resolve6 } from 'node:dns/promises';
 import { PolyforgeError } from './errors.js';
+import { eip55Checksum } from './utils/address.js';
 import type {
   AccuracyScore,
   AccuracyLeaderboardEntry,
@@ -1390,7 +1391,9 @@ export class PolyforgeClient {
 
   /** Create a new copy-trading configuration. */
   async createCopyConfig(params: CreateCopyConfigParams): Promise<CopyConfig> {
-    return this.request('POST', '/api/v1/copy', { body: params });
+    return this.request('POST', '/api/v1/copy', {
+      body: { ...params, targetWallet: eip55Checksum(params.targetWallet) },
+    });
   }
 
   /** Get a single copy-trading configuration by ID. */
