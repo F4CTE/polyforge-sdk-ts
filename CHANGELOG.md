@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Changed
+- **BREAKING** `voteMarketSentiment(marketId, params)` now sends the required
+  `{ direction, confidence }` JSON body for `POST /api/v1/markets/:marketId/sentiment`
+  instead of an empty request body. Adds `VoteMarketSentimentParams` and narrows
+  sentiment vote direction to `"YES" | "NO"`. (closes #261)
 - **#234: `listSmartOrders` return type fixed** — changed from
   `Promise<PaginatedResponse<SmartOrder>>` to `Promise<SmartOrder[]>`. The
   platform's `GET /api/v1/orders/smart` returns a bare array, not a paginated
@@ -86,7 +90,7 @@
   - `getMarketSentimentReport(marketId)` — `GET /api/v1/markets/:marketId/sentiment`
     (distinct from existing `getMarketSentiment()` which targets
     `/news/sentiment/:marketId`)
-  - `voteMarketSentiment(marketId)` — `POST /api/v1/markets/:marketId/sentiment`
+  - `voteMarketSentiment(marketId, params)` — `POST /api/v1/markets/:marketId/sentiment`
   - `updateOrderJournal(orderId, params)` — `PATCH /api/v1/orders/:id/journal`
   - `listComboCollections(params?)` — `GET /api/v1/markets/combo/collections`
   - `getComboCollection(ticker)` — `GET /api/v1/markets/combo/collections/:ticker`
