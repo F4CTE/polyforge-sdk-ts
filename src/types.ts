@@ -1987,12 +1987,26 @@ export interface MarketHistory {
   data: MarketHistoryEntry[];
 }
 
+export type MarketSentimentVoteDirection = 'YES' | 'NO';
+
+/** Request body for `POST /api/v1/markets/:marketId/sentiment`. */
+export interface VoteMarketSentimentParams {
+  direction: MarketSentimentVoteDirection;
+  confidence: number;
+}
+
+/** Authenticated user's vote inside a market sentiment report. */
+export interface MarketSentimentVote {
+  direction: MarketSentimentVoteDirection;
+  confidence: number;
+}
+
 /** Response shape for `GET /api/v1/markets/:marketId/sentiment`. */
 export interface MarketSentimentReport {
   yesPercent: number;
   noPercent: number;
   totalVotes: number;
-  userVote: { direction: string; confidence: number } | null;
+  userVote: MarketSentimentVote | null;
 }
 
 /** Query filter accepted by `GET /api/v1/markets/combo/collections`. */

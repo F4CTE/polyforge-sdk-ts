@@ -170,6 +170,7 @@ import type {
   MarketHistoryPeriod,
   MarketHistory,
   MarketSentimentReport,
+  VoteMarketSentimentParams,
   ListComboCollectionsParams,
   ComboCollectionsPage,
   ComboCollection,
@@ -2312,11 +2313,15 @@ export class PolyforgeClient {
 
   /**
    * Cast a sentiment vote on a market. Returns the updated sentiment report.
-   * Note: the current controller treats POST as idempotent and returns the
-   * latest aggregate without persisting the user's vote.
+   * `direction` must be `YES` or `NO`; `confidence` must be an integer from 1 to 100.
    */
-  async voteMarketSentiment(marketId: string): Promise<MarketSentimentReport> {
-    return this.request('POST', `/api/v1/markets/${encodeURIComponent(marketId)}/sentiment`);
+  async voteMarketSentiment(
+    marketId: string,
+    params: VoteMarketSentimentParams,
+  ): Promise<MarketSentimentReport> {
+    return this.request('POST', `/api/v1/markets/${encodeURIComponent(marketId)}/sentiment`, {
+      body: params,
+    });
   }
 
   /**

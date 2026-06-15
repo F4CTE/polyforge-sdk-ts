@@ -4855,17 +4855,24 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
     expect(result).toEqual(payload);
   });
 
-  it('voteMarketSentiment POSTs (no body) to /markets/:id/sentiment', async () => {
+  it('voteMarketSentiment POSTs { direction, confidence } to /markets/:id/sentiment', async () => {
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      jsonResponse({ yesPercent: 60, noPercent: 40, totalVotes: 5, userVote: null }),
+      jsonResponse({
+        yesPercent: 60,
+        noPercent: 40,
+        totalVotes: 5,
+        userVote: { direction: 'YES', confidence: 85 },
+      }),
     );
 
-    const result = await client.voteMarketSentiment('m1');
+    const result = await client.voteMarketSentiment('m1', { direction: 'YES', confidence: 85 });
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
 
     expect(init.method).toBe('POST');
     expect(url).toContain('/api/v1/markets/m1/sentiment');
+    expect(JSON.parse(init.body as string)).toEqual({ direction: 'YES', confidence: 85 });
     expect(result.yesPercent).toBe(60);
+    expect(result.userVote).toEqual({ direction: 'YES', confidence: 85 });
   });
 
   it('updateOrderJournal PATCHes /orders/:id/journal with mood + note', async () => {
@@ -4982,7 +4989,7 @@ describe('Misc public utility endpoints (POLA-1856)', () => {
     ['deleteMarketAlert', (c) => c.deleteMarketAlert('m1', 'a1')],
     ['getMarketHistory', (c) => c.getMarketHistory('m1')],
     ['getMarketSentimentReport', (c) => c.getMarketSentimentReport('m1')],
-    ['voteMarketSentiment', (c) => c.voteMarketSentiment('m1')],
+    ['voteMarketSentiment', (c) => c.voteMarketSentiment('m1', { direction: 'YES', confidence: 85 })],
     ['updateOrderJournal', (c) => c.updateOrderJournal('o1', { mood: 'CONFIDENT' })],
     ['listComboCollections', (c) => c.listComboCollections()],
     ['getComboCollection', (c) => c.getComboCollection('ghost')],
