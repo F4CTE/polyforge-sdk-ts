@@ -2380,6 +2380,20 @@ describe('Copy trading CRUD (#51)', () => {
     expect(body.mode).toBe('PERCENTAGE');
   });
 
+  it('createCopyConfig EIP-55 checksums targetWallet before sending the body (POLA-12488 supersedes POLA-9887)', async () => {
+    const params = {
+      targetWallet: '0xAbC123Def4567890aBC123dEf4567890ABc123dE',
+      mode: 'PERCENTAGE' as const,
+    };
+
+    await client.createCopyConfig(params);
+
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    // EIP-55 checksummed form (POLA-12488 supersedes POLA-9887's .toLowerCase())
+    expect(body.targetWallet).toBe('0xabC123dEF4567890ABc123deF4567890aBC123De');
+    expect(params.targetWallet).toBe('0xAbC123Def4567890aBC123dEf4567890ABc123dE');
+  });
+
   it('getCopyConfig sends GET to /api/v1/copy/:id', async () => {
     await client.getCopyConfig('cfg-1');
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
