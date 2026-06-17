@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, StrategyCapabilities, StrategyDesignPatterns, StrategyExamples, MarketSlot, SmartOrder, TicketStatus, RealtimeServerEvent } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, StrategyCapabilities, StrategyDesignPatterns, StrategyExamples, MarketSlot, SmartOrder, TicketStatus, RealtimeServerEvent, CreateCopyConfigParams } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -1003,28 +1003,31 @@ describe('Order/Position monetary fields are string (#33)', () => {
     expect((order as any).type).toBeUndefined();
   });
 
-  it('Position fields size/avgPrice/currentPrice/unrealizedPnl/realizedPnl should be string', () => {
+  it('Position fields size/avgEntryPrice/currentPrice/unrealizedPnl should be string and match platform contract', () => {
     const position: Position = {
       id: 'p-1',
       marketId: 'mkt-1',
+      marketTitle: 'Will BTC hit $100K?',
+      marketCategory: 'Crypto',
       tokenId: 'tok-1',
-      outcome: 'YES',
-      side: 'BUY',
+      side: 'YES',
       size: '200',
-      avgPrice: '0.55',
+      avgEntryPrice: '0.55',
       currentPrice: '0.60',
       unrealizedPnl: '10.00',
-      realizedPnl: '5.00',
-      openedAt: '',
+      resolutionStatus: 'UNRESOLVED',
     };
     expect(typeof position.size).toBe('string');
-    expect(typeof position.avgPrice).toBe('string');
+    expect(typeof position.avgEntryPrice).toBe('string');
     expect(typeof position.currentPrice).toBe('string');
     expect(typeof position.unrealizedPnl).toBe('string');
-    expect(typeof position.realizedPnl).toBe('string');
     // Ensure old field names do not exist
     expect((position as any).entryPrice).toBeUndefined();
     expect((position as any).marketName).toBeUndefined();
+    expect((position as any).avgPrice).toBeUndefined();
+    expect((position as any).realizedPnl).toBeUndefined();
+    expect((position as any).openedAt).toBeUndefined();
+    expect((position as any).outcome).toBeUndefined();
   });
 });
 
@@ -1621,14 +1624,14 @@ describe('CreateStrategyParams includes all platform fields (#32)', () => {
     expect((order as any).type).toBeUndefined();
   });
 
-  it('Position has tokenId and outcome, no marketName (#18)', () => {
+  it('Position has tokenId and side (YES/NO outcome), no marketName (#18)', () => {
     const pos: Position = {
-      id: 'p-1', marketId: 'mkt-1', tokenId: 'tok-1', outcome: 'YES',
-      side: 'BUY', size: '100', avgPrice: '0.55', currentPrice: '0.60',
-      unrealizedPnl: '5.00', realizedPnl: '0', openedAt: '',
+      id: 'p-1', marketId: 'mkt-1', marketTitle: 'Test', marketCategory: null,
+      tokenId: 'tok-1', side: 'YES', size: '100', avgEntryPrice: '0.55',
+      currentPrice: '0.60', unrealizedPnl: '5.00', resolutionStatus: 'UNRESOLVED',
     };
     expect(pos.tokenId).toBe('tok-1');
-    expect(pos.outcome).toBe('YES');
+    expect(pos.side).toBe('YES');
     expect((pos as any).marketName).toBeUndefined();
   });
 });
@@ -2494,18 +2497,25 @@ describe('Copy trading CRUD (#51)', () => {
     expect(body.mode).toBe('PERCENTAGE');
   });
 
-  it('createCopyConfig EIP-55 checksums targetWallet before sending the body (POLA-12488 supersedes POLA-9887)', async () => {
-    const params = {
-      targetWallet: '0xAbC123Def4567890aBC123dEf4567890ABc123dE',
-      mode: 'PERCENTAGE' as const,
-    };
-
-    await client.createCopyConfig(params);
-
+  it('createCopyConfig EIP-55 checksums a full 40-char targetWallet', async () => {
+    // Known EIP-55 checksum: 0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed
+    // (checksummed form of 0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed)
+    await client.createCopyConfig({
+      targetWallet: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
+      mode: 'PERCENTAGE',
+    });
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    // EIP-55 checksummed form (POLA-12488 supersedes POLA-9887's .toLowerCase())
-    expect(body.targetWallet).toBe('0xabC123dEF4567890ABc123deF4567890aBC123De');
-    expect(params.targetWallet).toBe('0xAbC123Def4567890aBC123dEf4567890ABc123dE');
+    // Already-valid checksum should be returned as-is
+    expect(body.targetWallet).toBe('0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed');
+  });
+
+  it('createCopyConfig does not mutate original params object', async () => {
+    const params = {
+      targetWallet: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
+      mode: 'PERCENTAGE' as const,
+    } satisfies CreateCopyConfigParams;
+    await client.createCopyConfig(params);
+    expect(params.targetWallet).toBe('0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed');
   });
 
   it('getCopyConfig sends GET to /api/v1/copy/:id', async () => {
@@ -3026,13 +3036,13 @@ describe('Orders — bulk operations (#156)', () => {
     expect(body.tokenId).toBe('tok-1');
   });
 
-  it('cancelOrdersBulk sends DELETE to /api/v1/orders/bulk with orderIds array', async () => {
+  it('cancelOrdersBulk sends POST to /api/v1/orders/bulk with orderIds array (proxy-safe)', async () => {
     const stub = { cancelled: ['o-1', 'o-2'], errors: [] };
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(stub), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     await client.cancelOrdersBulk(['o-1', 'o-2']);
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toBe('/api/v1/orders/bulk');
-    expect(fetchSpy.mock.calls[0][1]!.method).toBe('DELETE');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body).toHaveProperty('orderIds');
     expect(body.orderIds).toEqual(['o-1', 'o-2']);
@@ -4119,7 +4129,7 @@ describe('Support ticket endpoints (POLA-780)', () => {
   it('addTicketMessage sends POST /api/v1/tickets/:id/messages', async () => {
     const mockMessage = {
       id: 'msg-1', ticketId: 'ticket-1', body: 'Any updates?',
-      authorUsername: 'trader42', isStaff: false, createdAt: '2026-04-24T01:00:00Z',
+      senderName: 'trader42', isAdmin: false, createdAt: '2026-04-24T01:00:00Z',
     };
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify(mockMessage), { status: 201, headers: { 'Content-Type': 'application/json' } }),
@@ -4130,7 +4140,7 @@ describe('Support ticket endpoints (POLA-780)', () => {
     expect(init.method).toBe('POST');
     const body = JSON.parse(init.body as string);
     expect(body.body).toBe('Any updates?');
-    expect(result.isStaff).toBe(false);
+    expect(result.isAdmin).toBe(false);
   });
 });
 
