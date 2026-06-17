@@ -50,6 +50,7 @@ import type {
   PolymarketActivity,
   PolymarketEarningsEntry,
   PolymarketPortfolioEntry,
+  GetPolymarketActivityParams,
   Portfolio,
   PolyforgeClientOptions,
   PortfolioReview,
@@ -63,6 +64,9 @@ import type {
   SpreadResult,
   SplitPositionParams,
   Strategy,
+  StrategyBlockValidationIssue,
+  StrategyBlockValidationResult,
+  StrategyBlockTypeInfo,
   StrategyCapabilities,
   StrategyDesignPatterns,
   StrategyExamples,
@@ -79,6 +83,8 @@ import type {
   StrategyStatus,
   StrategyStatusResponse,
   StrategyTemplate,
+  StrategyUpdatePreview,
+  StrategyDecisionExplanation,
   StrategyVersion,
   TickSizeResult,
   TopTraderEntry,
@@ -756,6 +762,56 @@ export class PolyforgeClient {
   }
 
   /**
+   * Validate a strategy's block configuration before saving.
+   */
+  async validateStrategyBlocks(
+    id: string,
+    blocks: Record<string, unknown>,
+  ): Promise<StrategyBlockValidationResult> {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/validate-blocks`, {
+      body: blocks,
+    });
+  }
+
+  /**
+   * List available strategy block types across all categories.
+   */
+  async listStrategyBlockTypes(): Promise<StrategyBlockTypeInfo[]> {
+    return this.request('GET', '/api/v1/strategy-blocks');
+  }
+
+  /**
+   * Get the JSON schema for a specific strategy block type.
+   */
+  async getBlockSchema(type: string): Promise<Record<string, unknown>> {
+    return this.request('GET', `/api/v1/strategy-blocks/${encodeURIComponent(type)}`);
+  }
+
+  /**
+   * Preview the effect of a strategy update before applying it.
+   */
+  async previewStrategyUpdate(
+    id: string,
+    params: Record<string, unknown>,
+  ): Promise<StrategyUpdatePreview> {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/preview-update`, {
+      body: params,
+    });
+  }
+
+  /**
+   * Get an AI-generated explanation for a strategy's trading decision.
+   */
+  async explainStrategyDecision(
+    id: string,
+    params: { decisionId?: string; context?: Record<string, unknown> },
+  ): Promise<StrategyDecisionExplanation> {
+    return this.request('POST', `/api/v1/strategies/${encodeURIComponent(id)}/explain`, {
+      body: params,
+    });
+  }
+
+  /**
    * Create a new strategy with optional block configuration, execution settings, and visibility.
    */
   async createStrategy(params: CreateStrategyParams): Promise<Strategy> {
@@ -899,11 +955,28 @@ export class PolyforgeClient {
   }
 
   /**
-   * Get Polymarket activity feed, filterable by type (requires connected Polymarket wallet).
+   * Get Polymarket activity feed, filterable by type, offset, and limit
+   * (requires connected Polymarket wallet).
+   *
+   * Supports two call styles for backward compatibility:
+   * - `getPolymarketActivity('TRADE')` — string filter (legacy)
+   * - `getPolymarketActivity({ type: 'TRADE', offset: 0, limit: 20 })` — object params
    */
-  async getPolymarketActivity(type?: string): Promise<{ activities: PolymarketActivity[] }> {
+  async getPolymarketActivity(
+    typeOrParams?: string | GetPolymarketActivityParams,
+  ): Promise<{ activities: PolymarketActivity[] }> {
+    if (typeof typeOrParams === 'string') {
+      return this.request('GET', '/api/v1/portfolio/polymarket/activity', {
+        query: { type: typeOrParams },
+      });
+    }
+    const params = typeOrParams ?? {};
+    const query: Record<string, unknown> = {};
+    if (params.type !== undefined) query.type = params.type;
+    if (params.offset !== undefined) query.offset = params.offset;
+    if (params.limit !== undefined) query.limit = params.limit;
     return this.request('GET', '/api/v1/portfolio/polymarket/activity', {
-      query: type !== undefined ? { type } : undefined,
+      query: Object.keys(query).length ? query : undefined,
     });
   }
 

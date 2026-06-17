@@ -122,6 +122,38 @@ export interface StrategyHealth {
   lastUpdated: string | null;
 }
 
+export interface StrategyBlockValidationIssue {
+  blockId?: string;
+  message: string;
+  severity: 'error' | 'warning';
+}
+
+export interface StrategyBlockValidationResult {
+  valid: boolean;
+  issues: StrategyBlockValidationIssue[];
+}
+
+export interface StrategyBlockTypeInfo {
+  type: string;
+  label: string;
+  description: string;
+  category: string;
+  configSchema: Record<string, unknown>;
+}
+
+export interface StrategyUpdatePreview {
+  strategyId: string;
+  preview: Record<string, unknown>;
+  warnings: string[];
+}
+
+export interface StrategyDecisionExplanation {
+  strategyId: string;
+  explanation: string;
+  confidence: number;
+  factors: Array<{ name: string; impact: string }>;
+}
+
 export interface StrategyTemplate {
   id: string;
   name: string;
@@ -1286,6 +1318,12 @@ export interface PolymarketActivity {
   asset: string;
   timestamp: string;
   metadata?: Record<string, unknown>;
+}
+
+export interface GetPolymarketActivityParams {
+  type?: 'TRADE' | 'SPLIT' | 'MERGE' | 'REDEEM' | 'REWARD' | 'CONVERSION' | 'MAKER_REBATE' | 'REFERRAL_REWARD';
+  offset?: number;
+  limit?: number;
 }
 
 // ── Rewards ────────────────────────────────────────────────────────────────

@@ -2297,6 +2297,120 @@ describe('Strategy social + versioning endpoints (#54)', () => {
   });
 });
 
+describe('Strategy health and validation endpoints (#270)', () => {
+  let client: PolyforgeClient;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+  });
+
+  afterEach(() => { fetchSpy.mockRestore(); });
+
+  it('getStrategyHealth returns health metrics', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ fillRate: 0.95, avgLatencyMs: 120, errorCount24h: 0, slippageBps: 5, winRate: 0.6, totalPnl: 100, maxDrawdown: 50, totalOrders: 200, filledOrders: 190, lastUpdated: '2026-01-01' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.getStrategyHealth('s-1');
+    expect(result.fillRate).toBe(0.95);
+    expect(result.avgLatencyMs).toBe(120);
+    expect(result.errorCount24h).toBe(0);
+  });
+
+  it('getStrategyHealth sends GET to /api/v1/strategies/:id/health', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ fillRate: 0, avgLatencyMs: 0, errorCount24h: 0, slippageBps: 0, winRate: null, totalPnl: null, maxDrawdown: null, totalOrders: 0, filledOrders: 0, lastUpdated: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getStrategyHealth('s-1');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/health');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('validateStrategyBlocks sends POST to /api/v1/strategies/:id/validate-blocks', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ valid: true, issues: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.validateStrategyBlocks('s-1', { triggers: [] });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/validate-blocks');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+  });
+
+  it('validateStrategyBlocks returns validation result with issues', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ valid: false, issues: [{ message: 'Missing trigger', severity: 'error' }] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    const result = await client.validateStrategyBlocks('s-1', {});
+    expect(result.valid).toBe(false);
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0].severity).toBe('error');
+  });
+
+  it('listStrategyBlockTypes sends GET to /api/v1/strategy-blocks', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.listStrategyBlockTypes();
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategy-blocks');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getBlockSchema sends GET to /api/v1/strategy-blocks/:type', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ type: 'object', properties: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getBlockSchema('price-checks');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategy-blocks/price-checks');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('GET');
+  });
+
+  it('getBlockSchema encodes block types with special characters', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.getBlockSchema('special type/name');
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategy-blocks/special%20type%2Fname');
+  });
+
+  it('previewStrategyUpdate sends POST to /api/v1/strategies/:id/preview-update', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ strategyId: 's-1', preview: { pnl: 100 }, warnings: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.previewStrategyUpdate('s-1', { tickMs: 5000 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/preview-update');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.tickMs).toBe(5000);
+  });
+
+  it('explainStrategyDecision sends POST to /api/v1/strategies/:id/explain', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ strategyId: 's-1', explanation: 'Decision based on price drop', confidence: 0.85, factors: [{ name: 'price', impact: 'high' }] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.explainStrategyDecision('s-1', { decisionId: 'd-1' });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/s-1/explain');
+    expect(fetchSpy.mock.calls[0][1]!.method).toBe('POST');
+  });
+
+  it('explainStrategyDecision encodes strategy ID', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ strategyId: 'id/with spaces', explanation: '', confidence: 0, factors: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await client.explainStrategyDecision('id/with spaces', {});
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.pathname).toBe('/api/v1/strategies/id%2Fwith%20spaces/explain');
+  });
+});
+
 describe('SSE buffer size cap (#43)', () => {
   it('should throw PolyforgeError when SSE buffer exceeds 1 MB', async () => {
     const client = new PolyforgeClient({ apiKey: 'test-key', apiUrl: 'https://api.polyforge.app' });
@@ -3253,6 +3367,24 @@ describe('Portfolio — Polymarket-specific (#156)', () => {
     await client.getPolymarketActivity();
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.searchParams.has('type')).toBe(false);
+  });
+
+  it('getPolymarketActivity accepts object params with offset and limit', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ activities: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getPolymarketActivity({ type: 'TRADE', offset: 10, limit: 50 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('type')).toBe('TRADE');
+    expect(url.searchParams.get('offset')).toBe('10');
+    expect(url.searchParams.get('limit')).toBe('50');
+  });
+
+  it('getPolymarketActivity works with empty object params', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ activities: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getPolymarketActivity({});
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.has('type')).toBe(false);
+    expect(url.searchParams.has('offset')).toBe(false);
+    expect(url.searchParams.has('limit')).toBe(false);
   });
 });
 
