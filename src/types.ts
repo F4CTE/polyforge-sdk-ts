@@ -140,27 +140,27 @@ export interface StrategyExport {
 
 // ── Portfolio & Orders ──────────────────────────────────────────────────────
 
+export type PositionOutcome = 'YES' | 'NO';
+export type PositionResolutionStatus = 'UNRESOLVED' | 'RESOLVING' | 'RESOLVED' | 'DISPUTED';
+
 export interface Position {
   id: string;
   marketId: string;
+  marketTitle: string;
+  marketCategory: string | null;
   tokenId: string;
-  outcome: 'YES' | 'NO';
-  side: OrderSide;
+  side: PositionOutcome;
   size: string;
-  avgPrice: string;
+  avgEntryPrice: string;
   currentPrice: string;
   unrealizedPnl: string;
-  realizedPnl: string;
-  openedAt: string;
+  resolutionStatus: PositionResolutionStatus;
 }
 
 export interface Portfolio {
-  totalValue: number;
-  availableBalance: number;
-  unrealizedPnl: number;
-  realizedPnl: number;
   positions: Position[];
-  updatedAt: string;
+  totalUnrealizedPnl: string;
+  totalRealizedPnl: string;
 }
 
 export interface Order {
@@ -286,7 +286,7 @@ export interface Webhook {
   url: string;
   events: WebhookEvent[];
   secret: string;
-  enabled: boolean;
+  active: boolean;
   lastDeliveredAt?: string;
   createdAt: string;
 }
@@ -1767,9 +1767,10 @@ export interface CreateTicketParams {
 export interface TicketMessage {
   id: string;
   ticketId: string;
+  senderId: string;
+  senderName: string;
+  isAdmin: boolean;
   body: string;
-  authorUsername: string;
-  isStaff: boolean;
   createdAt: string;
 }
 
@@ -2143,6 +2144,13 @@ export interface ListSportsCombosParams {
   page?: number;
   limit?: number;
   seriesTicker?: string;
+}
+
+export interface SportsComboCollection {
+  collectionTicker: string;
+  title: string;
+  description: string;
+  markets: unknown[];
 }
 
 export interface SportsCombosPage {

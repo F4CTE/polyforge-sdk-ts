@@ -196,6 +196,7 @@ import type {
   SportsLiveData,
   ListSportsCombosParams,
   SportsCombosPage,
+  SportsComboCollection,
   LookupSportsComboParams,
   SportsComboLookupResult,
 } from './types.js';
@@ -1560,7 +1561,7 @@ export class PolyforgeClient {
    * Cancel multiple orders by ID in a single request (1–3000 order IDs).
    */
   async cancelOrdersBulk(orderIds: string[]): Promise<BulkCancelOrdersResult> {
-    return this.request('DELETE', '/api/v1/orders/bulk', { body: { orderIds } });
+    return this.request('POST', '/api/v1/orders/bulk', { body: { orderIds } });
   }
 
   /**
@@ -2591,7 +2592,7 @@ export class PolyforgeClient {
    */
   async getSportsComboCollection(
     collectionTicker: string,
-  ): Promise<SportsCombosPage> {
+  ): Promise<SportsComboCollection> {
     return this.request(
       'GET',
       `/api/v1/sports/combos/${encodeURIComponent(collectionTicker)}`,

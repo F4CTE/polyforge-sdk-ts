@@ -11,7 +11,7 @@ const _256n = /* @__PURE__ */ BigInt(256);
 const _0x71n = /* @__PURE__ */ BigInt(0x71);
 
 // Per-round constants (computed once)
-const [SHA3_PI, SHA3_ROTL, _SHA3_IOTA] = [[], [], []];
+const [SHA3_PI, SHA3_ROTL, _SHA3_IOTA]: [number[], number[], bigint[]] = [[], [], []];
 for (let round = 0, R = _1n, x = 1, y = 0; round < 24; round++) {
   [x, y] = [y, (2 * x + 3 * y) % 5];
   SHA3_PI.push(2 * (5 * y + x));

@@ -72,6 +72,8 @@ export type {
   PriceHistoryParams,
   PortfolioPnlParams,
   Position,
+  PositionOutcome,
+  PositionResolutionStatus,
   PolyforgeRealtimeConnectionOptions,
   PolyforgeRealtimeOptions,
   PolyforgeWebSocketConstructor,
@@ -224,5 +226,6 @@ export type {
   ComboMarketLookup,
   ComboLookupParams,
   ComboTickerLookup,
+  SportsComboCollection,
   CorrelationCategoriesReport,
 } from './types.js';
