@@ -1136,6 +1136,44 @@ describe('CreateConditionalOrderParams matches platform DTO (#49)', () => {
     expect(body).toHaveProperty('triggerPrice', 0.3);
   });
 
+  it('rejects size < 1 client-side without calling fetch', async () => {
+    const params: CreateConditionalOrderParams = {
+      marketId: 'mkt-1',
+      tokenId: 'tok-1',
+      type: 'STOP_LOSS',
+      side: 'SELL',
+      outcome: 'YES',
+      size: 0.5,
+      triggerPrice: 0.3,
+    };
+
+    await expect(client.createConditionalOrder(params, 'conditional-key-123')).rejects.toMatchObject({
+      status: 0,
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('positive integer'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects fractional size >= 1 client-side without calling fetch', async () => {
+    const params: CreateConditionalOrderParams = {
+      marketId: 'mkt-1',
+      tokenId: 'tok-1',
+      type: 'STOP_LOSS',
+      side: 'SELL',
+      outcome: 'YES',
+      size: 1.5,
+      triggerPrice: 0.3,
+    };
+
+    await expect(client.createConditionalOrder(params, 'conditional-key-123')).rejects.toMatchObject({
+      status: 0,
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('positive integer'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('sends optional fields limitPrice, trailingPct, expiresAt as strings', async () => {
     const params: CreateConditionalOrderParams = {
       marketId: 'mkt-1',
@@ -3020,6 +3058,30 @@ describe('Orders — bulk operations (#156)', () => {
     expect(Array.isArray(body.orders)).toBe(true);
     expect(body.orders[0].tokenId).toBe('tok-1');
     expect(body.orders[0]).not.toHaveProperty('marketId');
+  });
+
+  it('placeBatchOrders rejects size < 1 in any order client-side without calling fetch', async () => {
+    await expect(client.placeBatchOrders(
+      [{ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 0.5, price: 0.5 }],
+      'batch-key-123',
+    )).rejects.toMatchObject({
+      status: 0,
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('positive integer'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('placeBatchOrders rejects fractional size >= 1 client-side without calling fetch', async () => {
+    await expect(client.placeBatchOrders(
+      [{ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1.5, price: 0.5 }],
+      'batch-key-123',
+    )).rejects.toMatchObject({
+      status: 0,
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('positive integer'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('placeOrder strips marketId from the request body', async () => {
@@ -5279,7 +5341,16 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
     await expect(client.executeArb({ matchId: 'm', size: 0.5 }, 'arb-key-123')).rejects.toMatchObject({
       status: 0,
       code: 'VALIDATION_ERROR',
-      message: expect.stringContaining('>= 1'),
+      message: expect.stringContaining('positive integer'),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('executeArb rejects fractional size >= 1 client-side without calling fetch', async () => {
+    await expect(client.executeArb({ matchId: 'm', size: 1.5 }, 'arb-key-123')).rejects.toMatchObject({
+      status: 0,
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('positive integer'),
     });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
@@ -5709,26 +5780,26 @@ describe('placeOrder size validation (#236)', () => {
   it('rejects size < 1', async () => {
     await expect(
       client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 0, price: 0.5 }, 'key-12345'),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be a positive integer >= 1' });
   });
 
   it('rejects negative size', async () => {
     await expect(
       client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: -1, price: 0.5 }, 'key-12345'),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be a positive integer >= 1' });
   });
 
-  it('accepts fractional size >= 1', async () => {
-    await client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1.5, price: 0.5 }, 'key-12345');
-    expect(fetchSpy).toHaveBeenCalled();
-    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body.size).toBe(1.5);
+  it('rejects fractional size >= 1', async () => {
+    await expect(
+      client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1.5, price: 0.5 }, 'key-12345'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be a positive integer >= 1' });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('rejects fractional size < 1', async () => {
     await expect(
       client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 0.5, price: 0.5 }, 'key-12345'),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be a positive integer >= 1' });
   });
 
   it('rejects NaN size', async () => {
@@ -5780,19 +5851,17 @@ describe('placeBatchOrders size validation (#236)', () => {
         ],
         'key-12345',
       ),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[1].size must be >= 1' });
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[1].size must be a positive integer >= 1' });
   });
 
-  it('accepts any order with fractional size >= 1', async () => {
-    await client.placeBatchOrders(
+  it('rejects any order with fractional size >= 1', async () => {
+    await expect(client.placeBatchOrders(
       [
         { tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 2.5, price: 0.5 },
       ],
       'key-12345',
-    );
-    expect(fetchSpy).toHaveBeenCalled();
-    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
-    expect(body.orders[0].size).toBe(2.5);
+    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[0].size must be a positive integer >= 1' });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 

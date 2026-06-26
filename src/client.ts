@@ -460,6 +460,19 @@ export class PolyforgeClient {
     }
   }
 
+  private validateOrderSize(name: string, value: number): void {
+    if (!Number.isFinite(value)) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `${name} must be a finite number` });
+    }
+    if (!Number.isInteger(value) || value < 1) {
+      throw new PolyforgeError({
+        status: 0,
+        code: 'VALIDATION_ERROR',
+        message: `${name} must be a positive integer >= 1`,
+      });
+    }
+  }
+
   // ── Internal request helper ─────────────────────────────────────────────
 
   /**
@@ -1198,6 +1211,7 @@ export class PolyforgeClient {
 
   /** Create a conditional order. */
   async createConditionalOrder(params: CreateConditionalOrderParams, idempotencyKey: string): Promise<ConditionalOrder> {
+    this.validateOrderSize('size', params.size);
     return this.request('POST', '/api/v1/orders/conditional', {
       body: params,
       headers: this.idempotencyHeaders(idempotencyKey),
@@ -1585,12 +1599,7 @@ export class PolyforgeClient {
    * the same order placement request.
    */
   async placeOrder(params: PlaceOrderParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
-    if (!Number.isFinite(params.size)) {
-      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'size must be a finite number' });
-    }
-    if (params.size < 1) {
-      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
-    }
+    this.validateOrderSize('size', params.size);
     this.validateFinancialParam('price', params.price);
     const { marketId: _marketId, ...body } = params as PlaceOrderParams & { marketId?: unknown };
     return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', {
@@ -1612,12 +1621,7 @@ export class PolyforgeClient {
   async placeBatchOrders(orders: PlaceOrderParams[], idempotencyKey: string): Promise<BatchPlaceOrdersResult> {
     for (let i = 0; i < orders.length; i++) {
       const order = orders[i];
-      if (!Number.isFinite(order.size)) {
-        throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `orders[${i}].size must be a finite number` });
-      }
-      if (order.size < 1) {
-        throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `orders[${i}].size must be >= 1` });
-      }
+      this.validateOrderSize(`orders[${i}].size`, order.size);
       this.validateFinancialParam('price', order.price);
     }
     const bodyOrders = orders.map((order) => {
@@ -1796,14 +1800,7 @@ export class PolyforgeClient {
    * before the request, mirroring the server's class-validator bounds.
    */
   async executeArb(params: ArbExecuteParams, idempotencyKey: string): Promise<ArbExecutionResult> {
-    this.validateFinancialParam('size', params.size);
-    if (params.size < 1) {
-      throw new PolyforgeError({
-        status: 0,
-        code: 'VALIDATION_ERROR',
-        message: 'size must be >= 1',
-      });
-    }
+    this.validateOrderSize('size', params.size);
     if (params.size > 10000) {
       throw new PolyforgeError({
         status: 0,
