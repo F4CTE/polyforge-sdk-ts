@@ -1599,7 +1599,10 @@ export class PolyforgeClient {
    * the same order placement request.
    */
   async placeOrder(params: PlaceOrderParams, idempotencyKey: string): Promise<PlaceOrderResponse> {
-    this.validateOrderSize('size', params.size);
+    this.validateFinancialParam('size', params.size);
+    if (params.size < 1) {
+      throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
+    }
     this.validateFinancialParam('price', params.price);
     const { marketId: _marketId, ...body } = params as PlaceOrderParams & { marketId?: unknown };
     return this.request<PlaceOrderResponse>('POST', '/api/v1/orders/place', {
@@ -1621,7 +1624,12 @@ export class PolyforgeClient {
   async placeBatchOrders(orders: PlaceOrderParams[], idempotencyKey: string): Promise<BatchPlaceOrdersResult> {
     for (let i = 0; i < orders.length; i++) {
       const order = orders[i];
-      this.validateOrderSize(`orders[${i}].size`, order.size);
+      if (!Number.isFinite(order.size)) {
+        throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `orders[${i}].size must be a finite number` });
+      }
+      if (order.size < 1) {
+        throw new PolyforgeError({ status: 0, code: 'VALIDATION_ERROR', message: `orders[${i}].size must be >= 1` });
+      }
       this.validateFinancialParam('price', order.price);
     }
     const bodyOrders = orders.map((order) => {
@@ -1800,7 +1808,14 @@ export class PolyforgeClient {
    * before the request, mirroring the server's class-validator bounds.
    */
   async executeArb(params: ArbExecuteParams, idempotencyKey: string): Promise<ArbExecutionResult> {
-    this.validateOrderSize('size', params.size);
+    this.validateFinancialParam('size', params.size);
+    if (params.size < 1) {
+      throw new PolyforgeError({
+        status: 0,
+        code: 'VALIDATION_ERROR',
+        message: 'size must be >= 1',
+      });
+    }
     if (params.size > 10000) {
       throw new PolyforgeError({
         status: 0,

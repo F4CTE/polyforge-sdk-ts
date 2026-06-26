@@ -3067,21 +3067,19 @@ describe('Orders — bulk operations (#156)', () => {
     )).rejects.toMatchObject({
       status: 0,
       code: 'VALIDATION_ERROR',
-      message: expect.stringContaining('positive integer'),
+      message: expect.stringContaining('>= 1'),
     });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('placeBatchOrders rejects fractional size >= 1 client-side without calling fetch', async () => {
-    await expect(client.placeBatchOrders(
+  it('placeBatchOrders accepts fractional size >= 1', async () => {
+    await client.placeBatchOrders(
       [{ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1.5, price: 0.5 }],
       'batch-key-123',
-    )).rejects.toMatchObject({
-      status: 0,
-      code: 'VALIDATION_ERROR',
-      message: expect.stringContaining('positive integer'),
-    });
-    expect(fetchSpy).not.toHaveBeenCalled();
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.orders[0].size).toBe(1.5);
   });
 
   it('placeOrder strips marketId from the request body', async () => {
@@ -5341,18 +5339,23 @@ describe('Cross-venue arb execution / positions / risk endpoints (POLA-1850)', (
     await expect(client.executeArb({ matchId: 'm', size: 0.5 }, 'arb-key-123')).rejects.toMatchObject({
       status: 0,
       code: 'VALIDATION_ERROR',
-      message: expect.stringContaining('positive integer'),
+      message: expect.stringContaining('>= 1'),
     });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('executeArb rejects fractional size >= 1 client-side without calling fetch', async () => {
-    await expect(client.executeArb({ matchId: 'm', size: 1.5 }, 'arb-key-123')).rejects.toMatchObject({
-      status: 0,
-      code: 'VALIDATION_ERROR',
-      message: expect.stringContaining('positive integer'),
-    });
-    expect(fetchSpy).not.toHaveBeenCalled();
+  it('executeArb accepts fractional size >= 1', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ arbPositionId: 'pos-1', buyLeg: {}, sellLeg: {}, entrySpreadPct: 1, status: 'PENDING' }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await client.executeArb({ matchId: 'm', size: 1.5 }, 'arb-key-123');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string).size).toBe(1.5);
   });
 
   it('executeArb rejects size > 10000 client-side without calling fetch', async () => {
@@ -5780,26 +5783,27 @@ describe('placeOrder size validation (#236)', () => {
   it('rejects size < 1', async () => {
     await expect(
       client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 0, price: 0.5 }, 'key-12345'),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be a positive integer >= 1' });
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be positive' });
   });
 
   it('rejects negative size', async () => {
     await expect(
       client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: -1, price: 0.5 }, 'key-12345'),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be a positive integer >= 1' });
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be positive' });
   });
 
-  it('rejects fractional size >= 1', async () => {
-    await expect(
-      client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1.5, price: 0.5 }, 'key-12345'),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be a positive integer >= 1' });
-    expect(fetchSpy).not.toHaveBeenCalled();
+  it('accepts fractional size >= 1', async () => {
+    await client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 1.5, price: 0.5 }, 'key-12345');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.size).toBe(1.5);
   });
 
   it('rejects fractional size < 1', async () => {
     await expect(
       client.placeOrder({ tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 0.5, price: 0.5 }, 'key-12345'),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be a positive integer >= 1' });
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'size must be >= 1' });
   });
 
   it('rejects NaN size', async () => {
@@ -5851,17 +5855,19 @@ describe('placeBatchOrders size validation (#236)', () => {
         ],
         'key-12345',
       ),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[1].size must be a positive integer >= 1' });
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[1].size must be >= 1' });
   });
 
-  it('rejects any order with fractional size >= 1', async () => {
-    await expect(client.placeBatchOrders(
+  it('accepts any order with fractional size >= 1', async () => {
+    await client.placeBatchOrders(
       [
         { tokenId: 'tok-1', side: 'BUY', outcome: 'YES', size: 2.5, price: 0.5 },
       ],
       'key-12345',
-    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'orders[0].size must be a positive integer >= 1' });
-    expect(fetchSpy).not.toHaveBeenCalled();
+    );
+    expect(fetchSpy).toHaveBeenCalled();
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.orders[0].size).toBe(2.5);
   });
 });
 
