@@ -981,19 +981,20 @@ export class PolyforgeClient {
    * - `getPolymarketActivity('TRADE')` — string filter (legacy)
    * - `getPolymarketActivity({ type: 'TRADE', offset: 0, limit: 20 })` — object params
    */
+  async getPolymarketActivity(type?: string, params?: Pick<GetPolymarketActivityParams, 'offset' | 'limit'>): Promise<{ activities: PolymarketActivity[] }>;
+  async getPolymarketActivity(params: GetPolymarketActivityParams): Promise<{ activities: PolymarketActivity[] }>;
+  async getPolymarketActivity(typeOrParams?: string | GetPolymarketActivityParams, params?: Pick<GetPolymarketActivityParams, 'offset' | 'limit'>): Promise<{ activities: PolymarketActivity[] }>;
   async getPolymarketActivity(
     typeOrParams?: string | GetPolymarketActivityParams,
+    params?: Pick<GetPolymarketActivityParams, 'offset' | 'limit'>,
   ): Promise<{ activities: PolymarketActivity[] }> {
-    if (typeof typeOrParams === 'string') {
-      return this.request('GET', '/api/v1/portfolio/polymarket/activity', {
-        query: { type: typeOrParams },
-      });
-    }
-    const params = typeOrParams ?? {};
+    const queryParams = typeof typeOrParams === 'string'
+      ? { ...params, type: typeOrParams }
+      : { ...(typeOrParams ?? {}), ...(params ?? {}) };
     const query: Record<string, unknown> = {};
-    if (params.type !== undefined) query.type = params.type;
-    if (params.offset !== undefined) query.offset = params.offset;
-    if (params.limit !== undefined) query.limit = params.limit;
+    if (queryParams.type !== undefined) query.type = queryParams.type;
+    if (queryParams.offset !== undefined) query.offset = queryParams.offset;
+    if (queryParams.limit !== undefined) query.limit = queryParams.limit;
     return this.request('GET', '/api/v1/portfolio/polymarket/activity', {
       query: Object.keys(query).length ? query : undefined,
     });

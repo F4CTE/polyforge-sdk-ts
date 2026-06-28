@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PolyforgeClient, isBlockedHost, validateWebhookUrl } from '../client';
 import { PolyforgeError } from '../errors';
 import { KNOWN_STRATEGY_EVENTS } from '../types';
-import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, StrategyCapabilities, StrategyDesignPatterns, StrategyExamples, MarketSlot, SmartOrder, TicketStatus, RealtimeServerEvent, CreateCopyConfigParams } from '../types';
+import type { StrategyStatusResponse, PaginatedResponse, Strategy, OrderStatus, StrategyStatus, Order, Position, ImportStrategyBlocks, ImportStrategyParams, PlaceOrderParams, ClosePositionParams, RedeemPositionParams, ProvideLiquidityParams, ConditionalOrderStatus, CreateAlertParams, CreateConditionalOrderParams, ConditionalOrder, CopyConfig, Alert, CopyMode, CopyStatus, ConditionalOrderType, OrderType, Market, Token, RunBacktestParams, CreateStrategyParams, TraderScore, WhaleTrade, NewsSignal, AiQueryResponse, SplitPositionParams, MergePositionParams, StrategyVisibility, StrategyExecMode, PortfolioPnlParams, PortfolioPnl, PriceHistoryEntry, PriceHistoryParams, OrderBook, AccuracyLeaderboardParams, SystemHealthPublic, SystemHealthAuthenticated, UserPreferences, UpdateUserPreferencesParams, ComboMarketLookup, ActionsSchema, StrategyCapabilities, StrategyDesignPatterns, StrategyExamples, MarketSlot, SmartOrder, TicketStatus, RealtimeServerEvent, CreateCopyConfigParams, GetPolymarketActivityParams } from '../types';
 
 // Mock node:dns/promises at the module level for ESM compatibility.
 vi.mock('node:dns/promises', () => ({
@@ -3535,6 +3535,54 @@ describe('Portfolio — Polymarket-specific (#156)', () => {
     await client.getPolymarketActivity('TRADE');
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.searchParams.get('type')).toBe('TRADE');
+  });
+
+  it('getPolymarketActivity passes type, offset, and limit from params', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ activities: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getPolymarketActivity({ type: 'TRADE', offset: 20, limit: 10 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('type')).toBe('TRADE');
+    expect(url.searchParams.get('offset')).toBe('20');
+    expect(url.searchParams.get('limit')).toBe('10');
+  });
+
+  it('getPolymarketActivity supports legacy type argument with pagination params', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ activities: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await client.getPolymarketActivity('TRADE', { offset: 40, limit: 20 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('type')).toBe('TRADE');
+    expect(url.searchParams.get('offset')).toBe('40');
+    expect(url.searchParams.get('limit')).toBe('20');
+  });
+
+  it('getPolymarketActivity preserves object params when pagination is forwarded separately', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ activities: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    const params: GetPolymarketActivityParams = { type: 'TRADE' };
+    await client.getPolymarketActivity(params, { offset: 40, limit: 20 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.get('type')).toBe('TRADE');
+    expect(url.searchParams.get('offset')).toBe('40');
+    expect(url.searchParams.get('limit')).toBe('20');
+  });
+
+  it('getPolymarketActivity supports legacy optional type forwarding with pagination params', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ activities: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    const type: string | undefined = undefined;
+    await client.getPolymarketActivity(type, { offset: 40, limit: 20 });
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.has('type')).toBe(false);
+    expect(url.searchParams.get('offset')).toBe('40');
+    expect(url.searchParams.get('limit')).toBe('20');
+  });
+
+  it('getPolymarketActivity supports optional object params forwarding', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ activities: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    const params: GetPolymarketActivityParams | undefined = undefined;
+    await client.getPolymarketActivity(params);
+    const url = new URL(fetchSpy.mock.calls[0][0] as string);
+    expect(url.searchParams.has('type')).toBe(false);
+    expect(url.searchParams.has('offset')).toBe(false);
+    expect(url.searchParams.has('limit')).toBe(false);
   });
 
   it('getPolymarketActivity omits type param when not provided', async () => {
