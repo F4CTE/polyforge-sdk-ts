@@ -1971,6 +1971,111 @@ describe('Webhook mutations (issue #57)', () => {
     const url = new URL(fetchSpy.mock.calls[0][0] as string);
     expect(url.pathname).toContain('wh%2Fspecial%26id');
   });
+
+  it('normalizes listed webhook payloads to keep active and enabled coherent (#232)', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'wh-active-only',
+              url: 'https://example.com/hook',
+              events: ['ORDER_FILLED'],
+              secret: 'whsec_123',
+              active: true,
+              createdAt: '2026-06-01T00:00:00Z',
+            },
+            {
+              id: 'wh-stale-enabled',
+              url: 'https://example.com/stale',
+              events: ['ORDER_FILLED'],
+              secret: 'whsec_456',
+              active: false,
+              enabled: true,
+              createdAt: '2026-06-01T00:00:00Z',
+            },
+            {
+              id: 'wh-enabled-only',
+              url: 'https://example.com/legacy',
+              events: ['ORDER_FILLED'],
+              secret: 'whsec_789',
+              enabled: true,
+              createdAt: '2026-06-01T00:00:00Z',
+            },
+          ],
+          total: 3,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+          hasNext: false,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const response = await client.listWebhooks();
+
+    expect(response.data[0]!.active).toBe(true);
+    expect(response.data[0]!.enabled).toBe(true);
+    expect(response.data[1]!.active).toBe(false);
+    expect(response.data[1]!.enabled).toBe(false);
+    expect(response.data[2]!.active).toBe(true);
+    expect(response.data[2]!.enabled).toBe(true);
+  });
+
+  it('normalizes created webhook payloads to include deprecated enabled compatibility field (#232)', async () => {
+    mockResolve4.mockResolvedValue(['93.184.216.34']);
+    mockResolve6.mockResolvedValue(['2606:2800:220:1:248:1893:25c8:1946']);
+
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: 'wh-2',
+          url: 'https://example.com/hook',
+          events: ['ORDER_FILLED'],
+          secret: 'whsec_456',
+          active: false,
+          createdAt: '2026-06-01T00:00:00Z',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const response = await client.createWebhook({
+      url: 'https://example.com/hook',
+      events: ['ORDER_FILLED'],
+    });
+
+    expect(response.active).toBe(false);
+    expect(response.enabled).toBe(false);
+  });
+
+  it('normalizes created legacy enabled-only webhook payloads to definite active and enabled booleans (#232)', async () => {
+    mockResolve4.mockResolvedValue(['93.184.216.34']);
+    mockResolve6.mockResolvedValue(['2606:2800:220:1:248:1893:25c8:1946']);
+
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: 'wh-legacy',
+          url: 'https://example.com/hook',
+          events: ['ORDER_FILLED'],
+          secret: 'whsec_legacy',
+          enabled: true,
+          createdAt: '2026-06-01T00:00:00Z',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const response = await client.createWebhook({
+      url: 'https://example.com/hook',
+      events: ['ORDER_FILLED'],
+    });
+
+    expect(response.active).toBe(true);
+    expect(response.enabled).toBe(true);
+  });
 });
 
 describe('Price history & order book (issue #52)', () => {

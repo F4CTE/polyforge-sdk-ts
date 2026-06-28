@@ -319,6 +319,11 @@ export interface Webhook {
   events: WebhookEvent[];
   secret: string;
   active: boolean;
+  /**
+   * @deprecated Use `active` for webhook state. Kept for backward compatibility with
+   * clients that still read `enabled`.
+   */
+  enabled: boolean;
   lastDeliveredAt?: string;
   createdAt: string;
 }
