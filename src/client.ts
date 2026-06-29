@@ -208,6 +208,11 @@ import type {
 } from './types.js';
 import { KNOWN_STRATEGY_EVENTS } from './types.js';
 
+type WebhookResponse = Omit<Webhook, 'active' | 'enabled'> & {
+  active?: boolean;
+  enabled?: boolean;
+};
+
 const DEFAULT_BASE_URL = 'https://api.polyforge.app';
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_STREAM_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours for long-lived SSE streams
@@ -1524,7 +1529,11 @@ export class PolyforgeClient {
    * List registered webhooks.
    */
   async listWebhooks(): Promise<PaginatedResponse<Webhook>> {
-    return this.request('GET', '/api/v1/webhooks');
+    const response = await this.request<PaginatedResponse<WebhookResponse>>('GET', '/api/v1/webhooks');
+    return {
+      ...response,
+      data: response.data.map((webhook) => this.normalizeWebhook(webhook)),
+    };
   }
 
   /**
@@ -1534,7 +1543,18 @@ export class PolyforgeClient {
     // Validate webhook URL to prevent SSRF attacks.
     // Resolves DNS to detect rebinding — see validateWebhookUrl() JSDoc.
     await validateWebhookUrl(params.url);
-    return this.request('POST', '/api/v1/webhooks', { body: params });
+    const response = await this.request<WebhookResponse>('POST', '/api/v1/webhooks', { body: params });
+    return this.normalizeWebhook(response);
+  }
+
+  private normalizeWebhook(webhook: WebhookResponse): Webhook {
+    const active = webhook.active ?? webhook.enabled ?? false;
+
+    return {
+      ...webhook,
+      active,
+      enabled: active,
+    };
   }
 
   /**
