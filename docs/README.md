@@ -21,7 +21,7 @@ The shared ADR consumes:
 
 - Shared SDK decisions use `SDK-ADR-*` and remain logically synchronized across TypeScript, Python and Rust repositories.
 - TypeScript-only implementation decisions use `TS-ADR-*`.
-- Core runtime contracts are owned by `F4CTE/PolyForge-core`.
+- Core runtime contracts are owned by `Polyforge-labs/polyforge`.
 - Cloud/control-plane contracts are owned by `F4CTE/PolyForge`.
 
 ## Parity rule
