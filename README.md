@@ -1,6 +1,6 @@
 # @polyforge/sdk
 
-Official TypeScript SDK for the **Polyforge** trading platform REST API. Zero dependencies -- uses the native `fetch` API available in Node.js 18+.
+Official TypeScript SDK for the **PolyForge** REST API, compatible with self-hosted and PolyForge Platform deployments. Zero dependencies -- uses the native `fetch` API available in Node.js 18+.
 
 ## Installation
 
@@ -204,4 +204,6 @@ Runs vitest for unit tests covering client instantiation, URL construction, and 
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE) for details.
+Copyright © 2026 Oryon Technologies.
+
+Licensed under Apache 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
